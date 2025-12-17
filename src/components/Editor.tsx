@@ -14,7 +14,7 @@ const DOMPURIFY_CONFIG = {
   ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
-  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'dir'],
 };
 
 // Sanitize HTML content
@@ -22,7 +22,7 @@ function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
 }
 
-// Check if URL is safe (block javascript:, data:, vbscript:, etc.)
+// Check if URL is safe
 function isSafeUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
   return !trimmed.startsWith('javascript:') &&
@@ -30,46 +30,35 @@ function isSafeUrl(url: string): boolean {
          !trimmed.startsWith('vbscript:');
 }
 
-// Simple markdown to HTML converter with sanitization
+// Simple markdown to HTML converter
 function markdownToHtml(md: string): string {
   let html = md
-    // Code blocks (must be before other replacements)
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    // Headers
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold and italic
     .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
     .replace(/__(.+?)__/g, '<strong>$1</strong>')
     .replace(/_(.+?)_/g, '<em>$1</em>')
-    // Inline code
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    // Links - only allow safe URLs
     .replace(/\[(.+?)\]\((.+?)\)/g, (_, text, url) => {
       if (isSafeUrl(url)) {
         return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
       }
-      return text; // Strip unsafe links, keep text
+      return text;
     })
-    // Blockquotes
     .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    // Unordered lists
     .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-    // Horizontal rule
     .replace(/^---$/gm, '<hr>')
-    // Line breaks (but not inside pre tags)
     .replace(/\n/g, '<br>');
 
-  // Wrap consecutive li elements in ul
   html = html.replace(/(<li>.*?<\/li>)(\s*<br>\s*<li>.*?<\/li>)+/g, (match) => {
     return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
   });
 
-  // Sanitize the final HTML output
   return sanitizeHtml(html);
 }
 
@@ -92,7 +81,7 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Copy icon
+// Icons
 function CopyIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
@@ -101,7 +90,6 @@ function CopyIcon() {
   );
 }
 
-// Undo icon
 function UndoIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
@@ -110,7 +98,6 @@ function UndoIcon() {
   );
 }
 
-// Redo icon
 function RedoIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
@@ -119,7 +106,6 @@ function RedoIcon() {
   );
 }
 
-// Preview icon
 function PreviewIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
@@ -128,7 +114,6 @@ function PreviewIcon() {
   );
 }
 
-// Bullet list icon
 function BulletListIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
@@ -137,12 +122,59 @@ function BulletListIcon() {
   );
 }
 
-// Numbered list icon
 function NumberedListIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
       <path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z" fill="currentColor"/>
     </svg>
+  );
+}
+
+// Rich text editor component - separate to avoid re-render issues
+function RichTextEditor({
+  content,
+  onContentChange,
+  editorRef,
+  placeholder
+}: {
+  content: string;
+  onContentChange: (content: string) => void;
+  editorRef: React.RefObject<HTMLDivElement | null>;
+  placeholder: string;
+}) {
+  const initialContentRef = useRef<string>(content);
+  const isInitializedRef = useRef(false);
+
+  // Only set innerHTML on mount or when note changes (content reference changes significantly)
+  useEffect(() => {
+    if (editorRef.current) {
+      // Only update if this is initial load or content was reset externally
+      if (!isInitializedRef.current || initialContentRef.current !== content) {
+        editorRef.current.innerHTML = sanitizeHtml(content);
+        initialContentRef.current = content;
+        isInitializedRef.current = true;
+      }
+    }
+  }, [content, editorRef]);
+
+  const handleInput = useCallback(() => {
+    if (editorRef.current) {
+      const newContent = editorRef.current.innerHTML;
+      initialContentRef.current = newContent;
+      onContentChange(newContent);
+    }
+  }, [editorRef, onContentChange]);
+
+  return (
+    <div
+      ref={editorRef}
+      className="editor richtext"
+      contentEditable
+      dir="ltr"
+      onInput={handleInput}
+      aria-label={placeholder}
+      suppressContentEditableWarning
+    />
   );
 }
 
@@ -157,37 +189,42 @@ export function Editor() {
   const [showPreview, setShowPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [currentBlockStyle, setCurrentBlockStyle] = useState('p');
+
   const tagPickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richtextRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const lastNoteIdRef = useRef<string | null>(null);
 
   const { pushState, undo, redo, canUndo, canRedo, reset } = useUndoRedo(note?.content || '');
 
-  // Reset undo history when note changes and focus editor
+  // Reset state when note changes
   useEffect(() => {
-    if (note) {
+    if (note && note.id !== lastNoteIdRef.current) {
+      lastNoteIdRef.current = note.id;
       reset(note.content);
       lastSavedContentRef.current = note.content;
       setSaveStatus('saved');
-      // Auto-focus the editor when note changes
-      setTimeout(() => {
+      setCurrentBlockStyle('p');
+
+      // Focus editor after a short delay to allow DOM to update
+      requestAnimationFrame(() => {
         if (note.format === 'richtext') {
           richtextRef.current?.focus();
         } else {
           textareaRef.current?.focus();
         }
-      }, 0);
+      });
     }
-  }, [note?.id, reset]);
+  }, [note?.id, note?.content, note?.format, reset]);
 
   // Track unsaved changes
   useEffect(() => {
     if (note && note.content !== lastSavedContentRef.current) {
       setSaveStatus('unsaved');
 
-      // Auto-save after 2 seconds of inactivity
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -204,6 +241,7 @@ export function Editor() {
     };
   }, [note?.content]);
 
+  // Close tag picker on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
@@ -215,29 +253,28 @@ export function Editor() {
   }, []);
 
   const handleUndo = useCallback(() => {
-    const state = undo();
-    if (state && note) {
-      updateNote(note.id, { content: state.content });
-      // Restore cursor position
-      setTimeout(() => {
+    const undoState = undo();
+    if (undoState && note) {
+      updateNote(note.id, { content: undoState.content });
+      requestAnimationFrame(() => {
         if (textareaRef.current) {
-          textareaRef.current.selectionStart = state.cursorPosition;
-          textareaRef.current.selectionEnd = state.cursorPosition;
+          textareaRef.current.selectionStart = undoState.cursorPosition;
+          textareaRef.current.selectionEnd = undoState.cursorPosition;
         }
-      }, 0);
+      });
     }
   }, [undo, note, updateNote]);
 
   const handleRedo = useCallback(() => {
-    const state = redo();
-    if (state && note) {
-      updateNote(note.id, { content: state.content });
-      setTimeout(() => {
+    const redoState = redo();
+    if (redoState && note) {
+      updateNote(note.id, { content: redoState.content });
+      requestAnimationFrame(() => {
         if (textareaRef.current) {
-          textareaRef.current.selectionStart = state.cursorPosition;
-          textareaRef.current.selectionEnd = state.cursorPosition;
+          textareaRef.current.selectionStart = redoState.cursorPosition;
+          textareaRef.current.selectionEnd = redoState.cursorPosition;
         }
-      }, 0);
+      });
     }
   }, [redo, note, updateNote]);
 
@@ -253,21 +290,31 @@ export function Editor() {
     }
   }, [note]);
 
-  // Rich text formatting commands
-  const execCommand = useCallback((command: string, value?: string) => {
+  // Format command for rich text - uses Selection API properly
+  const applyFormat = useCallback((command: string, value?: string) => {
+    const editor = richtextRef.current;
+    if (!editor) return;
+
+    // Ensure editor has focus
+    editor.focus();
+
+    // Execute the command
     document.execCommand(command, false, value);
-    richtextRef.current?.focus();
+
+    // Update block style selector if formatBlock was used
+    if (command === 'formatBlock' && value) {
+      setCurrentBlockStyle(value);
+    }
   }, []);
 
-  const handleRichtextInput = useCallback(() => {
-    if (note && richtextRef.current) {
-      const content = richtextRef.current.innerHTML;
+  const handleRichtextChange = useCallback((content: string) => {
+    if (note) {
       updateNote(note.id, { content });
       pushState(content, 0);
     }
   }, [note, updateNote, pushState]);
 
-  // Handle keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey) {
@@ -309,14 +356,11 @@ export function Editor() {
     const oldFormat = note.format;
     let newContent = note.content;
 
-    // Convert content when switching formats
     if (newFormat === 'xml' && oldFormat !== 'xml') {
-      // Create XML template if switching to XML
       if (!note.content.trim().startsWith('<?xml')) {
         newContent = getDefaultXmlTemplate(note.title);
       }
     } else if (newFormat === 'plaintext' && oldFormat === 'richtext') {
-      // Strip HTML tags when converting from richtext to plaintext
       newContent = note.content
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
@@ -328,21 +372,25 @@ export function Editor() {
         .replace(/&quot;/g, '"')
         .trim();
     } else if (newFormat === 'plaintext' && oldFormat === 'xml') {
-      // Extract content from XML
       const contentMatch = note.content.match(/<content>([\s\S]*?)<\/content>/);
       newContent = contentMatch ? contentMatch[1].trim() : note.content;
     }
 
     updateNote(note.id, { format: newFormat, content: newContent });
     setShowPreview(false);
-    // Focus editor after format change
-    setTimeout(() => {
+
+    requestAnimationFrame(() => {
       if (newFormat === 'richtext') {
         richtextRef.current?.focus();
       } else {
         textareaRef.current?.focus();
       }
-    }, 0);
+    });
+  };
+
+  const handleBlockStyleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    applyFormat('formatBlock', value);
   };
 
   const handleAddTag = () => {
@@ -352,7 +400,7 @@ export function Editor() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleAddTag();
     }
@@ -379,6 +427,11 @@ export function Editor() {
     }
   };
 
+  // Prevent default on mousedown to keep focus in editor
+  const preventFocusLoss = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="editor-panel">
       <div className="editor-header">
@@ -389,6 +442,7 @@ export function Editor() {
           value={note.title}
           onChange={handleTitleChange}
           aria-label={t.titlePlaceholder}
+          dir="ltr"
         />
         <div className="header-actions">
           <span className={`save-status ${saveStatus}`} title={getSaveStatusText()}>
@@ -417,7 +471,7 @@ export function Editor() {
           <button
             className="action-btn icon-btn"
             onClick={handleCopyToClipboard}
-            title={`${state.lang === 'no' ? 'Kopier til utklippstavle' : 'Copy to clipboard'}`}
+            title={state.lang === 'no' ? 'Kopier til utklippstavle' : 'Copy to clipboard'}
             aria-label={state.lang === 'no' ? 'Kopier' : 'Copy'}
           >
             {copyFeedback ? '✓' : <CopyIcon />}
@@ -451,7 +505,12 @@ export function Editor() {
 
       <div className="format-selector">
         <span className="format-label">{t.format}</span>
-        <select className="format-select" value={note.format} onChange={handleFormatChange} aria-label={t.format}>
+        <select
+          className="format-select"
+          value={note.format}
+          onChange={handleFormatChange}
+          aria-label={t.format}
+        >
           <option value="plaintext">{t.plaintext}</option>
           <option value="richtext">{t.richtext}</option>
           <option value="markdown">{t.markdown}</option>
@@ -464,8 +523,8 @@ export function Editor() {
           <div className="format-group">
             <select
               className="style-select"
-              onChange={(e) => { execCommand('formatBlock', e.target.value); e.target.value = 'p'; }}
-              defaultValue="p"
+              value={currentBlockStyle}
+              onChange={handleBlockStyleChange}
             >
               <option value="p">{t.bodyText}</option>
               <option value="h1">{t.heading1}</option>
@@ -476,16 +535,16 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => execCommand('bold')}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('bold')}
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
             >
               <strong>B</strong>
             </button>
             <button
               className="format-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => execCommand('italic')}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('italic')}
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
             >
               <em>I</em>
@@ -494,16 +553,16 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => execCommand('insertUnorderedList')}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('insertUnorderedList')}
               title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
             >
               <BulletListIcon />
             </button>
             <button
               className="format-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => execCommand('insertOrderedList')}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('insertOrderedList')}
               title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
             >
               <NumberedListIcon />
@@ -543,7 +602,8 @@ export function Editor() {
               placeholder={t.newTagPlaceholder}
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleTagKeyDown}
+              dir="ltr"
             />
             <button className="add-tag-btn" onClick={handleAddTag}>
               {t.addTag}
@@ -566,15 +626,14 @@ export function Editor() {
           <div
             className="markdown-preview"
             dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }}
+            dir="ltr"
           />
         ) : note.format === 'richtext' ? (
-          <div
-            ref={richtextRef}
-            className="editor richtext"
-            contentEditable
-            onInput={handleRichtextInput}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(note.content) }}
-            aria-label={t.editorPlaceholder}
+          <RichTextEditor
+            content={note.content}
+            onContentChange={handleRichtextChange}
+            editorRef={richtextRef}
+            placeholder={t.editorPlaceholder}
           />
         ) : (
           <textarea
@@ -585,6 +644,7 @@ export function Editor() {
             onChange={handleContentChange}
             spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
             aria-label={t.editorPlaceholder}
+            dir="ltr"
           />
         )}
       </div>
