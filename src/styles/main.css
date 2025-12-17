@@ -345,6 +345,11 @@ body {
   background: var(--accent-light);
 }
 
+.tree-item-row.active .tree-label {
+  font-size: 12px;
+  font-weight: 400;
+}
+
 .tree-item-row.drag-over {
   background: var(--accent-light);
   outline: 2px dashed var(--accent);
@@ -392,6 +397,7 @@ body {
 
 .tree-label {
   font-size: 12px;
+  font-weight: 400;
   color: var(--text-primary);
   flex: 1;
   overflow: hidden;
@@ -500,6 +506,8 @@ body {
   padding: 12px;
   z-index: 100;
   min-width: 200px;
+  max-height: 70vh;
+  overflow-y: auto;
   display: none;
 }
 
@@ -513,6 +521,24 @@ body {
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 8px;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+@media (min-width: 768px) {
+  .shortcuts-popup {
+    min-width: 440px;
+  }
+
+  .shortcuts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
 }
 
 .shortcut-item {
@@ -529,6 +555,30 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
+}
+
+.shortcuts-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+@media (min-width: 768px) {
+  .shortcuts-divider {
+    grid-column: 1 / -1;
+  }
+
+  .shortcuts-subtitle {
+    grid-column: 1 / -1;
+  }
+}
+
+.shortcuts-subtitle {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
 }
 
 /* Encryption Popup */

@@ -329,23 +329,156 @@ export function Editor() {
     });
   }, [note, updateNote, pushState]);
 
-  // Keyboard shortcuts for undo/redo
+  // Keyboard shortcuts for undo/redo and formatting
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+      const isCmd = e.metaKey || e.ctrlKey;
+
+      // Undo/Redo (works globally)
+      if (isCmd && !e.altKey) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
+          return;
         } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
           e.preventDefault();
           handleRedo();
+          return;
+        }
+      }
+
+      // Formatting shortcuts - only when editor has focus
+      const isRichtextFocused = document.activeElement === richtextRef.current;
+      const isMarkdownFocused = document.activeElement === textareaRef.current && note?.format === 'markdown';
+
+      if (!isCmd || !note) return;
+
+      // Rich text formatting shortcuts
+      if (isRichtextFocused) {
+        // Bold: Cmd/Ctrl+B
+        if (e.key === 'b' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('bold');
+          return;
+        }
+        // Italic: Cmd/Ctrl+I
+        if (e.key === 'i' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('italic');
+          return;
+        }
+        // Heading 1: Cmd/Ctrl+1
+        if (e.key === '1' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('formatBlock', 'h1');
+          return;
+        }
+        // Heading 2: Cmd/Ctrl+2
+        if (e.key === '2' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('formatBlock', 'h2');
+          return;
+        }
+        // Heading 3: Cmd/Ctrl+3
+        if (e.key === '3' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('formatBlock', 'h3');
+          return;
+        }
+        // Body text: Cmd/Ctrl+0
+        if (e.key === '0' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('formatBlock', 'p');
+          return;
+        }
+        // Bullet list: Cmd/Ctrl+Shift+8
+        if (e.key === '8' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('insertUnorderedList');
+          return;
+        }
+        // Numbered list: Cmd/Ctrl+Shift+7
+        if (e.key === '7' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          applyFormat('insertOrderedList');
+          return;
+        }
+      }
+
+      // Markdown formatting shortcuts
+      if (isMarkdownFocused) {
+        // Bold: Cmd/Ctrl+B
+        if (e.key === 'b' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('**', '**', state.lang === 'no' ? 'fet tekst' : 'bold text');
+          return;
+        }
+        // Italic: Cmd/Ctrl+I
+        if (e.key === 'i' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('*', '*', state.lang === 'no' ? 'kursiv tekst' : 'italic text');
+          return;
+        }
+        // Heading: Cmd/Ctrl+1
+        if (e.key === '1' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
+          return;
+        }
+        // Heading 2: Cmd/Ctrl+2
+        if (e.key === '2' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('## ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
+          return;
+        }
+        // Heading 3: Cmd/Ctrl+3
+        if (e.key === '3' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('### ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
+          return;
+        }
+        // Inline code: Cmd/Ctrl+E
+        if (e.key === 'e' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('`', '`', state.lang === 'no' ? 'kode' : 'code');
+          return;
+        }
+        // Code block: Cmd/Ctrl+Shift+E
+        if (e.key === 'e' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('```\n', '\n```', state.lang === 'no' ? 'kodeblokk' : 'code block');
+          return;
+        }
+        // Bullet list: Cmd/Ctrl+Shift+8
+        if (e.key === '8' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('- ', '', state.lang === 'no' ? 'listepunkt' : 'list item');
+          return;
+        }
+        // Numbered list: Cmd/Ctrl+Shift+7
+        if (e.key === '7' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('1. ', '', state.lang === 'no' ? 'listepunkt' : 'list item');
+          return;
+        }
+        // Link: Cmd/Ctrl+L
+        if (e.key === 'l' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text');
+          return;
+        }
+        // Quote: Cmd/Ctrl+Shift+.
+        if (e.key === '.' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          insertMarkdown('> ', '', state.lang === 'no' ? 'sitat' : 'quote');
+          return;
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, note, applyFormat, insertMarkdown, state.lang]);
 
   // Update active formats when selection changes in richtext editor
   useEffect(() => {
@@ -547,6 +680,7 @@ export function Editor() {
               className="style-select"
               value={currentBlockStyle}
               onChange={handleBlockStyleChange}
+              title={`${t.bodyText}: ${mac ? '⌘0' : 'Ctrl+0'} | ${t.heading1}: ${mac ? '⌘1' : 'Ctrl+1'} | ${t.heading2}: ${mac ? '⌘2' : 'Ctrl+2'} | ${t.heading3}: ${mac ? '⌘3' : 'Ctrl+3'}`}
             >
               <option value="p">{t.bodyText}</option>
               <option value="h1">{t.heading1}</option>
@@ -579,7 +713,7 @@ export function Editor() {
               className={`format-btn ${activeFormats.unorderedList ? 'active' : ''}`}
               onMouseDown={preventFocusLoss}
               onClick={() => applyFormat('insertUnorderedList')}
-              title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
+              title={`${state.lang === 'no' ? 'Punktliste' : 'Bullet list'} (${mac ? '⌘⇧8' : 'Ctrl+Shift+8'})`}
               aria-pressed={activeFormats.unorderedList}
             >
               <BulletListIcon />
@@ -588,7 +722,7 @@ export function Editor() {
               className={`format-btn ${activeFormats.orderedList ? 'active' : ''}`}
               onMouseDown={preventFocusLoss}
               onClick={() => applyFormat('insertOrderedList')}
-              title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
+              title={`${state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'} (${mac ? '⌘⇧7' : 'Ctrl+Shift+7'})`}
               aria-pressed={activeFormats.orderedList}
             >
               <NumberedListIcon />
@@ -603,7 +737,7 @@ export function Editor() {
             <button
               className="format-btn"
               onClick={() => insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading')}
-              title={state.lang === 'no' ? 'Overskrift' : 'Heading'}
+              title={`${state.lang === 'no' ? 'Overskrift' : 'Heading'} (${mac ? '⌘1/2/3' : 'Ctrl+1/2/3'})`}
             >
               <HeadingIcon />
             </button>
@@ -628,14 +762,14 @@ export function Editor() {
             <button
               className="format-btn"
               onClick={() => insertMarkdown('`', '`', state.lang === 'no' ? 'kode' : 'code')}
-              title={state.lang === 'no' ? 'Inline kode' : 'Inline code'}
+              title={`${state.lang === 'no' ? 'Inline kode' : 'Inline code'} (${mac ? '⌘E' : 'Ctrl+E'})`}
             >
               <CodeIcon />
             </button>
             <button
               className="format-btn"
               onClick={() => insertMarkdown('```\n', '\n```', state.lang === 'no' ? 'kodeblokk' : 'code block')}
-              title={state.lang === 'no' ? 'Kodeblokk' : 'Code block'}
+              title={`${state.lang === 'no' ? 'Kodeblokk' : 'Code block'} (${mac ? '⌘⇧E' : 'Ctrl+Shift+E'})`}
             >
               <CodeBlockIcon />
             </button>
@@ -644,14 +778,14 @@ export function Editor() {
             <button
               className="format-btn"
               onClick={() => insertMarkdown('- ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
-              title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
+              title={`${state.lang === 'no' ? 'Punktliste' : 'Bullet list'} (${mac ? '⌘⇧8' : 'Ctrl+Shift+8'})`}
             >
               <BulletListIcon />
             </button>
             <button
               className="format-btn"
               onClick={() => insertMarkdown('1. ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
-              title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
+              title={`${state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'} (${mac ? '⌘⇧7' : 'Ctrl+Shift+7'})`}
             >
               <NumberedListIcon />
             </button>
@@ -660,14 +794,14 @@ export function Editor() {
             <button
               className="format-btn"
               onClick={() => insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text')}
-              title={state.lang === 'no' ? 'Lenke' : 'Link'}
+              title={`${state.lang === 'no' ? 'Lenke' : 'Link'} (${mac ? '⌘L' : 'Ctrl+L'})`}
             >
               <LinkIcon />
             </button>
             <button
               className="format-btn"
               onClick={() => insertMarkdown('> ', '', state.lang === 'no' ? 'sitat' : 'quote')}
-              title={state.lang === 'no' ? 'Sitat' : 'Quote'}
+              title={`${state.lang === 'no' ? 'Sitat' : 'Quote'} (${mac ? '⌘⇧.' : 'Ctrl+Shift+.'})`}
             >
               <QuoteIcon />
             </button>

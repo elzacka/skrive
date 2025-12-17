@@ -303,7 +303,19 @@ export function Sidebar() {
     save: mac ? '⌘S' : 'Ctrl+S',
     toggleSidebar: mac ? '⌥M' : 'Ctrl+Shift+3',
     undo: mac ? '⌘Z' : 'Ctrl+Z',
-    redo: mac ? '⌘⇧Z' : 'Ctrl+Y'
+    redo: mac ? '⌘⇧Z' : 'Ctrl+Y',
+    bold: mac ? '⌘B' : 'Ctrl+B',
+    italic: mac ? '⌘I' : 'Ctrl+I',
+    heading1: mac ? '⌘1' : 'Ctrl+1',
+    heading2: mac ? '⌘2' : 'Ctrl+2',
+    heading3: mac ? '⌘3' : 'Ctrl+3',
+    bodyText: mac ? '⌘0' : 'Ctrl+0',
+    bulletList: mac ? '⌘⇧8' : 'Ctrl+Shift+8',
+    numberedList: mac ? '⌘⇧7' : 'Ctrl+Shift+7',
+    inlineCode: mac ? '⌘E' : 'Ctrl+E',
+    codeBlock: mac ? '⌘⇧E' : 'Ctrl+Shift+E',
+    link: mac ? '⌘L' : 'Ctrl+L',
+    quote: mac ? '⌘⇧.' : 'Ctrl+Shift+.'
   };
 
   return (
@@ -454,29 +466,79 @@ export function Sidebar() {
         {showShortcuts && (
           <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
             <div className="shortcuts-title">{t.shortcuts}</div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.newNote}</span>
-              <span className="shortcut-desc">{t.newNoteShortcut}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.search}</span>
-              <span className="shortcut-desc">{t.searchShortcut}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.save}</span>
-              <span className="shortcut-desc">{t.saveShortcut}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.undo}</span>
-              <span className="shortcut-desc">{t.undoShortcut}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.redo}</span>
-              <span className="shortcut-desc">{t.redoShortcut}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
-              <span className="shortcut-desc">{t.toggleSidebar}</span>
+            <div className="shortcuts-grid">
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.newNote}</span>
+                <span className="shortcut-desc">{t.newNoteShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.bodyText}</span>
+                <span className="shortcut-desc">{t.bodyTextShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.search}</span>
+                <span className="shortcut-desc">{t.searchShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.heading1}</span>
+                <span className="shortcut-desc">{t.heading1Shortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.save}</span>
+                <span className="shortcut-desc">{t.saveShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.heading2}</span>
+                <span className="shortcut-desc">{t.heading2Shortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.undo}</span>
+                <span className="shortcut-desc">{t.undoShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.heading3}</span>
+                <span className="shortcut-desc">{t.heading3Shortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.redo}</span>
+                <span className="shortcut-desc">{t.redoShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.bold}</span>
+                <span className="shortcut-desc">{t.boldShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
+                <span className="shortcut-desc">{t.toggleSidebar}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.italic}</span>
+                <span className="shortcut-desc">{t.italicShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.bulletList}</span>
+                <span className="shortcut-desc">{t.bulletListShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.numberedList}</span>
+                <span className="shortcut-desc">{t.numberedListShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.inlineCode}</span>
+                <span className="shortcut-desc">{t.inlineCodeShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.codeBlock}</span>
+                <span className="shortcut-desc">{t.codeBlockShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.link}</span>
+                <span className="shortcut-desc">{t.linkShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.quote}</span>
+                <span className="shortcut-desc">{t.quoteShortcut}</span>
+              </div>
             </div>
           </div>
         )}
@@ -485,7 +547,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.2.1</span>
+        <span>v2.2.2</span>
       </div>
 
       {contextMenu && (

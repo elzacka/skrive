@@ -31,7 +31,7 @@ export function FolderIcon({ size = 24 }: IconProps) {
 export function NoteIcon({ size = 24 }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
-      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" fill="currentColor" />
+      <path d="M14 3H7c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h10c.55 0 1-.45 1-1V7l-4-4zm3 17H7V4h6v4h4v12z" fill="currentColor" />
     </svg>
   );
 }

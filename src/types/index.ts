@@ -130,6 +130,18 @@ export interface I18nStrings {
   redoShortcut: string;
   exportShortcut: string;
   formatShortcut: string;
+  boldShortcut: string;
+  italicShortcut: string;
+  heading1Shortcut: string;
+  heading2Shortcut: string;
+  heading3Shortcut: string;
+  bodyTextShortcut: string;
+  bulletListShortcut: string;
+  numberedListShortcut: string;
+  inlineCodeShortcut: string;
+  codeBlockShortcut: string;
+  linkShortcut: string;
+  quoteShortcut: string;
   formatting: string;
   format: string;
   plaintext: string;
