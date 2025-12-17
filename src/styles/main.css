@@ -272,6 +272,13 @@ body {
   background: transparent;
 }
 
+.folder-edit-input:focus,
+.folder-edit-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none;
+}
+
 /* Notes Section */
 .notes-section {
   flex: 1;
