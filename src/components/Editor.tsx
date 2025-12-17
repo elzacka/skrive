@@ -165,12 +165,20 @@ export function Editor() {
 
   const { pushState, undo, redo, canUndo, canRedo, reset } = useUndoRedo(note?.content || '');
 
-  // Reset undo history when note changes
+  // Reset undo history when note changes and focus editor
   useEffect(() => {
     if (note) {
       reset(note.content);
       lastSavedContentRef.current = note.content;
       setSaveStatus('saved');
+      // Auto-focus the editor when note changes
+      setTimeout(() => {
+        if (note.format === 'richtext') {
+          richtextRef.current?.focus();
+        } else {
+          textareaRef.current?.focus();
+        }
+      }, 0);
     }
   }, [note?.id, reset]);
 
@@ -327,6 +335,14 @@ export function Editor() {
 
     updateNote(note.id, { format: newFormat, content: newContent });
     setShowPreview(false);
+    // Focus editor after format change
+    setTimeout(() => {
+      if (newFormat === 'richtext') {
+        richtextRef.current?.focus();
+      } else {
+        textareaRef.current?.focus();
+      }
+    }, 0);
   };
 
   const handleAddTag = () => {
@@ -448,7 +464,7 @@ export function Editor() {
           <div className="format-group">
             <select
               className="style-select"
-              onChange={(e) => execCommand('formatBlock', e.target.value)}
+              onChange={(e) => { execCommand('formatBlock', e.target.value); e.target.value = 'p'; }}
               defaultValue="p"
             >
               <option value="p">{t.bodyText}</option>
@@ -460,6 +476,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => execCommand('bold')}
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
             >
@@ -467,6 +484,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => execCommand('italic')}
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
             >
@@ -476,6 +494,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => execCommand('insertUnorderedList')}
               title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
             >
@@ -483,6 +502,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => execCommand('insertOrderedList')}
               title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
             >
