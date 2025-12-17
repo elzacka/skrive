@@ -157,6 +157,7 @@ body {
   left: 0;
 }
 
+
 /* Sidebar */
 .sidebar {
   width: var(--sidebar-width);
@@ -565,6 +566,7 @@ body {
   background: var(--bg-primary);
   position: relative;
   min-width: 0;
+  margin-left: 24px; /* Space for sidebar toggle chevron */
 }
 
 .editor-header {
