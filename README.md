@@ -9,7 +9,7 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 - **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
 - **File System Access API**: Koble til en lokal mappe for permanent lagring (Chrome/Edge)
 - **Import/Eksport**: Eksporter alle notater som JSON for backup eller synkronisering mellom enheter
-- **Flere formater**: Støtter ren tekst, rik tekst, Markdown og XML
+- **Flere formater**: Støtter ren tekst, rik tekst og Markdown
 - **Etiketter og mapper**: Organiser notatene dine med etiketter og mappestruktur
 - **Tospråklig**: Norsk og engelsk grensesnitt
 - **Responsivt design**: Fungerer på desktop, nettbrett og mobil
@@ -30,7 +30,7 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 | Vite | 7.3.0 |
 | TypeScript | 5.9.3 |
 | libsodium-wrappers | 0.7.15 |
-| DOMPurify | 3.3.4 |
+| DOMPurify | 3.3.1 |
 | vite-plugin-pwa | 1.2.0 |
 | react-router | 7.10.1 |
 
@@ -86,6 +86,8 @@ skrive/
 │   ├── utils/           # Hjelpefunksjoner
 │   ├── App.tsx          # Hovedkomponent
 │   └── main.tsx         # Entry point
+├── scripts/             # Byggeskript
+│   └── generate-icons.mjs
 ├── index.html           # HTML-mal
 ├── package.json         # Avhengigheter
 ├── tsconfig.json        # TypeScript-konfigurasjon
@@ -122,13 +124,13 @@ Hvis du bruker Chrome eller Edge, kan du koble til en mappe som synkroniseres vi
 
 ## PWA-ikoner
 
-For å generere PWA-ikoner i riktig størrelse, bruk et verktøy som:
-- [PWA Asset Generator](https://www.pwabuilder.com/imageGenerator)
-- [Favicon.io](https://favicon.io/)
+Ikoner genereres med skriptet `scripts/generate-icons.mjs`:
 
-Erstatt SVG-filene i `public/icons/` med PNG-filer i størrelsene:
-- icon-192x192.png
-- icon-512x512.png
+```bash
+node scripts/generate-icons.mjs
+```
+
+Dette genererer PNG-ikoner fra SVG i størrelsene 192x192 og 512x512.
 
 ## Lisens
 
