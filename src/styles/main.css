@@ -777,6 +777,8 @@ body {
 .editor.richtext {
   min-height: 100%;
   outline: none;
+  direction: ltr;
+  text-align: left;
 }
 
 .editor.richtext h1 {
@@ -921,6 +923,25 @@ body {
   overflow: hidden;
 }
 
+.editor-container.with-preview {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.editor-pane,
+.preview-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.preview-pane {
+  border-left: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
 .editor {
   flex: 1;
   padding: 16px;
@@ -1010,6 +1031,14 @@ body {
 .markdown-preview pre code {
   background: none;
   padding: 0;
+}
+
+.code-preview {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
 }
 
 .markdown-preview blockquote {

@@ -377,7 +377,7 @@ export function Editor() {
     }
 
     updateNote(note.id, { format: newFormat, content: newContent });
-    setShowPreview(false);
+    setShowPreview(newFormat === 'markdown' || newFormat === 'xml' ? showPreview : false);
 
     requestAnimationFrame(() => {
       if (newFormat === 'richtext') {
@@ -476,7 +476,7 @@ export function Editor() {
           >
             {copyFeedback ? '✓' : <CopyIcon />}
           </button>
-          {note.format === 'markdown' && (
+          {(note.format === 'markdown' || note.format === 'xml') && (
             <button
               className={`action-btn icon-btn ${showPreview ? 'active' : ''}`}
               onClick={() => setShowPreview(!showPreview)}
@@ -621,31 +621,39 @@ export function Editor() {
         </div>
       )}
 
-      <div className="editor-container">
-        {showPreview && note.format === 'markdown' ? (
-          <div
-            className="markdown-preview"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }}
-            dir="ltr"
-          />
-        ) : note.format === 'richtext' ? (
-          <RichTextEditor
-            content={note.content}
-            onContentChange={handleRichtextChange}
-            editorRef={richtextRef}
-            placeholder={t.editorPlaceholder}
-          />
-        ) : (
-          <textarea
-            ref={textareaRef}
-            className={`editor ${note.format}`}
-            placeholder={note.format === 'xml' ? '<?xml version="1.0"?>' : t.editorPlaceholder}
-            value={note.content}
-            onChange={handleContentChange}
-            spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
-            aria-label={t.editorPlaceholder}
-            dir="ltr"
-          />
+      <div className={`editor-container ${(note.format === 'markdown' || note.format === 'xml') && showPreview ? 'with-preview' : ''}`}>
+        <div className="editor-pane">
+          {note.format === 'richtext' ? (
+            <RichTextEditor
+              content={note.content}
+              onContentChange={handleRichtextChange}
+              editorRef={richtextRef}
+              placeholder={t.editorPlaceholder}
+            />
+          ) : (
+            <textarea
+              ref={textareaRef}
+              className={`editor ${note.format}`}
+              placeholder={note.format === 'xml' ? '<?xml version="1.0"?>' : t.editorPlaceholder}
+              value={note.content}
+              onChange={handleContentChange}
+              spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
+              aria-label={t.editorPlaceholder}
+              dir="ltr"
+            />
+          )}
+        </div>
+
+        {(note.format === 'markdown' || note.format === 'xml') && showPreview && (
+          <div className="preview-pane" aria-label={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}>
+            <div className="markdown-preview" dir="ltr">
+              {note.format === 'markdown' ? (
+                <div dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }} />
+              ) : (
+                <pre className="code-preview">{note.content}</pre>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
