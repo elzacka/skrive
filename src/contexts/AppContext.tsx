@@ -27,6 +27,7 @@ type Action =
   | { type: 'DELETE_NOTE'; payload: string }
   | { type: 'SET_TAGS'; payload: Tag[] }
   | { type: 'ADD_TAG'; payload: Tag }
+  | { type: 'UPDATE_TAG'; payload: { id: string; updates: Partial<Tag> } }
   | { type: 'DELETE_TAG'; payload: string }
   | { type: 'SET_FOLDERS'; payload: Folder[] }
   | { type: 'ADD_FOLDER'; payload: Folder }
@@ -82,7 +83,17 @@ function reducer(state: AppState, action: Action): AppState {
     
     case 'ADD_TAG':
       return { ...state, tags: [...state.tags, action.payload] };
-    
+
+    case 'UPDATE_TAG':
+      return {
+        ...state,
+        tags: state.tags.map(tag =>
+          tag.id === action.payload.id
+            ? { ...tag, ...action.payload.updates }
+            : tag
+        )
+      };
+
     case 'DELETE_TAG':
       return {
         ...state,
@@ -172,6 +183,7 @@ interface AppContextValue {
 
   // Tags
   addTag: (name: string) => void;
+  updateTag: (id: string, updates: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
   toggleNoteTag: (noteId: string, tagId: string) => void;
   setTagFilter: (tagId: string | null) => void;
@@ -311,6 +323,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_TAG', payload: tag });
   }, []);
 
+  const updateTag = useCallback((id: string, updates: Partial<Tag>) => {
+    dispatch({ type: 'UPDATE_TAG', payload: { id, updates } });
+  }, []);
+
   const deleteTag = useCallback((id: string) => {
     dispatch({ type: 'DELETE_TAG', payload: id });
   }, []);
@@ -415,6 +431,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveCurrentNote,
     moveNote,
     addTag,
+    updateTag,
     deleteTag,
     toggleNoteTag,
     setTagFilter,

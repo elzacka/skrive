@@ -10,7 +10,8 @@ import {
   NoteIcon,
   KeyboardIcon,
   EncryptedIcon,
-  DeleteIcon
+  DeleteIcon,
+  EditIcon
 } from './Icons';
 
 interface TreeItemProps {
@@ -145,12 +146,17 @@ export function Sidebar() {
     setSearchQuery,
     setLang,
     getFilteredNotes,
-    moveNote
+    moveNote,
+    updateTag,
+    deleteTag
   } = useApp();
 
   const t = i18n[state.lang];
   const filteredNotes = getFilteredNotes();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'folder' | 'note'; id: string } | null>(null);
+  const [tagContextMenu, setTagContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showEncryptionInfo, setShowEncryptionInfo] = useState(false);
@@ -171,6 +177,46 @@ export function Sidebar() {
   };
 
   const closeContextMenu = () => setContextMenu(null);
+  const closeTagContextMenu = () => setTagContextMenu(null);
+
+  const handleTagContextMenu = (e: React.MouseEvent, tagId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTagContextMenu({ x: e.clientX, y: e.clientY, id: tagId });
+  };
+
+  const handleDeleteTag = () => {
+    if (!tagContextMenu) return;
+    deleteTag(tagContextMenu.id);
+    closeTagContextMenu();
+  };
+
+  const handleStartEditTag = () => {
+    if (!tagContextMenu) return;
+    const tag = state.tags.find(t => t.id === tagContextMenu.id);
+    if (tag) {
+      setEditingTagId(tag.id);
+      setEditingTagName(tag.name);
+    }
+    closeTagContextMenu();
+  };
+
+  const handleSaveTagName = () => {
+    if (editingTagId && editingTagName.trim()) {
+      updateTag(editingTagId, { name: editingTagName.trim() });
+    }
+    setEditingTagId(null);
+    setEditingTagName('');
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveTagName();
+    } else if (e.key === 'Escape') {
+      setEditingTagId(null);
+      setEditingTagName('');
+    }
+  };
 
   const handleDelete = () => {
     if (!contextMenu) return;
@@ -208,7 +254,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowEncryptionInfo(false); }}>
+    <aside className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowEncryptionInfo(false); }}>
       <div className="search-container">
         <input
           type="search"
@@ -233,16 +279,32 @@ export function Sidebar() {
             <span className="tag-count">{state.notes.length}</span>
           </button>
           {state.tags.map(tag => (
-            <button
-              key={tag.id}
-              className={`tag-filter-btn ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
-              onClick={() => setTagFilter(tag.id)}
-              role="option"
-              aria-selected={state.selectedTagFilter === tag.id}
-            >
-              <span>{tag.name}</span>
-              <span className="tag-count">{getTagNoteCount(tag.id)}</span>
-            </button>
+            editingTagId === tag.id ? (
+              <div key={tag.id} className="tag-filter-btn editing">
+                <input
+                  type="text"
+                  className="tag-edit-input"
+                  value={editingTagName}
+                  onChange={(e) => setEditingTagName(e.target.value)}
+                  onBlur={handleSaveTagName}
+                  onKeyDown={handleTagKeyDown}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            ) : (
+              <button
+                key={tag.id}
+                className={`tag-filter-btn ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
+                onClick={() => setTagFilter(tag.id)}
+                onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
+                role="option"
+                aria-selected={state.selectedTagFilter === tag.id}
+              >
+                <span>{tag.name}</span>
+                <span className="tag-count">{getTagNoteCount(tag.id)}</span>
+              </button>
+            )
           ))}
         </div>
       </div>
@@ -365,7 +427,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.1.0</span>
+        <span>v2.2.0</span>
       </div>
 
       {contextMenu && (
@@ -384,6 +446,24 @@ export function Sidebar() {
           </button>
           <div className="context-menu-divider" />
           <button className="context-menu-item" onClick={handleDelete}>
+            <DeleteIcon />
+            <span>{t.delete}</span>
+          </button>
+        </div>
+      )}
+
+      {tagContextMenu && (
+        <div
+          className="context-menu show"
+          style={{ left: tagContextMenu.x, top: tagContextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="context-menu-item" onClick={handleStartEditTag}>
+            <EditIcon />
+            <span>{t.rename}</span>
+          </button>
+          <div className="context-menu-divider" />
+          <button className="context-menu-item" onClick={handleDeleteTag}>
             <DeleteIcon />
             <span>{t.delete}</span>
           </button>

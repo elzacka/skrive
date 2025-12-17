@@ -250,6 +250,21 @@ body {
   color: var(--text-muted);
 }
 
+.tag-filter-btn.editing {
+  padding: 4px 6px;
+}
+
+.tag-edit-input {
+  width: 100%;
+  padding: 2px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
 /* Notes Section */
 .notes-section {
   flex: 1;
