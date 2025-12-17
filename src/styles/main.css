@@ -271,6 +271,7 @@ body {
   min-width: 0;
   border: none;
   background: transparent;
+  outline: none;
 }
 
 /* Notes Section */
