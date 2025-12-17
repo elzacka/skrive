@@ -1,10 +1,12 @@
 # Skrive
 
-En lettvekts notatapp med offline-støtte, bygget med React 19 og Vite 7.
+En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget med React 19 og Vite 7.
 
 ## Funksjoner
 
+- **Ende-til-ende-kryptering**: Alle notater krypteres lokalt med AEGIS-256 eller XChaCha20-Poly1305
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
+- **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
 - **File System Access API**: Koble til en lokal mappe for permanent lagring (Chrome/Edge)
 - **Import/Eksport**: Eksporter alle notater som JSON for backup eller synkronisering mellom enheter
 - **Flere formater**: Støtter ren tekst, rik tekst, Markdown og XML
@@ -13,13 +15,22 @@ En lettvekts notatapp med offline-støtte, bygget med React 19 og Vite 7.
 - **Responsivt design**: Fungerer på desktop, nettbrett og mobil
 - **Installerbar**: Kan installeres som en app på enheten din
 
+## Sikkerhet
+
+- **Kryptering**: AEGIS-256 (på enheter med AES-akselerasjon) eller XChaCha20-Poly1305 (fallback)
+- **XSS-beskyttelse**: HTML saniteres med DOMPurify
+- **Content Security Policy**: Streng CSP forhindrer uautorisert kodekjøring
+- **Lokal lagring**: All data forblir på enheten din
+
 ## Teknologier
 
 | Teknologi | Versjon |
 |-----------|---------|
-| React | 19.1.0 |
+| React | 19.2.3 |
 | Vite | 7.3.0 |
 | TypeScript | 5.9.3 |
+| libsodium-wrappers | 0.7.15 |
+| DOMPurify | 3.3.4 |
 | vite-plugin-pwa | 1.2.0 |
 | react-router | 7.10.1 |
 
