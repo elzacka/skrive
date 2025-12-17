@@ -3,56 +3,15 @@ import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { isMac } from '@/utils';
 import type { Note, Folder } from '@/types';
-
-// SVG Icons (Material Design style)
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-    </svg>
-  );
-}
-
-function NoteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
-    </svg>
-  );
-}
-
-function KeyboardIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z" />
-    </svg>
-  );
-}
-
-// Material Symbols: encrypted
-function EncryptedIcon() {
-  return (
-    <svg viewBox="0 -960 960 960" aria-hidden="true">
-      <path d="M420-360h120l-23-129q20-10 31.5-29t11.5-42q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 23 11.5 42t31.5 29l-23 129Zm60 280q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z" />
-    </svg>
-  );
-}
+import {
+  PlusIcon,
+  ChevronRightIcon,
+  FolderIcon,
+  NoteIcon,
+  KeyboardIcon,
+  EncryptedIcon,
+  DeleteIcon
+} from './Icons';
 
 interface TreeItemProps {
   folder: Folder;
@@ -406,7 +365,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.0.0</span>
+        <span>v2.1.0</span>
       </div>
 
       {contextMenu && (
@@ -425,9 +384,7 @@ export function Sidebar() {
           </button>
           <div className="context-menu-divider" />
           <button className="context-menu-item" onClick={handleDelete}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-            </svg>
+            <DeleteIcon />
             <span>{t.delete}</span>
           </button>
         </div>

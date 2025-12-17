@@ -5,6 +5,19 @@ import { i18n } from '@/utils/i18n';
 import { useUndoRedo } from '@/hooks';
 import { isMac } from '@/utils';
 import type { NoteFormat } from '@/types';
+import {
+  CopyIcon,
+  UndoIcon,
+  RedoIcon,
+  PreviewIcon,
+  BulletListIcon,
+  NumberedListIcon,
+  HeadingIcon,
+  CodeIcon,
+  LinkIcon,
+  CodeBlockIcon,
+  QuoteIcon
+} from './Icons';
 
 // Configure DOMPurify to allow safe tags only
 const DOMPURIFY_CONFIG = {
@@ -30,10 +43,18 @@ function isSafeUrl(url: string): boolean {
          !trimmed.startsWith('vbscript:');
 }
 
-// Simple markdown to HTML converter
+// Simple markdown to HTML converter with syntax highlighting for code
 function markdownToHtml(md: string): string {
   let html = md
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    // Code blocks with language specification
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      const languageClass = lang ? ` class="language-${lang}"` : '';
+      const escapedCode = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `<pre${languageClass}><code>${escapedCode}</code></pre>`;
+    })
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
@@ -52,115 +73,48 @@ function markdownToHtml(md: string): string {
     })
     .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
     .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm, '<li class="ordered">$1</li>')
     .replace(/^---$/gm, '<hr>')
     .replace(/\n/g, '<br>');
 
+  // Wrap consecutive list items in ul/ol
   html = html.replace(/(<li>.*?<\/li>)(\s*<br>\s*<li>.*?<\/li>)+/g, (match) => {
     return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
+  });
+  html = html.replace(/(<li class="ordered">.*?<\/li>)(\s*<br>\s*<li class="ordered">.*?<\/li>)+/g, (match) => {
+    return '<ol>' + match.replace(/<br>/g, '').replace(/ class="ordered"/g, '') + '</ol>';
   });
 
   return sanitizeHtml(html);
 }
 
-// Create default XML template
-function getDefaultXmlTemplate(title: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<note>
-  <title>${escapeXml(title)}</title>
-  <content></content>
-</note>`;
-}
-
-// Escape XML special characters
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-// Icons
-function CopyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function UndoIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function RedoIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function PreviewIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function BulletListIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z" fill="currentColor"/>
-    </svg>
-  );
-}
-
-function NumberedListIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14">
-      <path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z" fill="currentColor"/>
-    </svg>
-  );
-}
-
 // Rich text editor component - separate to avoid re-render issues
 function RichTextEditor({
-  content,
+  noteId,
+  initialContent,
   onContentChange,
   editorRef,
   placeholder
 }: {
-  content: string;
+  noteId: string;
+  initialContent: string;
   onContentChange: (content: string) => void;
   editorRef: React.RefObject<HTMLDivElement | null>;
   placeholder: string;
 }) {
-  const initialContentRef = useRef<string>(content);
-  const isInitializedRef = useRef(false);
+  const lastNoteIdRef = useRef<string | null>(null);
 
-  // Only set innerHTML on mount or when note changes (content reference changes significantly)
+  // Only set innerHTML when note changes (different noteId)
   useEffect(() => {
-    if (editorRef.current) {
-      // Only update if this is initial load or content was reset externally
-      if (!isInitializedRef.current || initialContentRef.current !== content) {
-        editorRef.current.innerHTML = sanitizeHtml(content);
-        initialContentRef.current = content;
-        isInitializedRef.current = true;
-      }
+    if (editorRef.current && noteId !== lastNoteIdRef.current) {
+      editorRef.current.innerHTML = sanitizeHtml(initialContent);
+      lastNoteIdRef.current = noteId;
     }
-  }, [content, editorRef]);
+  }, [noteId, initialContent, editorRef]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
       const newContent = editorRef.current.innerHTML;
-      initialContentRef.current = newContent;
       onContentChange(newContent);
     }
   }, [editorRef, onContentChange]);
@@ -190,6 +144,7 @@ export function Editor() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [currentBlockStyle, setCurrentBlockStyle] = useState('p');
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, unorderedList: false, orderedList: false });
 
   const tagPickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -285,10 +240,20 @@ export function Editor() {
       await navigator.clipboard.writeText(note.content);
       setCopyFeedback(true);
       setTimeout(() => setCopyFeedback(false), 1500);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
+      // Clipboard write failed
     }
   }, [note]);
+
+  // Check current formatting state at cursor position
+  const updateActiveFormats = useCallback(() => {
+    setActiveFormats({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      unorderedList: document.queryCommandState('insertUnorderedList'),
+      orderedList: document.queryCommandState('insertOrderedList'),
+    });
+  }, []);
 
   // Format command for rich text - uses Selection API properly
   const applyFormat = useCallback((command: string, value?: string) => {
@@ -298,20 +263,70 @@ export function Editor() {
     // Ensure editor has focus
     editor.focus();
 
+    // Restore selection if needed
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount === 0) {
+      // No selection, place cursor at end
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
     // Execute the command
     document.execCommand(command, false, value);
+
+    // Trigger input event to save changes
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Update active format state
+    updateActiveFormats();
 
     // Update block style selector if formatBlock was used
     if (command === 'formatBlock' && value) {
       setCurrentBlockStyle(value);
     }
-  }, []);
+  }, [updateActiveFormats]);
 
   const handleRichtextChange = useCallback((content: string) => {
     if (note) {
       updateNote(note.id, { content });
       pushState(content, 0);
     }
+  }, [note, updateNote, pushState]);
+
+  // Insert markdown syntax at cursor position
+  const insertMarkdown = useCallback((prefix: string, suffix: string = '', placeholder: string = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea || !note) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    const textToInsert = selectedText || placeholder;
+
+    const before = textarea.value.substring(0, start);
+    const after = textarea.value.substring(end);
+    const newContent = before + prefix + textToInsert + suffix + after;
+
+    updateNote(note.id, { content: newContent });
+    pushState(newContent, start + prefix.length + textToInsert.length + suffix.length);
+
+    // Set cursor position after insert
+    requestAnimationFrame(() => {
+      textarea.focus();
+      if (selectedText) {
+        // If text was selected, place cursor after the insertion
+        const newPos = start + prefix.length + textToInsert.length + suffix.length;
+        textarea.setSelectionRange(newPos, newPos);
+      } else {
+        // If no selection, select the placeholder text
+        const selectStart = start + prefix.length;
+        const selectEnd = selectStart + placeholder.length;
+        textarea.setSelectionRange(selectStart, selectEnd);
+      }
+    });
   }, [note, updateNote, pushState]);
 
   // Keyboard shortcuts for undo/redo
@@ -331,6 +346,21 @@ export function Editor() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUndo, handleRedo]);
+
+  // Update active formats when selection changes in richtext editor
+  useEffect(() => {
+    if (note?.format !== 'richtext') return;
+
+    const handleSelectionChange = () => {
+      const editor = richtextRef.current;
+      if (editor && document.activeElement === editor) {
+        updateActiveFormats();
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [note?.format, updateActiveFormats]);
 
   if (!note) {
     return (
@@ -356,11 +386,7 @@ export function Editor() {
     const oldFormat = note.format;
     let newContent = note.content;
 
-    if (newFormat === 'xml' && oldFormat !== 'xml') {
-      if (!note.content.trim().startsWith('<?xml')) {
-        newContent = getDefaultXmlTemplate(note.title);
-      }
-    } else if (newFormat === 'plaintext' && oldFormat === 'richtext') {
+    if (newFormat === 'plaintext' && oldFormat === 'richtext') {
       newContent = note.content
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
@@ -371,13 +397,10 @@ export function Editor() {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .trim();
-    } else if (newFormat === 'plaintext' && oldFormat === 'xml') {
-      const contentMatch = note.content.match(/<content>([\s\S]*?)<\/content>/);
-      newContent = contentMatch ? contentMatch[1].trim() : note.content;
     }
 
     updateNote(note.id, { format: newFormat, content: newContent });
-    setShowPreview(newFormat === 'markdown' || newFormat === 'xml' ? showPreview : false);
+    setShowPreview(newFormat === 'markdown' ? showPreview : false);
 
     requestAnimationFrame(() => {
       if (newFormat === 'richtext') {
@@ -476,7 +499,7 @@ export function Editor() {
           >
             {copyFeedback ? '✓' : <CopyIcon />}
           </button>
-          {(note.format === 'markdown' || note.format === 'xml') && (
+          {note.format === 'markdown' && (
             <button
               className={`action-btn icon-btn ${showPreview ? 'active' : ''}`}
               onClick={() => setShowPreview(!showPreview)}
@@ -514,7 +537,6 @@ export function Editor() {
           <option value="plaintext">{t.plaintext}</option>
           <option value="richtext">{t.richtext}</option>
           <option value="markdown">{t.markdown}</option>
-          <option value="xml">{t.xml}</option>
         </select>
       </div>
 
@@ -534,17 +556,69 @@ export function Editor() {
           </div>
           <div className="format-group">
             <button
-              className="format-btn"
+              className={`format-btn ${activeFormats.bold ? 'active' : ''}`}
               onMouseDown={preventFocusLoss}
               onClick={() => applyFormat('bold')}
+              title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
+              aria-pressed={activeFormats.bold}
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              className={`format-btn ${activeFormats.italic ? 'active' : ''}`}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('italic')}
+              title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
+              aria-pressed={activeFormats.italic}
+            >
+              <em>I</em>
+            </button>
+          </div>
+          <div className="format-group">
+            <button
+              className={`format-btn ${activeFormats.unorderedList ? 'active' : ''}`}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('insertUnorderedList')}
+              title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
+              aria-pressed={activeFormats.unorderedList}
+            >
+              <BulletListIcon />
+            </button>
+            <button
+              className={`format-btn ${activeFormats.orderedList ? 'active' : ''}`}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('insertOrderedList')}
+              title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
+              aria-pressed={activeFormats.orderedList}
+            >
+              <NumberedListIcon />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {note.format === 'markdown' && (
+        <div className="formatting-toolbar">
+          <div className="format-group">
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading')}
+              title={state.lang === 'no' ? 'Overskrift' : 'Heading'}
+            >
+              <HeadingIcon />
+            </button>
+          </div>
+          <div className="format-group">
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('**', '**', state.lang === 'no' ? 'fet tekst' : 'bold text')}
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
             >
               <strong>B</strong>
             </button>
             <button
               className="format-btn"
-              onMouseDown={preventFocusLoss}
-              onClick={() => applyFormat('italic')}
+              onClick={() => insertMarkdown('*', '*', state.lang === 'no' ? 'kursiv tekst' : 'italic text')}
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
             >
               <em>I</em>
@@ -553,19 +627,49 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
-              onMouseDown={preventFocusLoss}
-              onClick={() => applyFormat('insertUnorderedList')}
+              onClick={() => insertMarkdown('`', '`', state.lang === 'no' ? 'kode' : 'code')}
+              title={state.lang === 'no' ? 'Inline kode' : 'Inline code'}
+            >
+              <CodeIcon />
+            </button>
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('```\n', '\n```', state.lang === 'no' ? 'kodeblokk' : 'code block')}
+              title={state.lang === 'no' ? 'Kodeblokk' : 'Code block'}
+            >
+              <CodeBlockIcon />
+            </button>
+          </div>
+          <div className="format-group">
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('- ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
               title={state.lang === 'no' ? 'Punktliste' : 'Bullet list'}
             >
               <BulletListIcon />
             </button>
             <button
               className="format-btn"
-              onMouseDown={preventFocusLoss}
-              onClick={() => applyFormat('insertOrderedList')}
+              onClick={() => insertMarkdown('1. ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
               title={state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'}
             >
               <NumberedListIcon />
+            </button>
+          </div>
+          <div className="format-group">
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text')}
+              title={state.lang === 'no' ? 'Lenke' : 'Link'}
+            >
+              <LinkIcon />
+            </button>
+            <button
+              className="format-btn"
+              onClick={() => insertMarkdown('> ', '', state.lang === 'no' ? 'sitat' : 'quote')}
+              title={state.lang === 'no' ? 'Sitat' : 'Quote'}
+            >
+              <QuoteIcon />
             </button>
           </div>
         </div>
@@ -621,11 +725,12 @@ export function Editor() {
         </div>
       )}
 
-      <div className={`editor-container ${(note.format === 'markdown' || note.format === 'xml') && showPreview ? 'with-preview' : ''}`}>
+      <div className={`editor-container ${note.format === 'markdown' && showPreview ? 'with-preview' : ''}`}>
         <div className="editor-pane">
           {note.format === 'richtext' ? (
             <RichTextEditor
-              content={note.content}
+              noteId={note.id}
+              initialContent={note.content}
               onContentChange={handleRichtextChange}
               editorRef={richtextRef}
               placeholder={t.editorPlaceholder}
@@ -634,7 +739,7 @@ export function Editor() {
             <textarea
               ref={textareaRef}
               className={`editor ${note.format}`}
-              placeholder={note.format === 'xml' ? '<?xml version="1.0"?>' : t.editorPlaceholder}
+              placeholder={t.editorPlaceholder}
               value={note.content}
               onChange={handleContentChange}
               spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
@@ -644,14 +749,10 @@ export function Editor() {
           )}
         </div>
 
-        {(note.format === 'markdown' || note.format === 'xml') && showPreview && (
+        {note.format === 'markdown' && showPreview && (
           <div className="preview-pane" aria-label={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}>
             <div className="markdown-preview" dir="ltr">
-              {note.format === 'markdown' ? (
-                <div dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }} />
-              ) : (
-                <pre className="code-preview">{note.content}</pre>
-              )}
+              <div dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }} />
             </div>
           </div>
         )}

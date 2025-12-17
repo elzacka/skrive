@@ -21,18 +21,8 @@ export function stripHtml(html: string): string {
   return tmp.textContent || tmp.innerText || '';
 }
 
-export function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
 export function getFormatFromExtension(filename: string): NoteFormat {
   if (filename.endsWith('.md')) return 'markdown';
-  if (filename.endsWith('.xml')) return 'xml';
   if (filename.endsWith('.html')) return 'richtext';
   return 'plaintext';
 }
@@ -40,7 +30,6 @@ export function getFormatFromExtension(filename: string): NoteFormat {
 export function getExtensionFromFormat(format: NoteFormat): string {
   switch (format) {
     case 'markdown': return '.md';
-    case 'xml': return '.xml';
     case 'richtext': return '.html';
     default: return '.txt';
   }
@@ -49,7 +38,6 @@ export function getExtensionFromFormat(format: NoteFormat): string {
 export function getMimeTypeFromFormat(format: NoteFormat): string {
   switch (format) {
     case 'markdown': return 'text/markdown';
-    case 'xml': return 'application/xml';
     case 'richtext': return 'text/html';
     default: return 'text/plain';
   }

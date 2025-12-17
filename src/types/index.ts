@@ -10,7 +10,7 @@ export interface Note {
   updatedAt: number;
 }
 
-export type NoteFormat = 'plaintext' | 'richtext' | 'markdown' | 'xml';
+export type NoteFormat = 'plaintext' | 'richtext' | 'markdown';
 
 export interface Folder {
   id: string;
@@ -135,7 +135,6 @@ export interface I18nStrings {
   plaintext: string;
   richtext: string;
   markdown: string;
-  xml: string;
   bodyText: string;
   heading1: string;
   heading2: string;

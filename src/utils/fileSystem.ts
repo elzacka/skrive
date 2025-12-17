@@ -30,8 +30,8 @@ export async function storeDirectoryHandle(handle: FileSystemDirectoryHandle): P
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
-  } catch (e) {
-    console.error('Error storing directory handle:', e);
+  } catch {
+    // IndexedDB storage failed
   }
 }
 
@@ -46,8 +46,7 @@ export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHan
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
-  } catch (e) {
-    console.error('Error getting stored directory handle:', e);
+  } catch {
     return null;
   }
 }
@@ -62,8 +61,8 @@ export async function clearStoredDirectoryHandle(): Promise<void> {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
-  } catch (e) {
-    console.error('Error clearing directory handle:', e);
+  } catch {
+    // Clear failed silently
   }
 }
 
@@ -75,10 +74,7 @@ export async function requestDirectoryAccess(): Promise<FileSystemDirectoryHandl
     });
     await storeDirectoryHandle(handle);
     return handle;
-  } catch (e) {
-    if ((e as Error).name !== 'AbortError') {
-      console.error('Error requesting directory access:', e);
-    }
+  } catch {
     return null;
   }
 }
@@ -124,8 +120,7 @@ export async function saveNoteToDirectory(
     await writable.close();
     
     return true;
-  } catch (e) {
-    console.error('Error saving note to directory:', e);
+  } catch {
     return false;
   }
 }
@@ -147,8 +142,7 @@ export async function saveAllNotesToDirectory(
     }
     
     return true;
-  } catch (e) {
-    console.error('Error saving all notes to directory:', e);
+  } catch {
     return false;
   }
 }
@@ -169,8 +163,7 @@ export async function exportDataToDirectory(
     await writable.close();
     
     return true;
-  } catch (e) {
-    console.error('Error exporting data to directory:', e);
+  } catch {
     return false;
   }
 }

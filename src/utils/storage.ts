@@ -42,8 +42,8 @@ export async function initializeEncryption(): Promise<void> {
       const key = importKeyFromBase64(storedKey);
       setMasterKey(key);
       return;
-    } catch (e) {
-      console.error('Failed to load stored key, generating new one');
+    } catch {
+      // Key corrupted, will generate new one
     }
   }
 
@@ -89,8 +89,8 @@ export async function loadFromStorageEncrypted(): Promise<StoredState | null> {
         folders: parsed.folders || []
       };
     }
-  } catch (e) {
-    console.error('Error loading state from localStorage:', e);
+  } catch {
+    // Storage corrupted or decryption failed
   }
   return null;
 }
@@ -119,12 +119,11 @@ export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'not
       // Remove legacy unencrypted storage after successful encrypted save
       localStorage.removeItem(STORAGE_KEY);
     } else {
-      // Fallback to unencrypted if no key (shouldn't happen)
-      console.warn('No encryption key available, saving unencrypted');
+      // Fallback to unencrypted if no key
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     }
-  } catch (e) {
-    console.error('Error saving state to localStorage:', e);
+  } catch {
+    // Storage save failed silently
   }
 }
 
@@ -143,8 +142,8 @@ export function loadFromStorage(): StoredState | null {
         folders: parsed.folders || []
       };
     }
-  } catch (e) {
-    console.error('Error loading state from localStorage:', e);
+  } catch {
+    // Storage load failed
   }
   return null;
 }
@@ -154,7 +153,7 @@ export function loadFromStorage(): StoredState | null {
  */
 export function saveToStorage(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): void {
   // Call async version but don't await (fire and forget for compatibility)
-  saveToStorageEncrypted(state).catch(console.error);
+  saveToStorageEncrypted(state).catch(() => {});
 }
 
 export function createExportData(state: Pick<AppState, 'notes' | 'tags' | 'folders'>): ExportData {
@@ -255,11 +254,9 @@ export async function importFromJsonFile(): Promise<ExportData | null> {
         if (validateImportData(data)) {
           resolve(data);
         } else {
-          console.error('Invalid import data format');
           resolve(null);
         }
-      } catch (error) {
-        console.error('Error parsing import file:', error);
+      } catch {
         resolve(null);
       }
     };
