@@ -23,13 +23,19 @@ interface TreeItemProps {
   onToggleFolder: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, type: 'folder' | 'note', id: string) => void;
   onMoveNote?: (noteId: string, targetFolderId: string | null) => void;
+  editingFolderId: string | null;
+  editingFolderName: string;
+  onEditingFolderNameChange: (name: string) => void;
+  onSaveFolderName: () => void;
+  onFolderKeyDown: (e: React.KeyboardEvent) => void;
 }
 
-function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote }: TreeItemProps) {
+function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown }: TreeItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = folders.filter(f => f.parentId === folder.id);
   const childNotes = notes.filter(n => n.parentId === folder.id);
   const hasChildren = childFolders.length > 0 || childNotes.length > 0;
+  const isEditing = editingFolderId === folder.id;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -57,7 +63,7 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onTo
     <div className="tree-item">
       <div
         className={`tree-item-row ${isDragOver ? 'drag-over' : ''}`}
-        onClick={() => onToggleFolder(folder.id)}
+        onClick={() => !isEditing && onToggleFolder(folder.id)}
         onContextMenu={(e) => onContextMenu(e, 'folder', folder.id)}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -71,7 +77,20 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onTo
           <ChevronRightIcon />
         </button>
         <span className="tree-icon"><FolderIcon /></span>
-        <span className="tree-label">{folder.name}</span>
+        {isEditing ? (
+          <input
+            type="text"
+            className="folder-edit-input"
+            value={editingFolderName}
+            onChange={(e) => onEditingFolderNameChange(e.target.value)}
+            onBlur={onSaveFolderName}
+            onKeyDown={onFolderKeyDown}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="tree-label">{folder.name}</span>
+        )}
       </div>
       {folder.expanded && hasChildren && (
         <div className="tree-children expanded">
@@ -86,6 +105,11 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onTo
               onToggleFolder={onToggleFolder}
               onContextMenu={onContextMenu}
               onMoveNote={onMoveNote}
+              editingFolderId={editingFolderId}
+              editingFolderName={editingFolderName}
+              onEditingFolderNameChange={onEditingFolderNameChange}
+              onSaveFolderName={onSaveFolderName}
+              onFolderKeyDown={onFolderKeyDown}
             />
           ))}
           {childNotes.map(note => (
@@ -157,6 +181,8 @@ export function Sidebar() {
   const [tagContextMenu, setTagContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState('');
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showEncryptionInfo, setShowEncryptionInfo] = useState(false);
@@ -237,6 +263,33 @@ export function Sidebar() {
       createFolder(parentId);
     }
     closeContextMenu();
+  };
+
+  const handleStartEditFolder = () => {
+    if (!contextMenu || contextMenu.type !== 'folder') return;
+    const folder = state.folders.find(f => f.id === contextMenu.id);
+    if (folder) {
+      setEditingFolderId(folder.id);
+      setEditingFolderName(folder.name);
+    }
+    closeContextMenu();
+  };
+
+  const handleSaveFolderName = () => {
+    if (editingFolderId && editingFolderName.trim()) {
+      updateFolder(editingFolderId, { name: editingFolderName.trim() });
+    }
+    setEditingFolderId(null);
+    setEditingFolderName('');
+  };
+
+  const handleFolderKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveFolderName();
+    } else if (e.key === 'Escape') {
+      setEditingFolderId(null);
+      setEditingFolderName('');
+    }
   };
 
   const getTagNoteCount = (tagId: string) => {
@@ -328,6 +381,11 @@ export function Sidebar() {
               onToggleFolder={handleToggleFolder}
               onContextMenu={handleContextMenu}
               onMoveNote={moveNote}
+              editingFolderId={editingFolderId}
+              editingFolderName={editingFolderName}
+              onEditingFolderNameChange={setEditingFolderName}
+              onSaveFolderName={handleSaveFolderName}
+              onFolderKeyDown={handleFolderKeyDown}
             />
           ))}
           {rootNotes.map(note => (
@@ -444,6 +502,15 @@ export function Sidebar() {
             <FolderIcon />
             <span>{t.newFolder}</span>
           </button>
+          {contextMenu.type === 'folder' && (
+            <>
+              <div className="context-menu-divider" />
+              <button className="context-menu-item" onClick={handleStartEditFolder}>
+                <EditIcon />
+                <span>{t.rename}</span>
+              </button>
+            </>
+          )}
           <div className="context-menu-divider" />
           <button className="context-menu-item" onClick={handleDelete}>
             <DeleteIcon />

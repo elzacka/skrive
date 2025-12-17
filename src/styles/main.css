@@ -254,7 +254,8 @@ body {
   padding: 4px 6px;
 }
 
-.tag-edit-input {
+.tag-edit-input,
+.folder-edit-input {
   width: 100%;
   padding: 2px 4px;
   border: 1px solid var(--accent);
@@ -263,6 +264,11 @@ body {
   background: var(--bg);
   color: var(--text);
   outline: none;
+}
+
+.folder-edit-input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Notes Section */
