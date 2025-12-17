@@ -241,9 +241,11 @@ export function Sidebar() {
   const mac = isMac();
   const shortcuts = {
     newNote: mac ? '⌥N' : 'Ctrl+Shift+1',
-    tags: mac ? '⌥T' : 'Ctrl+Shift+2',
+    search: mac ? '⌘K' : 'Ctrl+K',
+    save: mac ? '⌘S' : 'Ctrl+S',
     toggleSidebar: mac ? '⌥M' : 'Ctrl+Shift+3',
-    search: mac ? '⌘K' : 'Ctrl+K'
+    undo: mac ? '⌘Z' : 'Ctrl+Z',
+    redo: mac ? '⌘⇧Z' : 'Ctrl+Y'
   };
 
   return (
@@ -378,16 +380,24 @@ export function Sidebar() {
               <span className="shortcut-desc">{t.newNoteShortcut}</span>
             </div>
             <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.tags}</span>
-              <span className="shortcut-desc">{t.tagsShortcut}</span>
+              <span className="shortcut-key">{shortcuts.search}</span>
+              <span className="shortcut-desc">{t.searchShortcut}</span>
+            </div>
+            <div className="shortcut-item">
+              <span className="shortcut-key">{shortcuts.save}</span>
+              <span className="shortcut-desc">{t.saveShortcut}</span>
+            </div>
+            <div className="shortcut-item">
+              <span className="shortcut-key">{shortcuts.undo}</span>
+              <span className="shortcut-desc">{t.undoShortcut}</span>
+            </div>
+            <div className="shortcut-item">
+              <span className="shortcut-key">{shortcuts.redo}</span>
+              <span className="shortcut-desc">{t.redoShortcut}</span>
             </div>
             <div className="shortcut-item">
               <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
               <span className="shortcut-desc">{t.toggleSidebar}</span>
-            </div>
-            <div className="shortcut-item">
-              <span className="shortcut-key">{shortcuts.search}</span>
-              <span className="shortcut-desc">{t.search.replace('...', '')}</span>
             </div>
           </div>
         )}

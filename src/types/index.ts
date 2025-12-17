@@ -123,8 +123,11 @@ export interface I18nStrings {
   rename: string;
   shortcuts: string;
   newNoteShortcut: string;
-  tagsShortcut: string;
+  searchShortcut: string;
+  saveShortcut: string;
   toggleSidebar: string;
+  undoShortcut: string;
+  redoShortcut: string;
   exportShortcut: string;
   formatShortcut: string;
   formatting: string;
