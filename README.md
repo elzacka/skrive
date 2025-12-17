@@ -17,10 +17,10 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 
 ## Sikkerhet
 
-- **Kryptering**: AEGIS-256 (på enheter med AES-akselerasjon) eller XChaCha20-Poly1305 (fallback)
-- **XSS-beskyttelse**: HTML saniteres med DOMPurify
-- **Content Security Policy**: Streng CSP forhindrer uautorisert kodekjøring
-- **Lokal lagring**: All data forblir på enheten din
+- **Kryptering (E2E)**: AEGIS-256 (på enheter med AES-akselerasjon) eller XChaCha20-Poly1305 (fallback).
+- **XSS-beskyttelse**: HTML renses med DOMPurify. Fjerner ondsinnet kode og skript fra brukerinput.
+- **Content Security Policy**: Streng CSP forhindrer uautorisert kodekjøring.
+- **Lokal lagring**: All data forblir på enheten din.
 
 ## Teknologier
 
