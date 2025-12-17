@@ -269,9 +269,7 @@ body {
 .folder-edit-input {
   flex: 1;
   min-width: 0;
-  border: none;
   background: transparent;
-  outline: none;
 }
 
 /* Notes Section */
