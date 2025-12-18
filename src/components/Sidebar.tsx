@@ -468,48 +468,24 @@ export function Sidebar() {
             <div className="shortcuts-title">{t.shortcuts}</div>
             <div className="shortcuts-grid">
               <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.newNote}</span>
-                <span className="shortcut-desc">{t.newNoteShortcut}</span>
-              </div>
-              <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.bodyText}</span>
                 <span className="shortcut-desc">{t.bodyTextShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.search}</span>
-                <span className="shortcut-desc">{t.searchShortcut}</span>
               </div>
               <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.heading1}</span>
                 <span className="shortcut-desc">{t.heading1Shortcut}</span>
               </div>
               <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.save}</span>
-                <span className="shortcut-desc">{t.saveShortcut}</span>
-              </div>
-              <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.heading2}</span>
                 <span className="shortcut-desc">{t.heading2Shortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.undo}</span>
-                <span className="shortcut-desc">{t.undoShortcut}</span>
               </div>
               <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.heading3}</span>
                 <span className="shortcut-desc">{t.heading3Shortcut}</span>
               </div>
               <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.redo}</span>
-                <span className="shortcut-desc">{t.redoShortcut}</span>
-              </div>
-              <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.bold}</span>
                 <span className="shortcut-desc">{t.boldShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
-                <span className="shortcut-desc">{t.toggleSidebar}</span>
               </div>
               <div className="shortcut-item">
                 <span className="shortcut-key">{shortcuts.italic}</span>
@@ -539,6 +515,30 @@ export function Sidebar() {
                 <span className="shortcut-key">{shortcuts.quote}</span>
                 <span className="shortcut-desc">{t.quoteShortcut}</span>
               </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.newNote}</span>
+                <span className="shortcut-desc">{t.newNoteShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.search}</span>
+                <span className="shortcut-desc">{t.searchShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.save}</span>
+                <span className="shortcut-desc">{t.saveShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
+                <span className="shortcut-desc">{t.toggleSidebar}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.undo}</span>
+                <span className="shortcut-desc">{t.undoShortcut}</span>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-key">{shortcuts.redo}</span>
+                <span className="shortcut-desc">{t.redoShortcut}</span>
+              </div>
             </div>
           </div>
         )}
@@ -547,7 +547,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.2.2</span>
+        <span>v2.2.3</span>
       </div>
 
       {contextMenu && (
