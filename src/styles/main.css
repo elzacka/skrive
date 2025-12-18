@@ -1293,6 +1293,39 @@ body {
   .sidebar:not(.hidden) ~ .sidebar-toggle {
     left: calc(100% - 24px);
   }
+
+  /* Editor panel takes full width on mobile */
+  .editor-panel {
+    margin-left: 0;
+  }
+
+  /* Show toggle when sidebar hidden */
+  .sidebar.hidden ~ .editor-panel {
+    margin-left: 24px;
+  }
+
+  /* Formatting toolbar scrollable on mobile */
+  .formatting-toolbar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding: 8px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .format-group {
+    flex-shrink: 0;
+  }
+
+  /* Editor container */
+  .editor-container.with-preview {
+    flex-direction: column;
+  }
+
+  .preview-pane {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 40vh;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1300,15 +1333,89 @@ body {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
+    padding: 8px 12px;
   }
 
   .header-actions {
-    justify-content: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .action-btn {
     padding: 6px 8px;
     font-size: 10px;
+  }
+
+  /* Smaller format buttons on small screens */
+  .format-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .style-select {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+
+  /* Tag picker full width on mobile */
+  .tag-picker {
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+
+  /* Editor padding */
+  .editor {
+    padding: 12px;
+  }
+
+  /* Sidebar footer adjustments */
+  .sidebar-footer-buttons {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .shortcuts-popup {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .shortcuts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Larger touch targets for mobile */
+  .new-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .new-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tree-item-row {
+    min-height: 40px;
+  }
+
+  .tag-chip {
+    padding: 6px 10px;
+  }
+
+  .sidebar-footer-btn {
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .sidebar-footer-btn svg {
+    width: 18px;
+    height: 18px;
   }
 }
 
