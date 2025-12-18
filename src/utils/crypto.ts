@@ -4,9 +4,18 @@
  * Uses AEGIS-256 (preferred) with XChaCha20-Poly1305 fallback
  * - AEGIS-256: 256-bit key, 256-bit nonce, key-committing, fastest on modern HW
  * - XChaCha20-Poly1305: 256-bit key, 192-bit nonce, constant-time fallback
+ *
+ * Key Management:
+ * - Keys are derived from user password using Argon2id
+ * - Salt is stored in localStorage (not sensitive)
+ * - Master key is NEVER persisted, only kept in memory during session
  */
 
 import sodium from 'libsodium-wrappers';
+
+// Storage keys
+const SALT_STORAGE_KEY = 'skrive-salt';
+const KEY_VERIFICATION_KEY = 'skrive-key-verify';
 
 // Encryption algorithm type
 export type EncryptionAlgorithm = 'aegis256' | 'xchacha20';
@@ -19,7 +28,7 @@ export interface EncryptedData {
   version: number;    // for future compatibility
 }
 
-// Master key stored in memory only
+// Master key stored in memory only (NEVER persisted)
 let masterKey: Uint8Array | null = null;
 let isInitialized = false;
 let preferredAlgorithm: EncryptionAlgorithm = 'xchacha20';
@@ -83,6 +92,138 @@ export function clearMasterKey(): void {
     // Overwrite with zeros before clearing
     masterKey.fill(0);
     masterKey = null;
+  }
+}
+
+/**
+ * Get or generate salt for key derivation
+ */
+function getOrCreateSalt(): Uint8Array {
+  const storedSalt = localStorage.getItem(SALT_STORAGE_KEY);
+  if (storedSalt) {
+    try {
+      return sodium.from_base64(storedSalt, sodium.base64_variants.URLSAFE_NO_PADDING);
+    } catch {
+      // Salt corrupted, generate new one
+    }
+  }
+
+  // Generate new 16-byte salt
+  const salt = sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES);
+  localStorage.setItem(SALT_STORAGE_KEY, sodium.to_base64(salt, sodium.base64_variants.URLSAFE_NO_PADDING));
+  return salt;
+}
+
+/**
+ * Derive encryption key from password using Argon2id
+ * This is the secure alternative to storing keys in localStorage
+ */
+export async function deriveKeyFromPassword(password: string): Promise<Uint8Array> {
+  await initCrypto();
+
+  const salt = getOrCreateSalt();
+
+  // Use Argon2id with interactive parameters (good balance of security and speed)
+  const key = sodium.crypto_pwhash(
+    32, // 256-bit key
+    password,
+    salt,
+    sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
+    sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
+    sodium.crypto_pwhash_ALG_ARGON2ID13
+  );
+
+  return key;
+}
+
+/**
+ * Set up encryption with a password (for new users or password change)
+ * Creates verification data to later validate password
+ */
+export async function setupPasswordEncryption(password: string): Promise<void> {
+  const key = await deriveKeyFromPassword(password);
+  setMasterKey(key);
+
+  // Store verification data (encrypted known string)
+  const verificationData = await encrypt('skrive-verification-token', key);
+  localStorage.setItem(KEY_VERIFICATION_KEY, JSON.stringify(verificationData));
+}
+
+/**
+ * Verify password and unlock encryption
+ * Returns true if password is correct
+ */
+export async function unlockWithPassword(password: string): Promise<boolean> {
+  const key = await deriveKeyFromPassword(password);
+
+  // Try to decrypt verification data
+  const storedVerification = localStorage.getItem(KEY_VERIFICATION_KEY);
+  if (!storedVerification) {
+    // No verification data = new user, set up encryption
+    await setupPasswordEncryption(password);
+    return true;
+  }
+
+  try {
+    const verificationData = JSON.parse(storedVerification) as EncryptedData;
+    const decrypted = await decrypt(verificationData, key);
+
+    if (decrypted === 'skrive-verification-token') {
+      setMasterKey(key);
+      return true;
+    }
+  } catch {
+    // Decryption failed = wrong password
+  }
+
+  return false;
+}
+
+/**
+ * Check if password-based encryption is set up
+ */
+export function isPasswordEncryptionSetup(): boolean {
+  return localStorage.getItem(KEY_VERIFICATION_KEY) !== null;
+}
+
+/**
+ * Check if there's existing data that needs migration from old key storage
+ */
+export function hasLegacyKeyStorage(): boolean {
+  return localStorage.getItem('skrive-key') !== null;
+}
+
+/**
+ * Migrate from legacy key storage to password-based encryption
+ */
+export async function migrateFromLegacyKey(password: string): Promise<boolean> {
+  const legacyKey = localStorage.getItem('skrive-key');
+  if (!legacyKey) return false;
+
+  try {
+    // Import the old key
+    const oldKey = importKeyFromBase64(legacyKey);
+    setMasterKey(oldKey);
+
+    // Existing encrypted data will be re-encrypted with new key on next save
+    // No need to load it here - AppContext handles that
+
+    // Set up new password-based encryption
+    const newKey = await deriveKeyFromPassword(password);
+
+    // Create verification data with new key
+    const verificationData = await encrypt('skrive-verification-token', newKey);
+    localStorage.setItem(KEY_VERIFICATION_KEY, JSON.stringify(verificationData));
+
+    // Update master key to new derived key
+    setMasterKey(newKey);
+
+    // Remove legacy key storage
+    localStorage.removeItem('skrive-key');
+
+    return true;
+  } catch {
+    return false;
   }
 }
 

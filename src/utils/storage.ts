@@ -3,17 +3,14 @@ import {
   initCrypto,
   encrypt,
   decrypt,
-  generateMasterKey,
-  setMasterKey,
   getMasterKey,
-  exportKeyToBase64,
-  importKeyFromBase64,
+  isPasswordEncryptionSetup,
+  hasLegacyKeyStorage,
   type EncryptedData
 } from './crypto';
 
 const STORAGE_KEY = 'skrive-state';
 const ENCRYPTED_STORAGE_KEY = 'skrive-encrypted';
-const KEY_STORAGE_KEY = 'skrive-key';
 const VERSION = '2.0.0';
 
 export interface StoredState {
@@ -30,29 +27,38 @@ interface EncryptedStoredState {
 
 /**
  * Initialize encryption on app startup
- * Generates or loads existing master key
+ * Now requires password-based unlock (key is never stored)
  */
 export async function initializeEncryption(): Promise<void> {
   await initCrypto();
+  // Key derivation is now handled by password prompt in App.tsx
+  // Master key is derived from password using Argon2id
+}
 
-  // Try to load existing key from localStorage
-  const storedKey = localStorage.getItem(KEY_STORAGE_KEY);
-  if (storedKey) {
-    try {
-      const key = importKeyFromBase64(storedKey);
-      setMasterKey(key);
-      return;
-    } catch {
-      // Key corrupted, will generate new one
-    }
+/**
+ * Check if encryption needs to be unlocked (password required)
+ */
+export function needsPasswordUnlock(): boolean {
+  // If there's legacy key storage, migration is needed
+  if (hasLegacyKeyStorage()) {
+    return true;
   }
+  // If password encryption is set up but no key in memory
+  if (isPasswordEncryptionSetup() && !getMasterKey()) {
+    return true;
+  }
+  // New user - will need to set up password
+  if (!isPasswordEncryptionSetup() && !getMasterKey()) {
+    return true;
+  }
+  return false;
+}
 
-  // Generate new master key
-  const newKey = await generateMasterKey();
-  setMasterKey(newKey);
-
-  // Store key locally (for this device only)
-  localStorage.setItem(KEY_STORAGE_KEY, exportKeyToBase64(newKey));
+/**
+ * Check if this is a new user (no existing data)
+ */
+export function isNewUser(): boolean {
+  return !isPasswordEncryptionSetup() && !hasLegacyKeyStorage();
 }
 
 /**
@@ -234,23 +240,33 @@ export function exportToJsonFile(data: ExportData): void {
   URL.revokeObjectURL(url);
 }
 
+// Maximum file size for import (50MB)
+const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
+
 export async function importFromJsonFile(): Promise<ExportData | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    
+
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) {
         resolve(null);
         return;
       }
-      
+
+      // Check file size BEFORE parsing to prevent DoS
+      if (file.size > MAX_IMPORT_FILE_SIZE) {
+        console.warn('Import file too large:', file.size, 'bytes');
+        resolve(null);
+        return;
+      }
+
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        
+
         if (validateImportData(data)) {
           resolve(data);
         } else {
@@ -260,7 +276,7 @@ export async function importFromJsonFile(): Promise<ExportData | null> {
         resolve(null);
       }
     };
-    
+
     input.click();
   });
 }
