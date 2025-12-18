@@ -125,7 +125,7 @@ body {
 }
 
 /* Hide title bar when running as installed PWA to avoid duplicate "Skrive" */
-@media (display-mode: standalone) {
+@media (display-mode: standalone), (display-mode: fullscreen) {
   .title-bar {
     display: none;
   }
