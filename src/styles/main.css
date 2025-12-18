@@ -124,6 +124,23 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Hide title bar when running as installed PWA (standalone mode) */
+@media (display-mode: standalone) {
+  :root {
+    --title-bar-height: 0px;
+  }
+
+  .title-bar {
+    display: none;
+  }
+}
+
+@media not (display-mode: standalone) {
+  :root {
+    --title-bar-height: 48px;
+  }
+}
+
 /* Sidebar Toggle */
 .sidebar-toggle {
   position: absolute;
@@ -1275,9 +1292,9 @@ body {
 
   .sidebar {
     position: fixed;
-    top: 48px;
+    top: var(--title-bar-height, 48px);
     left: 0;
-    height: calc(100% - 48px);
+    height: calc(100% - var(--title-bar-height, 48px));
     z-index: 100;
   }
 
