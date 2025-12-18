@@ -124,20 +124,15 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Hide title bar when running as installed PWA (standalone mode) */
+/* Hide title bar when running as installed PWA to avoid duplicate "Skrive" */
 @media (display-mode: standalone) {
-  :root {
-    --title-bar-height: 0px;
-  }
-
   .title-bar {
     display: none;
   }
-}
 
-@media not (display-mode: standalone) {
-  :root {
-    --title-bar-height: 48px;
+  .sidebar {
+    top: 0;
+    height: 100%;
   }
 }
 
@@ -1292,9 +1287,9 @@ body {
 
   .sidebar {
     position: fixed;
-    top: var(--title-bar-height, 48px);
+    top: 48px;
     left: 0;
-    height: calc(100% - var(--title-bar-height, 48px));
+    height: calc(100% - 48px);
     z-index: 100;
   }
 
