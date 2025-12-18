@@ -7,7 +7,6 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 - **Ende-til-ende-kryptering**: Alle notater krypteres lokalt med AEGIS-256 eller XChaCha20-Poly1305
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
 - **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
-- **File System Access API**: Koble til en lokal mappe for permanent lagring (Chrome/Edge)
 - **Import/Eksport**: Eksporter alle notater som JSON for backup eller synkronisering mellom enheter
 - **Flere formater**: Støtter ren tekst, rik tekst og Markdown
 - **Etiketter og mapper**: Organiser notatene dine med etiketter og mappestruktur
@@ -46,7 +45,6 @@ Skrive stoler på enhetens sikkerhet (biometri, PIN, passord). Krypteringsnøkke
 | libsodium-wrappers | 0.7.15 |
 | DOMPurify | 3.3.1 |
 | vite-plugin-pwa | 1.2.0 |
-| react-router | 7.10.1 |
 
 ## Kom i gang
 
@@ -89,8 +87,9 @@ npm run preview
 ```
 skrive/
 ├── public/              # Statiske filer
+│   ├── fonts/           # Self-hosted fonter
 │   ├── icons/           # PWA-ikoner
-│   └── favicon.svg      # Favicon
+│   └── favicon.png      # Favicon
 ├── src/
 │   ├── components/      # React-komponenter
 │   ├── contexts/        # React Context providers
@@ -110,31 +109,14 @@ skrive/
 
 ## Tastatursnarveier
 
-### Mac
-- `Opt+N` - Nytt notat
-- `Opt+M` - Vis/skjul sidepanel
-- `Cmd+S` - Eksporter notat
+### Navigasjon
 
-### Windows/Linux
-- `Ctrl+Shift+1` - Nytt notat
-- `Ctrl+Shift+3` - Vis/skjul sidepanel
-- `Ctrl+S` - Eksporter notat
-
-## Synkronisering mellom enheter
-
-Skrive bruker ikke sky-lagring. I stedet kan du synkronisere manuelt:
-
-1. **Eksporter data**: Meny -> Eksporter alle data -> Lagre JSON-filen
-2. **Overfør filen**: Bruk e-post, sky-lagring (Google Drive, Dropbox, etc.), eller annen metode
-3. **Importer data**: På den andre enheten: Meny -> Importer data -> Velg JSON-filen
-
-### Alternativ: File System Access API
-
-Hvis du bruker Chrome eller Edge, kan du koble til en mappe som synkroniseres via en sky-tjeneste (f.eks. Dropbox eller OneDrive):
-
-1. Meny -> Koble til mappe
-2. Velg en mappe i din synkroniserte sky-mappe
-3. Notater eksporteres automatisk til denne mappen
+| Handling | Mac | Windows/Linux |
+|----------|-----|---------------|
+| Nytt notat | `Opt+N` | `Ctrl+Shift+1` |
+| Vis/skjul sidepanel | `Opt+M` | `Ctrl+Shift+3` |
+| Søk | `Cmd+K` | `Ctrl+K` |
+| Eksporter notat | `Cmd+S` | `Ctrl+S` |
 
 ## PWA-ikoner
 

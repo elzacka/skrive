@@ -146,7 +146,7 @@ body {
 .sidebar-toggle svg {
   width: 14px;
   height: 14px;
-  fill: #fff;
+  color: #fff;
 }
 
 .sidebar-toggle:hover {
