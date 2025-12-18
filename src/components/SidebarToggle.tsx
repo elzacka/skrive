@@ -1,20 +1,5 @@
 import { useApp } from '@/contexts';
-
-function ChevronLeftIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-    </svg>
-  );
-}
+import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 export function SidebarToggle() {
   const { state, toggleSidebar } = useApp();
@@ -29,7 +14,7 @@ export function SidebarToggle() {
       aria-label={label}
       title={label}
     >
-      {state.sidebarVisible ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+      {state.sidebarVisible ? <ChevronLeftIcon size={20} /> : <ChevronRightIcon size={20} />}
     </button>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
@@ -137,6 +137,14 @@ export function Editor() {
   const t = i18n[state.lang];
   const note = getSelectedNote();
   const mac = isMac();
+
+  // Memoize markdown preview to avoid re-conversion on every render
+  const markdownPreviewHtml = useMemo(() => {
+    if (note?.format === 'markdown' && note.content) {
+      return markdownToHtml(note.content);
+    }
+    return '';
+  }, [note?.format, note?.content]);
 
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -886,7 +894,7 @@ export function Editor() {
         {note.format === 'markdown' && showPreview && (
           <div className="preview-pane" aria-label={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}>
             <div className="markdown-preview" dir="ltr">
-              <div dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }} />
+              <div dangerouslySetInnerHTML={{ __html: markdownPreviewHtml }} />
             </div>
           </div>
         )}

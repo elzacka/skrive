@@ -17,10 +17,24 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 
 ## Sikkerhet
 
-- **Kryptering (E2E)**: AEGIS-256 (på enheter med AES-akselerasjon) eller XChaCha20-Poly1305 (fallback).
-- **XSS-beskyttelse**: HTML renses med DOMPurify. Fjerner ondsinnet kode og skript fra brukerinput.
-- **Content Security Policy**: Streng CSP forhindrer uautorisert kodekjøring.
-- **Lokal lagring**: All data forblir på enheten din.
+Skrive er utviklet med sikkerhet som prioritet. Se [personvernerklæringen](https://elzacka.github.io/skrive/personvern.html) for detaljer.
+
+| Tiltak | Beskrivelse |
+|--------|-------------|
+| **Kryptering** | AEGIS-256 (AES-akselerert) eller XChaCha20-Poly1305 (fallback) |
+| **XSS-beskyttelse** | DOMPurify med streng whitelist |
+| **CSP** | Streng Content Security Policy uten `unsafe-inline` |
+| **Clickjacking** | `frame-ancestors: none` blokkerer iframe-embedding |
+| **HTTPS** | Automatisk redirect til HTTPS i produksjon |
+| **GDPR** | Ingen ekstern datadeling, self-hosted fonter |
+| **Lokal lagring** | All data forblir kryptert på enheten |
+
+### Sikkerhetsmodell
+
+Skrive stoler på enhetens sikkerhet (biometri, PIN, passord). Krypteringsnøkkelen lagres i nettleseren og er beskyttet av:
+1. Enhetens låseskjerm
+2. Streng CSP som blokkerer XSS-angrep
+3. Same-origin policy (nøkkelen er kun tilgjengelig fra Skrive)
 
 ## Teknologier
 

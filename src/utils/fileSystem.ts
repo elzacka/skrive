@@ -30,8 +30,8 @@ export async function storeDirectoryHandle(handle: FileSystemDirectoryHandle): P
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
-    // IndexedDB storage failed
+  } catch (error) {
+    console.warn('Failed to store directory handle in IndexedDB:', error);
   }
 }
 
@@ -46,7 +46,8 @@ export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHan
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
-  } catch {
+  } catch (error) {
+    console.warn('Failed to get directory handle from IndexedDB:', error);
     return null;
   }
 }
@@ -61,8 +62,8 @@ export async function clearStoredDirectoryHandle(): Promise<void> {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
-    // Clear failed silently
+  } catch (error) {
+    console.warn('Failed to clear directory handle from IndexedDB:', error);
   }
 }
 
@@ -74,7 +75,8 @@ export async function requestDirectoryAccess(): Promise<FileSystemDirectoryHandl
     });
     await storeDirectoryHandle(handle);
     return handle;
-  } catch {
+  } catch (error) {
+    // User cancelled or permission denied - this is expected behavior
     return null;
   }
 }
@@ -120,7 +122,8 @@ export async function saveNoteToDirectory(
     await writable.close();
     
     return true;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to save note to directory:', error);
     return false;
   }
 }
@@ -140,9 +143,10 @@ export async function saveAllNotesToDirectory(
     for (const note of notes) {
       await saveNoteToDirectory(skriveDir, note);
     }
-    
+
     return true;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to save all notes to directory:', error);
     return false;
   }
 }
@@ -161,9 +165,10 @@ export async function exportDataToDirectory(
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(data, null, 2));
     await writable.close();
-    
+
     return true;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to export data to directory:', error);
     return false;
   }
 }

@@ -6,16 +6,38 @@
  * - XChaCha20-Poly1305: 256-bit key, 192-bit nonce, constant-time fallback
  *
  * Key Management:
- * - Keys are derived from user password using Argon2id
- * - Salt is stored in localStorage (not sensitive)
- * - Master key is NEVER persisted, only kept in memory during session
+ * - Keys are generated once and stored in localStorage
+ * - Device-level security (biometrics, PIN, password) protects stored data
+ * - Master key is loaded into memory on app initialization
  */
 
 import sodium from 'libsodium-wrappers';
 
-// Storage keys
-const SALT_STORAGE_KEY = 'skrive-salt';
-const KEY_VERIFICATION_KEY = 'skrive-key-verify';
+// Type augmentation for AEGIS-256 functions (not in default libsodium types)
+interface SodiumWithAegis {
+  crypto_aead_aegis256_encrypt(
+    message: Uint8Array,
+    additional_data: Uint8Array | null,
+    secret_nonce: null,
+    public_nonce: Uint8Array,
+    key: Uint8Array
+  ): Uint8Array;
+  crypto_aead_aegis256_decrypt(
+    secret_nonce: null,
+    ciphertext: Uint8Array,
+    additional_data: Uint8Array | null,
+    public_nonce: Uint8Array,
+    key: Uint8Array
+  ): Uint8Array | null;
+}
+
+// Helper to check if AEGIS-256 is available
+function hasAegis256Support(s: typeof sodium): s is typeof sodium & SodiumWithAegis {
+  return typeof (s as SodiumWithAegis).crypto_aead_aegis256_encrypt === 'function';
+}
+
+// Storage key for encryption key
+const KEY_STORAGE_KEY = 'skrive-key';
 
 // Encryption algorithm type
 export type EncryptionAlgorithm = 'aegis256' | 'xchacha20';
@@ -28,7 +50,7 @@ export interface EncryptedData {
   version: number;    // for future compatibility
 }
 
-// Master key stored in memory only (NEVER persisted)
+// Master key stored in memory
 let masterKey: Uint8Array | null = null;
 let isInitialized = false;
 let preferredAlgorithm: EncryptionAlgorithm = 'xchacha20';
@@ -42,8 +64,7 @@ export async function initCrypto(): Promise<void> {
   await sodium.ready;
 
   // Check if AEGIS-256 is available (requires AES hardware acceleration)
-  // libsodium will have crypto_aead_aegis256_* functions if supported
-  if (typeof (sodium as any).crypto_aead_aegis256_encrypt === 'function') {
+  if (hasAegis256Support(sodium)) {
     preferredAlgorithm = 'aegis256';
   } else {
     preferredAlgorithm = 'xchacha20';
@@ -71,7 +92,7 @@ export async function generateMasterKey(): Promise<Uint8Array> {
 }
 
 /**
- * Set the master key (from URL fragment or local storage)
+ * Set the master key (from localStorage or URL fragment)
  */
 export function setMasterKey(key: Uint8Array): void {
   masterKey = key;
@@ -96,135 +117,25 @@ export function clearMasterKey(): void {
 }
 
 /**
- * Get or generate salt for key derivation
+ * Initialize encryption: load existing key or generate new one
  */
-function getOrCreateSalt(): Uint8Array {
-  const storedSalt = localStorage.getItem(SALT_STORAGE_KEY);
-  if (storedSalt) {
-    try {
-      return sodium.from_base64(storedSalt, sodium.base64_variants.URLSAFE_NO_PADDING);
-    } catch {
-      // Salt corrupted, generate new one
-    }
-  }
-
-  // Generate new 16-byte salt
-  const salt = sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES);
-  localStorage.setItem(SALT_STORAGE_KEY, sodium.to_base64(salt, sodium.base64_variants.URLSAFE_NO_PADDING));
-  return salt;
-}
-
-/**
- * Derive encryption key from password using Argon2id
- * This is the secure alternative to storing keys in localStorage
- */
-export async function deriveKeyFromPassword(password: string): Promise<Uint8Array> {
+export async function initializeEncryption(): Promise<void> {
   await initCrypto();
 
-  const salt = getOrCreateSalt();
-
-  // Use Argon2id with interactive parameters (good balance of security and speed)
-  const key = sodium.crypto_pwhash(
-    32, // 256-bit key
-    password,
-    salt,
-    sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE,
-    sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE,
-    sodium.crypto_pwhash_ALG_ARGON2ID13
-  );
-
-  return key;
-}
-
-/**
- * Set up encryption with a password (for new users or password change)
- * Creates verification data to later validate password
- */
-export async function setupPasswordEncryption(password: string): Promise<void> {
-  const key = await deriveKeyFromPassword(password);
-  setMasterKey(key);
-
-  // Store verification data (encrypted known string)
-  const verificationData = await encrypt('skrive-verification-token', key);
-  localStorage.setItem(KEY_VERIFICATION_KEY, JSON.stringify(verificationData));
-}
-
-/**
- * Verify password and unlock encryption
- * Returns true if password is correct
- */
-export async function unlockWithPassword(password: string): Promise<boolean> {
-  const key = await deriveKeyFromPassword(password);
-
-  // Try to decrypt verification data
-  const storedVerification = localStorage.getItem(KEY_VERIFICATION_KEY);
-  if (!storedVerification) {
-    // No verification data = new user, set up encryption
-    await setupPasswordEncryption(password);
-    return true;
-  }
-
-  try {
-    const verificationData = JSON.parse(storedVerification) as EncryptedData;
-    const decrypted = await decrypt(verificationData, key);
-
-    if (decrypted === 'skrive-verification-token') {
-      setMasterKey(key);
-      return true;
+  // Try to load existing key from localStorage
+  const storedKey = localStorage.getItem(KEY_STORAGE_KEY);
+  if (storedKey) {
+    try {
+      masterKey = importKeyFromBase64(storedKey);
+      return;
+    } catch (error) {
+      console.warn('Stored encryption key corrupted, generating new one:', error);
     }
-  } catch {
-    // Decryption failed = wrong password
   }
 
-  return false;
-}
-
-/**
- * Check if password-based encryption is set up
- */
-export function isPasswordEncryptionSetup(): boolean {
-  return localStorage.getItem(KEY_VERIFICATION_KEY) !== null;
-}
-
-/**
- * Check if there's existing data that needs migration from old key storage
- */
-export function hasLegacyKeyStorage(): boolean {
-  return localStorage.getItem('skrive-key') !== null;
-}
-
-/**
- * Migrate from legacy key storage to password-based encryption
- */
-export async function migrateFromLegacyKey(password: string): Promise<boolean> {
-  const legacyKey = localStorage.getItem('skrive-key');
-  if (!legacyKey) return false;
-
-  try {
-    // Import the old key
-    const oldKey = importKeyFromBase64(legacyKey);
-    setMasterKey(oldKey);
-
-    // Existing encrypted data will be re-encrypted with new key on next save
-    // No need to load it here - AppContext handles that
-
-    // Set up new password-based encryption
-    const newKey = await deriveKeyFromPassword(password);
-
-    // Create verification data with new key
-    const verificationData = await encrypt('skrive-verification-token', newKey);
-    localStorage.setItem(KEY_VERIFICATION_KEY, JSON.stringify(verificationData));
-
-    // Update master key to new derived key
-    setMasterKey(newKey);
-
-    // Remove legacy key storage
-    localStorage.removeItem('skrive-key');
-
-    return true;
-  } catch {
-    return false;
-  }
+  // Generate new key for new users
+  masterKey = await generateMasterKey();
+  localStorage.setItem(KEY_STORAGE_KEY, exportKeyToBase64(masterKey));
 }
 
 /**
@@ -254,7 +165,7 @@ export async function encrypt(plaintext: string, key?: Uint8Array): Promise<Encr
 
   const plaintextBytes = sodium.from_string(plaintext);
 
-  if (preferredAlgorithm === 'aegis256' && typeof (sodium as any).crypto_aead_aegis256_encrypt === 'function') {
+  if (preferredAlgorithm === 'aegis256' && hasAegis256Support(sodium)) {
     return encryptAegis256(plaintextBytes, encryptionKey);
   } else {
     return encryptXChaCha20(plaintextBytes, encryptionKey);
@@ -290,16 +201,17 @@ export async function decrypt(encryptedData: EncryptedData, key?: Uint8Array): P
  * Encrypt using AEGIS-256 (fastest, key-committing)
  */
 function encryptAegis256(plaintext: Uint8Array, key: Uint8Array): EncryptedData {
+  if (!hasAegis256Support(sodium)) {
+    throw new Error('AEGIS-256 not available');
+  }
+
   // AEGIS-256 uses 256-bit (32 byte) nonce
   const nonce = sodium.randombytes_buf(32);
 
-  // Empty additional data
-  const ad = new Uint8Array(0);
-
-  const ciphertext = (sodium as any).crypto_aead_aegis256_encrypt(
+  const ciphertext = sodium.crypto_aead_aegis256_encrypt(
     plaintext,
-    ad,
-    null, // nsec (not used)
+    null,
+    null,
     nonce,
     key
   );
@@ -316,12 +228,14 @@ function encryptAegis256(plaintext: Uint8Array, key: Uint8Array): EncryptedData 
  * Decrypt using AEGIS-256
  */
 function decryptAegis256(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array {
-  const ad = new Uint8Array(0);
+  if (!hasAegis256Support(sodium)) {
+    throw new Error('AEGIS-256 not available');
+  }
 
-  const plaintext = (sodium as any).crypto_aead_aegis256_decrypt(
-    null, // nsec (not used)
+  const plaintext = sodium.crypto_aead_aegis256_decrypt(
+    null,
     ciphertext,
-    ad,
+    null,
     nonce,
     key
   );
@@ -414,7 +328,8 @@ export function extractKeyFromUrl(): Uint8Array | null {
     }
 
     return key;
-  } catch {
+  } catch (error) {
+    console.warn('Failed to extract encryption key from URL:', error);
     return null;
   }
 }

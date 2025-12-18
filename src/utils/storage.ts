@@ -1,11 +1,9 @@
 import type { AppState, Note, Tag, Folder, ExportData } from '@/types';
 import {
-  initCrypto,
+  initializeEncryption,
   encrypt,
   decrypt,
   getMasterKey,
-  isPasswordEncryptionSetup,
-  hasLegacyKeyStorage,
   type EncryptedData
 } from './crypto';
 
@@ -27,38 +25,10 @@ interface EncryptedStoredState {
 
 /**
  * Initialize encryption on app startup
- * Now requires password-based unlock (key is never stored)
+ * Loads existing key from localStorage or generates a new one
  */
-export async function initializeEncryption(): Promise<void> {
-  await initCrypto();
-  // Key derivation is now handled by password prompt in App.tsx
-  // Master key is derived from password using Argon2id
-}
-
-/**
- * Check if encryption needs to be unlocked (password required)
- */
-export function needsPasswordUnlock(): boolean {
-  // If there's legacy key storage, migration is needed
-  if (hasLegacyKeyStorage()) {
-    return true;
-  }
-  // If password encryption is set up but no key in memory
-  if (isPasswordEncryptionSetup() && !getMasterKey()) {
-    return true;
-  }
-  // New user - will need to set up password
-  if (!isPasswordEncryptionSetup() && !getMasterKey()) {
-    return true;
-  }
-  return false;
-}
-
-/**
- * Check if this is a new user (no existing data)
- */
-export function isNewUser(): boolean {
-  return !isPasswordEncryptionSetup() && !hasLegacyKeyStorage();
+export async function initializeStorage(): Promise<void> {
+  await initializeEncryption();
 }
 
 /**
@@ -95,8 +65,8 @@ export async function loadFromStorageEncrypted(): Promise<StoredState | null> {
         folders: parsed.folders || []
       };
     }
-  } catch {
-    // Storage corrupted or decryption failed
+  } catch (error) {
+    console.warn('Failed to load storage (corrupted or decryption failed):', error);
   }
   return null;
 }
@@ -128,8 +98,8 @@ export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'not
       // Fallback to unencrypted if no key
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
     }
-  } catch {
-    // Storage save failed silently
+  } catch (error) {
+    console.warn('Failed to save to encrypted storage:', error);
   }
 }
 
@@ -148,8 +118,8 @@ export function loadFromStorage(): StoredState | null {
         folders: parsed.folders || []
       };
     }
-  } catch {
-    // Storage load failed
+  } catch (error) {
+    console.warn('Failed to load legacy storage:', error);
   }
   return null;
 }
@@ -159,7 +129,9 @@ export function loadFromStorage(): StoredState | null {
  */
 export function saveToStorage(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): void {
   // Call async version but don't await (fire and forget for compatibility)
-  saveToStorageEncrypted(state).catch(() => {});
+  saveToStorageEncrypted(state).catch((error) => {
+    console.warn('Failed to save storage:', error);
+  });
 }
 
 export function createExportData(state: Pick<AppState, 'notes' | 'tags' | 'folders'>): ExportData {
@@ -270,9 +242,11 @@ export async function importFromJsonFile(): Promise<ExportData | null> {
         if (validateImportData(data)) {
           resolve(data);
         } else {
+          console.warn('Import data validation failed');
           resolve(null);
         }
-      } catch {
+      } catch (error) {
+        console.warn('Failed to parse import file:', error);
         resolve(null);
       }
     };

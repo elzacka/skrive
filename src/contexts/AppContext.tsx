@@ -3,12 +3,12 @@ import type { AppState, Note, Tag, Folder, ExportData, FileSystemDirectoryHandle
 import {
   loadFromStorage,
   saveToStorage,
-  initializeEncryption,
   loadFromStorageEncrypted,
   createExportData,
   exportToJsonFile,
   importFromJsonFile
 } from '@/utils/storage';
+import { initializeEncryption } from '@/utils/crypto';
 import { 
   getStoredDirectoryHandle, 
   requestDirectoryAccess, 
