@@ -342,8 +342,11 @@ export function Editor() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmd = e.metaKey || e.ctrlKey;
 
-      // Undo/Redo (works globally)
-      if (isCmd && !e.altKey) {
+      // Undo/Redo - only for plain text and markdown
+      // For rich text (contentEditable), let browser handle native undo/redo
+      const isRichtextFocused = document.activeElement === richtextRef.current;
+
+      if (isCmd && !e.altKey && !isRichtextFocused) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
@@ -356,7 +359,6 @@ export function Editor() {
       }
 
       // Formatting shortcuts - only when editor has focus
-      const isRichtextFocused = document.activeElement === richtextRef.current;
       const isMarkdownFocused = document.activeElement === textareaRef.current && note?.format === 'markdown';
 
       if (!isCmd || !note) return;
@@ -409,6 +411,18 @@ export function Editor() {
         if (e.key === '7' && e.shiftKey && !e.altKey) {
           e.preventDefault();
           applyFormat('insertOrderedList');
+          return;
+        }
+        // Quote: Cmd/Ctrl+Shift+.
+        if (e.key === '.' && e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const text = selection.toString();
+            if (text) {
+              document.execCommand('formatBlock', false, 'blockquote');
+            }
+          }
           return;
         }
       }
