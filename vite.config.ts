@@ -31,7 +31,6 @@ export default defineConfig(({ mode }) => ({
         theme_color: '#0A520D',
         background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'portrait-primary',
         start_url: '/skrive/',
         scope: '/skrive/',
         icons: [

@@ -65,7 +65,12 @@ src/
 
 ## Icons
 
-All icons are self-hosted SVGs in src/components/Icons.tsx. Use Material Symbols/Design icons converted to inline SVG. Never load icons from external sources (Google Fonts, CDNs, etc.) to ensure offline functionality.
+**IMPORTANT**: All icons MUST be self-hosted SVGs in src/components/Icons.tsx to ensure offline functionality.
+
+- Use Material Symbols/Design icons converted to inline SVG paths
+- Never load icons from external sources (Google Fonts, CDNs, etc.)
+- Each icon is a React component that renders an inline `<svg>` element
+- To add a new icon: find the SVG path from Material Symbols, create a new export function in Icons.tsx
 
 ## Versioning
 

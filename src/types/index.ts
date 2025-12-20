@@ -168,7 +168,8 @@ export interface I18nStrings {
   lastSynced: string;
   install: string;
   untitled: string;
-  encryption: string;
+  securityPrivacy: string;
+  privacyPolicy: string;
   undo: string;
   redo: string;
   copy: string;

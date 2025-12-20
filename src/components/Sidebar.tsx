@@ -11,7 +11,8 @@ import {
   KeyboardIcon,
   EncryptedIcon,
   DeleteIcon,
-  EditIcon
+  EditIcon,
+  OpenInNewIcon
 } from './Icons';
 
 interface TreeItemProps {
@@ -190,7 +191,7 @@ export function Sidebar() {
   const [editingFolderName, setEditingFolderName] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
-  const [showEncryptionInfo, setShowEncryptionInfo] = useState(false);
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
   const sidebarRef = useRef<HTMLElement>(null);
@@ -201,7 +202,7 @@ export function Sidebar() {
       if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
         setShowShortcuts(false);
         setShowLangDropdown(false);
-        setShowEncryptionInfo(false);
+        setShowPrivacyInfo(false);
         setContextMenu(null);
         setTagContextMenu(null);
       }
@@ -349,7 +350,11 @@ export function Sidebar() {
   }), [mac]);
 
   return (
-    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowEncryptionInfo(false); }}>
+    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}>
+      <div className="sidebar-header">
+        <span className="sidebar-title">Skrive</span>
+      </div>
+
       <div className="search-container">
         <input
           type="search"
@@ -457,24 +462,33 @@ export function Sidebar() {
       <div className="sidebar-footer-buttons">
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowEncryptionInfo(!showEncryptionInfo); setShowShortcuts(false); }}
-          title={t.encryption}
-          aria-label={t.encryption}
+          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); }}
+          title={t.securityPrivacy}
+          aria-label={t.securityPrivacy}
         >
           <EncryptedIcon />
         </button>
-        {showEncryptionInfo && (
-          <div className="encryption-popup show" onClick={(e) => e.stopPropagation()}>
-            <p className="encryption-popup-text">
+        {showPrivacyInfo && (
+          <div className="privacy-popup show" onClick={(e) => e.stopPropagation()}>
+            <p className="privacy-popup-text">
               {state.lang === 'no'
-                ? 'Notatene dine er ende-til-ende-kryptert med AEGIS-256 slik at andre ikke får se dem.'
-                : 'Your notes are end-to-end encrypted with AEGIS-256 so others cannot see them.'}
+                ? 'Notatene dine er ende-til-ende-kryptert med AEGIS-256. Bare du kan lese dem.'
+                : 'Your notes are end-to-end encrypted with AEGIS-256. Only you can read them.'}
             </p>
+            <a
+              href={state.lang === 'no' ? '/personvern.html' : '/privacy.html'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="privacy-popup-link"
+            >
+              <OpenInNewIcon size={12} />
+              {t.privacyPolicy}
+            </a>
           </div>
         )}
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowEncryptionInfo(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowPrivacyInfo(false); }}
           title={t.shortcuts}
           aria-label={t.shortcuts}
         >
@@ -617,7 +631,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.3.0</span>
+        <span>v2.4.0</span>
       </div>
 
       {contextMenu && (

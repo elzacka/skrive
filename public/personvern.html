@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personvernerklæring - Skrive</title>
+  <style>
+    :root {
+      --accent: #0A520D;
+      --text: #0A520D;
+      --bg: #ffffff;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      background: var(--bg);
+      padding: 32px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: rgba(10, 82, 13, 0.6);
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 16px;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+    p, ul {
+      margin-bottom: 16px;
+    }
+    ul {
+      padding-left: 24px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    a {
+      color: var(--accent);
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 32px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Personvernerklæring</h1>
+  <p class="subtitle">Sist oppdatert: Desember 2025</p>
+
+  <h2>Kort oppsummert</h2>
+  <p>Skrive samler ikke inn, lagrer eller deler personopplysninger. Alt du skriver forblir kryptert på din enhet.</p>
+
+  <h2>Hva vi lagrer</h2>
+  <ul>
+    <li><strong>Notater og mapper:</strong> Lagres lokalt i nettleseren din, kryptert med AEGIS-256.</li>
+    <li><strong>Innstillinger:</strong> Språkvalg og visningsinnstillinger lagres lokalt.</li>
+  </ul>
+
+  <h2>Hva vi ikke gjør</h2>
+  <ul>
+    <li>Vi sender ingen data til servere eller tredjeparter.</li>
+    <li>Vi bruker ingen informasjonskapsler (cookies).</li>
+    <li>Vi bruker ingen analyse- eller sporingsverktøy.</li>
+    <li>Vi har ingen brukerkontoer eller innlogging.</li>
+  </ul>
+
+  <h2>Kryptering</h2>
+  <p>Alle notater krypteres med AEGIS-256 (eller XChaCha20-Poly1305 som fallback) før nettleseren din lagrer dem. Krypteringsnøkkelen genereres og lagres lokalt på enheten din.</p>
+
+  <h2>Dine rettigheter</h2>
+  <p>Siden all data lagres lokalt på din enhet, har du full kontroll. Du kan:</p>
+  <ul>
+    <li>Eksportere alle data via Eksporter-funksjonen</li>
+    <li>Slette all data ved å tømme nettleserens lagring</li>
+    <li>Bruke appen uten internettilkobling</li>
+  </ul>
+
+  <h2>Kontakt</h2>
+  <p>Spørsmål? <a href="https://github.com/elzacka/skrive" target="_blank" rel="noopener">github.com/elzacka/skrive</a></p>
+
+  <a href="/" class="back-link">Tilbake til Skrive</a>
+</body>
+</html>
