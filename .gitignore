@@ -34,4 +34,5 @@ dev-dist/
 
 # Developer only
 dev_only/*
-.obsidian/*
+.obsidian/
+obsidian/
