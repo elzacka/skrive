@@ -31,10 +31,10 @@ interface TreeItemProps {
   untitledText: string;
 }
 
-const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText }: TreeItemProps) {
+const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const childFolders = folders.filter(f => f.parentId === folder.id);
-  const childNotes = notes.filter(n => n.parentId === folder.id);
+  const childFolders = folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang));
+  const childNotes = notes.filter(n => n.parentId === folder.id).sort((a, b) => (a.title || untitledText).localeCompare(b.title || untitledText, lang));
   const hasChildren = childFolders.length > 0 || childNotes.length > 0;
   const isEditing = editingFolderId === folder.id;
 
@@ -112,6 +112,7 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               onSaveFolderName={onSaveFolderName}
               onFolderKeyDown={onFolderKeyDown}
               untitledText={untitledText}
+              lang={lang}
             />
           ))}
           {childNotes.map(note => (
@@ -210,8 +211,14 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const rootFolders = useMemo(() => state.folders.filter(f => f.parentId === null), [state.folders]);
-  const rootNotes = useMemo(() => filteredNotes.filter(n => n.parentId === null), [filteredNotes]);
+  const rootFolders = useMemo(() =>
+    state.folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, state.lang)),
+    [state.folders, state.lang]
+  );
+  const rootNotes = useMemo(() =>
+    filteredNotes.filter(n => n.parentId === null).sort((a, b) => (a.title || t.untitled).localeCompare(b.title || t.untitled, state.lang)),
+    [filteredNotes, state.lang, t.untitled]
+  );
 
   const handleToggleFolder = (id: string) => {
     const folder = state.folders.find(f => f.id === id);
@@ -431,6 +438,7 @@ export function Sidebar() {
               onSaveFolderName={handleSaveFolderName}
               onFolderKeyDown={handleFolderKeyDown}
               untitledText={t.untitled}
+              lang={state.lang}
             />
           ))}
           {rootNotes.map(note => (
