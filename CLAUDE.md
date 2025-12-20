@@ -75,3 +75,5 @@ All icons are self-hosted SVGs in src/components/Icons.tsx. Use Material Symbols
    - PATCH: Bug fixes, small improvements
    - MINOR: New features, non-breaking changes
    - MAJOR: Breaking changes
+
+**DO NOT** update version for documentation-only changes (README.md, CLAUDE.md, comments, etc.)
