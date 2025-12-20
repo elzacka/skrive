@@ -476,7 +476,7 @@ export function Sidebar() {
                 : 'Your notes are end-to-end encrypted with AEGIS-256. Only you can read them.'}
             </p>
             <a
-              href={state.lang === 'no' ? '/personvern.html' : '/privacy.html'}
+              href={`${import.meta.env.BASE_URL}${state.lang === 'no' ? 'personvern.html' : 'privacy.html'}`}
               target="_blank"
               rel="noopener noreferrer"
               className="privacy-popup-link"
@@ -631,7 +631,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.4.0</span>
+        <span>v2.4.1</span>
       </div>
 
       {contextMenu && (
