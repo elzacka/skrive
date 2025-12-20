@@ -66,3 +66,12 @@ src/
 ## Icons
 
 All icons are self-hosted SVGs in src/components/Icons.tsx. Use Material Symbols/Design icons converted to inline SVG. Never load icons from external sources (Google Fonts, CDNs, etc.) to ensure offline functionality.
+
+## Versioning
+
+**IMPORTANT**: Before each commit to GitHub that includes code changes, new features, or fixes:
+1. Update the version number in src/components/Sidebar.tsx (in the app-footer section)
+2. Use semantic versioning: MAJOR.MINOR.PATCH
+   - PATCH: Bug fixes, small improvements
+   - MINOR: New features, non-breaking changes
+   - MAJOR: Breaking changes
