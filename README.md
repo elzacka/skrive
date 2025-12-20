@@ -37,7 +37,7 @@ Skrive baserer seg på sikkerheten i enheten din. Som biometri, PIN eller passor
 3. **Same-origin policy**: Sørger for at nøkkelen kun er tilgjengelig for Skrive
 
 **XSS** = Cross-Site Scripting<br>
-**XSS-angrep**: Også kalt "kodeinjisering",  en type dataangrep der en angriper legger inn ondsinnet kode. Hvis appen mangler mekanismer for å håndter dette kan det føre til uautorisert tilgang, datatyveri, feil i appen eller spredning av skadevare.
+**XSS-angrep**: Også kalt "kodeinjisering",  en type dataangrep der en angriper legger inn ondsinnet kode. Hvis appen mangler mekanisme for å hindre dette kan det føre til uautorisert tilgang, datatyveri, feil i appen eller spredning av skadevare.
 
 ## Teknologier
 
