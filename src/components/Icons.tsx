@@ -173,3 +173,30 @@ export function OpenInNewIcon({ size = 14 }: IconProps) {
   );
 }
 
+export function SaveAltIcon({ size = 24 }: IconProps) {
+  // Material Design "save_alt" icon - for local backup/export
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ size = 24 }: IconProps) {
+  // Material Design "file_download" icon
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ size = 24 }: IconProps) {
+  // Material Design "file_upload" icon
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" fill="currentColor" />
+    </svg>
+  );
+}
+

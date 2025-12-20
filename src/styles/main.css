@@ -675,6 +675,51 @@ body {
   color: var(--text-primary);
 }
 
+/* Backup Popup */
+.backup-popup {
+  position: absolute;
+  bottom: 100%;
+  right: 12px;
+  margin-bottom: 8px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(10, 82, 13, 0.15);
+  border: 1px solid var(--border);
+  padding: 6px;
+  z-index: 100;
+  min-width: 140px;
+  display: none;
+}
+
+.backup-popup.show {
+  display: block;
+}
+
+.backup-popup-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.backup-popup-btn:hover {
+  background: var(--bg-hover);
+}
+
+.backup-popup-btn svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
 /* Editor Panel */
 .editor-panel {
   flex: 1;

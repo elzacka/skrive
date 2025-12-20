@@ -12,7 +12,10 @@ import {
   EncryptedIcon,
   DeleteIcon,
   EditIcon,
-  OpenInNewIcon
+  OpenInNewIcon,
+  SaveAltIcon,
+  DownloadIcon,
+  UploadIcon
 } from './Icons';
 
 interface TreeItemProps {
@@ -178,7 +181,9 @@ export function Sidebar() {
     getFilteredNotes,
     moveNote,
     updateTag,
-    deleteTag
+    deleteTag,
+    exportAllData,
+    importData
   } = useApp();
 
   const t = i18n[state.lang];
@@ -192,6 +197,7 @@ export function Sidebar() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
 
   const sidebarRef = useRef<HTMLElement>(null);
@@ -203,6 +209,7 @@ export function Sidebar() {
         setShowShortcuts(false);
         setShowLangDropdown(false);
         setShowPrivacyInfo(false);
+        setShowBackupMenu(false);
         setContextMenu(null);
         setTagContextMenu(null);
       }
@@ -350,7 +357,7 @@ export function Sidebar() {
   }), [mac]);
 
   return (
-    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}>
+    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
       <div className="sidebar-header">
         <span className="sidebar-title">Skrive</span>
       </div>
@@ -462,7 +469,7 @@ export function Sidebar() {
       <div className="sidebar-footer-buttons">
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); setShowBackupMenu(false); }}
           title={t.securityPrivacy}
           aria-label={t.securityPrivacy}
         >
@@ -488,7 +495,7 @@ export function Sidebar() {
         )}
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowPrivacyInfo(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
           title={t.shortcuts}
           aria-label={t.shortcuts}
         >
@@ -519,6 +526,26 @@ export function Sidebar() {
             </div>
           )}
         </div>
+        <button
+          className="sidebar-footer-btn"
+          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowPrivacyInfo(false); setShowShortcuts(false); }}
+          title={t.importExport}
+          aria-label={t.importExport}
+        >
+          <SaveAltIcon />
+        </button>
+        {showBackupMenu && (
+          <div className="backup-popup show" onClick={(e) => e.stopPropagation()}>
+            <button className="backup-popup-btn" onClick={() => { exportAllData(); setShowBackupMenu(false); }}>
+              <DownloadIcon size={16} />
+              <span>{t.exportData}</span>
+            </button>
+            <button className="backup-popup-btn" onClick={async () => { await importData(); setShowBackupMenu(false); }}>
+              <UploadIcon size={16} />
+              <span>{t.importData}</span>
+            </button>
+          </div>
+        )}
         {showShortcuts && (
           <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
             <div className="shortcuts-title">{t.shortcuts}</div>
@@ -631,7 +658,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.4.1</span>
+        <span>v2.5.0</span>
       </div>
 
       {contextMenu && (
