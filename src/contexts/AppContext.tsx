@@ -352,7 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: generateId(),
       name: folderName,
       parentId,
-      expanded: true
+      expanded: false
     };
     dispatch({ type: 'ADD_FOLDER', payload: folder });
   }, [state.lang]);
