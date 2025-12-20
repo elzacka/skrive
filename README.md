@@ -30,10 +30,14 @@ Skrive er utviklet med sikkerhet som prioritet. Se [personvernerklæringen](http
 
 ### Sikkerhetsmodell
 
-Skrive stoler på enhetens sikkerhet (biometri, PIN, passord). Krypteringsnøkkelen lagres i nettleseren og er beskyttet av:
-1. Enhetens låseskjerm
-2. Streng CSP som blokkerer XSS-angrep
-3. Same-origin policy (nøkkelen er kun tilgjengelig fra Skrive)
+Skrive baserer seg på sikkerheten i enheten din. Som biometri, PIN eller passord. Krypteringsnøkkelen lagres lokalt i nettleseren og forlater aldri enheten. Tilgangen til nøkkelen er beskyttet av tre mekanismer:
+
+1. **Enhetens låseskjerm**: Hindrer uautorisert tilgang
+2. **Streng innholds­sikkerhetspolicy (CSP)**: Blokkerer XSS-angrep
+3. **Same-origin policy**: Sørger for at nøkkelen kun er tilgjengelig for Skrive
+
+_XSS = Cross-Site Scripting
+XSS-angrep: Også kalt "kodeinjisering",  en type dataangrep der en angriper legger inn ondsinnet kode. Hvis appen mangler mekanismer for å håndter dette kan det føre til uautorisert tilgang, datatyveri, feil i appen eller spredning av skadevare._
 
 ## Teknologier
 
