@@ -16,7 +16,7 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 
 ## Sikkerhet
 
-Skrive er utviklet med sikkerhet som prioritet. Se [personvernerklæringen](https://elzacka.github.io/skrive/personvern.html) for detaljer.
+Skrive er utviklet med sikkerhet og personvern som prioritet. Se [personvernerklæringen](https://elzacka.github.io/skrive/personvern.html) for detaljer.
 
 | Tiltak | Beskrivelse |
 |--------|-------------|
