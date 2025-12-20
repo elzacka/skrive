@@ -53,9 +53,10 @@ export function KeyboardIcon({ size = 24 }: IconProps) {
 }
 
 export function EncryptedIcon({ size = 24 }: IconProps) {
+  // Material Symbols "enhanced_encryption" - self-hosted SVG, works offline
   return (
     <svg viewBox="0 -960 960 960" width={size} height={size} aria-hidden="true">
-      <path d="M420-360h120l-23-129q20-10 31.5-29t11.5-42q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 23 11.5 42t31.5 29l-23 129Zm60 280q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z" fill="currentColor" />
+      <path d="M450-197h60v-135h135v-60H510v-135h-60v135H315v60h135v135ZM220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-434q0-24.75 17.63-42.38Q195.25-634 220-634h70v-96q0-78.85 55.61-134.42Q401.21-920 480.11-920q78.89 0 134.39 55.58Q670-808.85 670-730v96h70q24.75 0 42.38 17.62Q800-598.75 800-574v434q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm0-60h520v-434H220v434Zm130-494h260v-96q0-54.17-37.88-92.08-37.88-37.92-92-37.92T388-822.08q-38 37.91-38 92.08v96ZM220-140v-434 434Z" fill="currentColor" />
     </svg>
   );
 }

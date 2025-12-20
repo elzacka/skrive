@@ -24,7 +24,7 @@ const DOMPURIFY_CONFIG = {
   ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li',
                  'strong', 'b', 'em', 'i', 'u', 'strike', 's', 'del', 'code', 'pre',
                  'blockquote', 'a', 'span', 'div'],
-  ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'dir'],
@@ -35,12 +35,29 @@ function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
 }
 
-// Check if URL is safe
+// Check if URL is safe using URL API for robust validation
 function isSafeUrl(url: string): boolean {
-  const trimmed = url.trim().toLowerCase();
-  return !trimmed.startsWith('javascript:') &&
-         !trimmed.startsWith('data:') &&
-         !trimmed.startsWith('vbscript:');
+  const trimmed = url.trim();
+
+  // Check for dangerous protocols
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('javascript:') ||
+      lower.startsWith('data:') ||
+      lower.startsWith('vbscript:')) {
+    return false;
+  }
+
+  // Try to parse as URL - allows relative and absolute URLs
+  try {
+    // For absolute URLs, validate with URL constructor
+    if (/^https?:\/\//i.test(trimmed)) {
+      new URL(trimmed);
+    }
+    return true;
+  } catch {
+    // If URL parsing fails for absolute URLs, reject
+    return !/^https?:\/\//i.test(trimmed);
+  }
 }
 
 // Simple markdown to HTML converter with syntax highlighting for code
@@ -518,9 +535,14 @@ export function Editor() {
   }, [note?.format, updateActiveFormats]);
 
   if (!note) {
+    const newNoteShortcut = mac ? '\u2325N' : 'Ctrl+Shift+1';
     return (
       <div className="editor-panel">
-        <div className="no-selection"></div>
+        <div className="no-selection">
+          <span className="empty-state-hint">
+            {t.click} <span className="hint-badge">+</span> {t.orPress} <span className="hint-badge">{newNoteShortcut}</span>
+          </span>
+        </div>
       </div>
     );
   }
@@ -585,23 +607,27 @@ export function Editor() {
   };
 
   const handleDelete = () => {
-    if (confirm(state.lang === 'no' ? 'Slett dette notatet?' : 'Delete this note?')) {
+    if (confirm(t.confirmDelete)) {
       deleteNote(note.id);
     }
   };
 
   const handleSave = async () => {
     setSaveStatus('saving');
-    await saveCurrentNote();
-    lastSavedContentRef.current = note.content;
-    setSaveStatus('saved');
+    try {
+      await saveCurrentNote();
+      lastSavedContentRef.current = note.content;
+      setSaveStatus('saved');
+    } catch {
+      setSaveStatus('unsaved');
+    }
   };
 
   const getSaveStatusText = () => {
     switch (saveStatus) {
-      case 'saving': return state.lang === 'no' ? 'Lagrer...' : 'Saving...';
-      case 'unsaved': return state.lang === 'no' ? 'Ulagret' : 'Unsaved';
-      default: return state.lang === 'no' ? 'Lagret' : 'Saved';
+      case 'saving': return t.saving;
+      case 'unsaved': return t.unsaved;
+      default: return t.saved;
     }
   };
 
@@ -632,8 +658,8 @@ export function Editor() {
             className="action-btn icon-btn"
             onClick={handleUndo}
             disabled={!canUndo}
-            title={`${state.lang === 'no' ? 'Angre' : 'Undo'} (${mac ? '⌘Z' : 'Ctrl+Z'})`}
-            aria-label={state.lang === 'no' ? 'Angre' : 'Undo'}
+            title={`${t.undo} (${mac ? '\u2318Z' : 'Ctrl+Z'})`}
+            aria-label={t.undo}
           >
             <UndoIcon />
           </button>
@@ -641,25 +667,25 @@ export function Editor() {
             className="action-btn icon-btn"
             onClick={handleRedo}
             disabled={!canRedo}
-            title={`${state.lang === 'no' ? 'Gjør om' : 'Redo'} (${mac ? '⌘⇧Z' : 'Ctrl+Y'})`}
-            aria-label={state.lang === 'no' ? 'Gjør om' : 'Redo'}
+            title={`${t.redo} (${mac ? '\u2318\u21E7Z' : 'Ctrl+Y'})`}
+            aria-label={t.redo}
           >
             <RedoIcon />
           </button>
           <button
             className="action-btn icon-btn"
             onClick={handleCopyToClipboard}
-            title={state.lang === 'no' ? 'Kopier til utklippstavle' : 'Copy to clipboard'}
-            aria-label={state.lang === 'no' ? 'Kopier' : 'Copy'}
+            title={t.copyToClipboard}
+            aria-label={t.copy}
           >
-            {copyFeedback ? '✓' : <CopyIcon />}
+            {copyFeedback ? '\u2713' : <CopyIcon />}
           </button>
           {note.format === 'markdown' && (
             <button
               className={`action-btn icon-btn ${showPreview ? 'active' : ''}`}
               onClick={() => setShowPreview(!showPreview)}
-              title={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}
-              aria-label={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}
+              title={t.preview}
+              aria-label={t.preview}
               aria-pressed={showPreview}
             >
               <PreviewIcon />
@@ -838,10 +864,10 @@ export function Editor() {
             <div className="tag-picker-list">
               {state.tags.length === 0 ? (
                 <div style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                  {state.lang === 'no' ? 'Ingen etiketter ennå' : 'No tags yet'}
+                  {t.noTagsYet}
                 </div>
               ) : (
-                state.tags.map(tag => (
+                [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
                   <button
                     key={tag.id}
                     className="tag-picker-item"
@@ -874,10 +900,13 @@ export function Editor() {
 
       {note.tags.length > 0 && (
         <div className="current-tags">
-          {note.tags.map(tagId => {
-            const tag = state.tags.find(t => t.id === tagId);
-            return tag ? <span key={tag.id} className="current-tag">{tag.name}</span> : null;
-          })}
+          {note.tags
+            .map(tagId => state.tags.find(t => t.id === tagId))
+            .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
+            .sort((a, b) => a.name.localeCompare(b.name, state.lang))
+            .map(tag => (
+              <span key={tag.id} className="current-tag">{tag.name}</span>
+            ))}
         </div>
       )}
 
@@ -906,7 +935,7 @@ export function Editor() {
         </div>
 
         {note.format === 'markdown' && showPreview && (
-          <div className="preview-pane" aria-label={state.lang === 'no' ? 'Forhåndsvisning' : 'Preview'}>
+          <div className="preview-pane" aria-label={t.preview}>
             <div className="markdown-preview" dir="ltr">
               <div dangerouslySetInnerHTML={{ __html: markdownPreviewHtml }} />
             </div>

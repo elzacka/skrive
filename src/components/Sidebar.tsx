@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { isMac } from '@/utils';
@@ -28,9 +28,10 @@ interface TreeItemProps {
   onEditingFolderNameChange: (name: string) => void;
   onSaveFolderName: () => void;
   onFolderKeyDown: (e: React.KeyboardEvent) => void;
+  untitledText: string;
 }
 
-function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown }: TreeItemProps) {
+const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText }: TreeItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = folders.filter(f => f.parentId === folder.id);
   const childNotes = notes.filter(n => n.parentId === folder.id);
@@ -110,6 +111,7 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onTo
               onEditingFolderNameChange={onEditingFolderNameChange}
               onSaveFolderName={onSaveFolderName}
               onFolderKeyDown={onFolderKeyDown}
+              untitledText={untitledText}
             />
           ))}
           {childNotes.map(note => (
@@ -119,22 +121,24 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onTo
               isSelected={note.id === selectedNoteId}
               onSelect={onSelectNote}
               onContextMenu={onContextMenu}
+              untitledText={untitledText}
             />
           ))}
         </div>
       )}
     </div>
   );
-}
+});
 
 interface TreeNoteProps {
   note: Note;
   isSelected: boolean;
   onSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, type: 'folder' | 'note', id: string) => void;
+  untitledText: string;
 }
 
-function TreeNote({ note, isSelected, onSelect, onContextMenu }: TreeNoteProps) {
+const TreeNote = memo(function TreeNote({ note, isSelected, onSelect, onContextMenu, untitledText }: TreeNoteProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', note.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -151,11 +155,11 @@ function TreeNote({ note, isSelected, onSelect, onContextMenu }: TreeNoteProps) 
       >
         <span className="tree-expand hidden"><ChevronRightIcon /></span>
         <span className="tree-icon"><NoteIcon /></span>
-        <span className="tree-label">{note.title || 'Untitled'}</span>
+        <span className="tree-label">{note.title || untitledText}</span>
       </div>
     </div>
   );
-}
+});
 
 export function Sidebar() {
   const {
@@ -186,9 +190,28 @@ export function Sidebar() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showEncryptionInfo, setShowEncryptionInfo] = useState(false);
+  const [tagsExpanded, setTagsExpanded] = useState(false);
 
-  const rootFolders = state.folders.filter(f => f.parentId === null);
-  const rootNotes = filteredNotes.filter(n => n.parentId === null);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  // Close popups when clicking outside sidebar
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setShowShortcuts(false);
+        setShowLangDropdown(false);
+        setShowEncryptionInfo(false);
+        setContextMenu(null);
+        setTagContextMenu(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const rootFolders = useMemo(() => state.folders.filter(f => f.parentId === null), [state.folders]);
+  const rootNotes = useMemo(() => filteredNotes.filter(n => n.parentId === null), [filteredNotes]);
 
   const handleToggleFolder = (id: string) => {
     const folder = state.folders.find(f => f.id === id);
@@ -297,29 +320,29 @@ export function Sidebar() {
   };
 
   const mac = isMac();
-  const shortcuts = {
-    newNote: mac ? '⌥N' : 'Ctrl+Shift+1',
-    search: mac ? '⌘K' : 'Ctrl+K',
-    save: mac ? '⌘S' : 'Ctrl+S',
-    toggleSidebar: mac ? '⌥M' : 'Ctrl+Shift+3',
-    undo: mac ? '⌘Z' : 'Ctrl+Z',
-    redo: mac ? '⌘⇧Z' : 'Ctrl+Y',
-    bold: mac ? '⌘B' : 'Ctrl+B',
-    italic: mac ? '⌘I' : 'Ctrl+I',
-    heading1: mac ? '⌘1' : 'Ctrl+1',
-    heading2: mac ? '⌘2' : 'Ctrl+2',
-    heading3: mac ? '⌘3' : 'Ctrl+3',
-    bodyText: mac ? '⌘0' : 'Ctrl+0',
-    bulletList: mac ? '⌘⇧8' : 'Ctrl+Shift+8',
-    numberedList: mac ? '⌘⇧7' : 'Ctrl+Shift+7',
-    inlineCode: mac ? '⌘E' : 'Ctrl+E',
-    codeBlock: mac ? '⌘⇧E' : 'Ctrl+Shift+E',
-    link: mac ? '⌘L' : 'Ctrl+L',
-    quote: mac ? '⌘⇧.' : 'Ctrl+Shift+.'
-  };
+  const shortcuts = useMemo(() => ({
+    newNote: mac ? '\u2325N' : 'Ctrl+Shift+1',
+    search: mac ? '\u2318K' : 'Ctrl+K',
+    save: mac ? '\u2318S' : 'Ctrl+S',
+    toggleSidebar: mac ? '\u2325M' : 'Ctrl+Shift+3',
+    undo: mac ? '\u2318Z' : 'Ctrl+Z',
+    redo: mac ? '\u2318\u21E7Z' : 'Ctrl+Y',
+    bold: mac ? '\u2318B' : 'Ctrl+B',
+    italic: mac ? '\u2318I' : 'Ctrl+I',
+    heading1: mac ? '\u23181' : 'Ctrl+1',
+    heading2: mac ? '\u23182' : 'Ctrl+2',
+    heading3: mac ? '\u23183' : 'Ctrl+3',
+    bodyText: mac ? '\u23180' : 'Ctrl+0',
+    bulletList: mac ? '\u2318\u21E78' : 'Ctrl+Shift+8',
+    numberedList: mac ? '\u2318\u21E77' : 'Ctrl+Shift+7',
+    inlineCode: mac ? '\u2318E' : 'Ctrl+E',
+    codeBlock: mac ? '\u2318\u21E7E' : 'Ctrl+Shift+E',
+    link: mac ? '\u2318L' : 'Ctrl+L',
+    quote: mac ? '\u2318\u21E7.' : 'Ctrl+Shift+.'
+  }), [mac]);
 
   return (
-    <aside className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowEncryptionInfo(false); }}>
+    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowEncryptionInfo(false); }}>
       <div className="search-container">
         <input
           type="search"
@@ -332,46 +355,55 @@ export function Sidebar() {
       </div>
 
       <div className="tags-section">
-        <div className="section-title">{t.tags}</div>
-        <div className="tags-list" role="listbox" aria-label={t.tags}>
-          <button
-            className={`tag-filter-btn ${state.selectedTagFilter === null ? 'active' : ''}`}
-            onClick={() => setTagFilter(null)}
-            role="option"
-            aria-selected={state.selectedTagFilter === null}
-          >
-            <span>{t.all}</span>
-            <span className="tag-count">{state.notes.length}</span>
-          </button>
-          {state.tags.map(tag => (
-            editingTagId === tag.id ? (
-              <div key={tag.id} className="tag-filter-btn editing">
-                <input
-                  type="text"
-                  className="tag-edit-input"
-                  value={editingTagName}
-                  onChange={(e) => setEditingTagName(e.target.value)}
-                  onBlur={handleSaveTagName}
-                  onKeyDown={handleTagKeyDown}
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            ) : (
-              <button
-                key={tag.id}
-                className={`tag-filter-btn ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
-                onClick={() => setTagFilter(tag.id)}
-                onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
-                role="option"
-                aria-selected={state.selectedTagFilter === tag.id}
-              >
-                <span>{tag.name}</span>
-                <span className="tag-count">{getTagNoteCount(tag.id)}</span>
-              </button>
-            )
-          ))}
-        </div>
+        <button
+          className={`section-header ${tagsExpanded ? 'expanded' : ''}`}
+          onClick={() => setTagsExpanded(!tagsExpanded)}
+          aria-expanded={tagsExpanded}
+        >
+          <span className="section-expand"><ChevronRightIcon /></span>
+          <span className="section-title">{t.tags}</span>
+        </button>
+        {tagsExpanded && (
+          <div className="tags-list" role="listbox" aria-label={t.tags}>
+            <button
+              className={`tag-filter-btn ${state.selectedTagFilter === null ? 'active' : ''}`}
+              onClick={() => setTagFilter(null)}
+              role="option"
+              aria-selected={state.selectedTagFilter === null}
+            >
+              <span>{t.all}</span>
+              <span className="tag-count">{state.notes.length}</span>
+            </button>
+            {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
+              editingTagId === tag.id ? (
+                <div key={tag.id} className="tag-filter-btn editing">
+                  <input
+                    type="text"
+                    className="tag-edit-input"
+                    value={editingTagName}
+                    onChange={(e) => setEditingTagName(e.target.value)}
+                    onBlur={handleSaveTagName}
+                    onKeyDown={handleTagKeyDown}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              ) : (
+                <button
+                  key={tag.id}
+                  className={`tag-filter-btn ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
+                  onClick={() => setTagFilter(tag.id)}
+                  onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
+                  role="option"
+                  aria-selected={state.selectedTagFilter === tag.id}
+                >
+                  <span>{tag.name}</span>
+                  <span className="tag-count">{getTagNoteCount(tag.id)}</span>
+                </button>
+              )
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="notes-section">
@@ -398,6 +430,7 @@ export function Sidebar() {
               onEditingFolderNameChange={setEditingFolderName}
               onSaveFolderName={handleSaveFolderName}
               onFolderKeyDown={handleFolderKeyDown}
+              untitledText={t.untitled}
             />
           ))}
           {rootNotes.map(note => (
@@ -407,6 +440,7 @@ export function Sidebar() {
               isSelected={note.id === state.selectedNoteId}
               onSelect={selectNote}
               onContextMenu={handleContextMenu}
+              untitledText={t.untitled}
             />
           ))}
         </div>
@@ -416,8 +450,8 @@ export function Sidebar() {
         <button
           className="sidebar-footer-btn"
           onClick={(e) => { e.stopPropagation(); setShowEncryptionInfo(!showEncryptionInfo); setShowShortcuts(false); }}
-          title={state.lang === 'no' ? 'Kryptering' : 'Encryption'}
-          aria-label={state.lang === 'no' ? 'Kryptering' : 'Encryption'}
+          title={t.encryption}
+          aria-label={t.encryption}
         >
           <EncryptedIcon />
         </button>
@@ -466,78 +500,106 @@ export function Sidebar() {
         {showShortcuts && (
           <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
             <div className="shortcuts-title">{t.shortcuts}</div>
+
+            <div className="shortcuts-section-title">{t.shortcutsFunctions}</div>
             <div className="shortcuts-grid">
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.bodyText}</span>
-                <span className="shortcut-desc">{t.bodyTextShortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
+                  <span className="shortcut-desc">{t.toggleSidebar}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.undo}</span>
+                  <span className="shortcut-desc">{t.undoShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.heading1}</span>
-                <span className="shortcut-desc">{t.heading1Shortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.search}</span>
+                  <span className="shortcut-desc">{t.searchShortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.redo}</span>
+                  <span className="shortcut-desc">{t.redoShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.heading2}</span>
-                <span className="shortcut-desc">{t.heading2Shortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.newNote}</span>
+                  <span className="shortcut-desc">{t.newNoteShortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.save}</span>
+                  <span className="shortcut-desc">{t.saveShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.heading3}</span>
-                <span className="shortcut-desc">{t.heading3Shortcut}</span>
+            </div>
+
+            <div className="shortcuts-section-title">{t.shortcutsRichtextMarkdown}</div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.bodyText}</span>
+                  <span className="shortcut-desc">{t.bodyTextShortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.bold}</span>
+                  <span className="shortcut-desc">{t.boldShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.bold}</span>
-                <span className="shortcut-desc">{t.boldShortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.heading1}</span>
+                  <span className="shortcut-desc">{t.heading1Shortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.italic}</span>
+                  <span className="shortcut-desc">{t.italicShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.italic}</span>
-                <span className="shortcut-desc">{t.italicShortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.heading2}</span>
+                  <span className="shortcut-desc">{t.heading2Shortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.bulletList}</span>
+                  <span className="shortcut-desc">{t.bulletListShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.bulletList}</span>
-                <span className="shortcut-desc">{t.bulletListShortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.heading3}</span>
+                  <span className="shortcut-desc">{t.heading3Shortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.numberedList}</span>
+                  <span className="shortcut-desc">{t.numberedListShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.numberedList}</span>
-                <span className="shortcut-desc">{t.numberedListShortcut}</span>
+            </div>
+
+            <div className="shortcuts-section-title">{t.shortcutsMarkdown}</div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.inlineCode}</span>
+                  <span className="shortcut-desc">{t.inlineCodeShortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.link}</span>
+                  <span className="shortcut-desc">{t.linkShortcut}</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.inlineCode}</span>
-                <span className="shortcut-desc">{t.inlineCodeShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.codeBlock}</span>
-                <span className="shortcut-desc">{t.codeBlockShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.link}</span>
-                <span className="shortcut-desc">{t.linkShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.quote}</span>
-                <span className="shortcut-desc">{t.quoteShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.newNote}</span>
-                <span className="shortcut-desc">{t.newNoteShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.search}</span>
-                <span className="shortcut-desc">{t.searchShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.save}</span>
-                <span className="shortcut-desc">{t.saveShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.toggleSidebar}</span>
-                <span className="shortcut-desc">{t.toggleSidebar}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.undo}</span>
-                <span className="shortcut-desc">{t.undoShortcut}</span>
-              </div>
-              <div className="shortcut-item">
-                <span className="shortcut-key">{shortcuts.redo}</span>
-                <span className="shortcut-desc">{t.redoShortcut}</span>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.codeBlock}</span>
+                  <span className="shortcut-desc">{t.codeBlockShortcut}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-key">{shortcuts.quote}</span>
+                  <span className="shortcut-desc">{t.quoteShortcut}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -547,7 +609,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.2.3</span>
+        <span>v2.2.5</span>
       </div>
 
       {contextMenu && (

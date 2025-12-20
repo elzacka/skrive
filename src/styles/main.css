@@ -217,12 +217,44 @@ body {
   border-bottom: 1px solid var(--border-light);
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.section-header:hover {
+  color: var(--text-secondary);
+}
+
+.section-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
+}
+
+.section-expand svg {
+  width: 12px;
+  height: 12px;
+}
+
+.section-header.expanded .section-expand {
+  transform: rotate(90deg);
+}
+
 .section-title {
   font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 8px 0;
   letter-spacing: 0.5px;
 }
 
@@ -532,25 +564,41 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.shortcuts-section-title {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shortcuts-section-title:first-of-type {
+  margin-top: 0;
 }
 
 .shortcuts-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0;
 }
 
-@media (min-width: 768px) {
-  .shortcuts-popup {
-    min-width: 440px;
-  }
+.shortcut-row {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+}
 
-  .shortcuts-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 24px;
-  }
+.shortcut-row .shortcut-item {
+  flex: 1;
+}
+
+.shortcuts-popup {
+  min-width: 440px;
 }
 
 .shortcut-item {
@@ -567,22 +615,6 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
-}
-
-.shortcuts-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 8px 0;
-}
-
-@media (min-width: 768px) {
-  .shortcuts-divider {
-    grid-column: 1 / -1;
-  }
-
-  .shortcuts-subtitle {
-    grid-column: 1 / -1;
-  }
 }
 
 .shortcuts-subtitle {
@@ -1200,10 +1232,28 @@ body {
   tab-size: 2;
 }
 
-/* No Selection State - empty state, no text shown */
+/* No Selection State - empty state with hint */
 .no-selection {
   flex: 1;
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.hint-badge {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
 }
 
 /* Context Menu */
@@ -1279,157 +1329,6 @@ body {
   margin-top: 12px;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  :root {
-    --sidebar-width: 100%;
-  }
-
-  .sidebar {
-    position: fixed;
-    top: 48px;
-    left: 0;
-    height: calc(100% - 48px);
-    z-index: 100;
-  }
-
-  .sidebar.hidden {
-    transform: translateX(-100%);
-  }
-
-  .sidebar-toggle {
-    left: 0;
-    border-radius: 0 4px 4px 0;
-  }
-
-  .sidebar:not(.hidden) ~ .sidebar-toggle {
-    left: calc(100% - 24px);
-  }
-
-  /* Editor panel takes full width on mobile */
-  .editor-panel {
-    margin-left: 0;
-  }
-
-  /* Show toggle when sidebar hidden */
-  .sidebar.hidden ~ .editor-panel {
-    margin-left: 24px;
-  }
-
-  /* Formatting toolbar scrollable on mobile */
-  .formatting-toolbar {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding: 8px 12px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .format-group {
-    flex-shrink: 0;
-  }
-
-  /* Editor container */
-  .editor-container.with-preview {
-    flex-direction: column;
-  }
-
-  .preview-pane {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    max-height: 40vh;
-  }
-}
-
-@media (max-width: 480px) {
-  .editor-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    padding: 8px 12px;
-  }
-
-  .header-actions {
-    justify-content: space-between;
-    flex-wrap: wrap;
-  }
-
-  .action-btn {
-    padding: 6px 8px;
-    font-size: 10px;
-  }
-
-  /* Smaller format buttons on small screens */
-  .format-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-  }
-
-  .style-select {
-    font-size: 12px;
-    padding: 4px 6px;
-  }
-
-  /* Tag picker full width on mobile */
-  .tag-picker {
-    left: 8px;
-    right: 8px;
-    width: auto;
-  }
-
-  /* Editor padding */
-  .editor {
-    padding: 12px;
-  }
-
-  /* Sidebar footer adjustments */
-  .sidebar-footer-buttons {
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px;
-  }
-
-  .shortcuts-popup {
-    left: 8px;
-    right: 8px;
-    width: auto;
-    max-height: 60vh;
-    overflow-y: auto;
-  }
-
-  .shortcuts-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Larger touch targets for mobile */
-  .new-btn {
-    width: 36px;
-    height: 36px;
-  }
-
-  .new-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .tree-item-row {
-    min-height: 40px;
-  }
-
-  .tag-chip {
-    padding: 6px 10px;
-  }
-
-  .sidebar-footer-btn {
-    min-width: 36px;
-    height: 36px;
-  }
-
-  .sidebar-footer-btn svg {
-    width: 18px;
-    height: 18px;
-  }
-}
 
 /* Scrollbar */
 ::-webkit-scrollbar {

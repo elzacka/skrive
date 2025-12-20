@@ -48,7 +48,7 @@ export function InstallPrompt() {
   return (
     <div className="install-prompt" role="dialog" aria-labelledby="install-prompt-title">
       <div className="install-prompt-title" id="install-prompt-title">
-        {state.lang === 'no' ? 'Installer Skrive' : 'Install Skrive'}
+        {t.installApp}
       </div>
       <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
         {state.lang === 'no'
@@ -60,7 +60,7 @@ export function InstallPrompt() {
           {t.install}
         </button>
         <button className="action-btn" onClick={handleDismiss}>
-          {state.lang === 'no' ? 'Ikke nå' : 'Not now'}
+          {t.notNow}
         </button>
       </div>
     </div>

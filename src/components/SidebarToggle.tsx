@@ -1,11 +1,11 @@
 import { useApp } from '@/contexts';
+import { i18n } from '@/utils/i18n';
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
 
 export function SidebarToggle() {
   const { state, toggleSidebar } = useApp();
-  const label = state.sidebarVisible
-    ? (state.lang === 'no' ? 'Skjul meny' : 'Hide sidebar')
-    : (state.lang === 'no' ? 'Vis meny' : 'Show sidebar');
+  const t = i18n[state.lang];
+  const label = state.sidebarVisible ? t.hideSidebar : t.showSidebar;
 
   return (
     <button

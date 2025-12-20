@@ -142,6 +142,9 @@ export interface I18nStrings {
   codeBlockShortcut: string;
   linkShortcut: string;
   quoteShortcut: string;
+  shortcutsFunctions: string;
+  shortcutsRichtextMarkdown: string;
+  shortcutsMarkdown: string;
   formatting: string;
   format: string;
   plaintext: string;
@@ -164,6 +167,24 @@ export interface I18nStrings {
   syncStatus: string;
   lastSynced: string;
   install: string;
+  untitled: string;
+  encryption: string;
+  undo: string;
+  redo: string;
+  copy: string;
+  copyToClipboard: string;
+  preview: string;
+  confirmDelete: string;
+  saving: string;
+  unsaved: string;
+  saved: string;
+  noTagsYet: string;
+  hideSidebar: string;
+  showSidebar: string;
+  installApp: string;
+  notNow: string;
+  click: string;
+  orPress: string;
 }
 
 export type I18n = {
