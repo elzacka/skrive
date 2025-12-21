@@ -105,11 +105,11 @@ body {
 }
 
 .sidebar-title {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-weight: 700;
   font-size: 18px;
   color: #fff;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -546,21 +546,20 @@ body {
 }
 
 .shortcuts-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+  color: var(--text-primary);
+  margin-bottom: 14px;
 }
 
 .shortcuts-section-title {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-secondary);
-  margin-top: 12px;
-  margin-bottom: 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border-light);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-top: 14px;
+  margin-bottom: 8px;
 }
 
 .shortcuts-section-title:first-of-type {
@@ -602,14 +601,17 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-muted);
 }
 
 .shortcut-key {
   font-family: var(--font-mono);
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 10px;
+  font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
 }

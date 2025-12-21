@@ -12,7 +12,7 @@ import {
   EncryptedIcon,
   DeleteIcon,
   EditIcon,
-  OpenInNewIcon,
+  ArrowForwardIcon,
   SaveAltIcon,
   DownloadIcon,
   UploadIcon
@@ -484,11 +484,9 @@ export function Sidebar() {
             </p>
             <a
               href={`${import.meta.env.BASE_URL}${state.lang === 'no' ? 'personvern.html' : 'privacy.html'}`}
-              target="_blank"
-              rel="noopener noreferrer"
               className="privacy-popup-link"
             >
-              <OpenInNewIcon size={12} />
+              <ArrowForwardIcon size={12} />
               {t.privacyPolicy}
             </a>
           </div>
@@ -658,7 +656,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.5.1</span>
+        <span>v2.5.2</span>
       </div>
 
       {contextMenu && (

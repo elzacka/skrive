@@ -21,7 +21,7 @@ export const i18n: I18n = {
     export: 'Eksporter',
     delete: 'Slett',
     rename: 'Gi nytt navn',
-    shortcuts: 'Tastatursnarveier',
+    shortcuts: 'Hurtigtaster',
     newNoteShortcut: 'Nytt notat',
     searchShortcut: 'Søk',
     saveShortcut: 'Lagre notat',
