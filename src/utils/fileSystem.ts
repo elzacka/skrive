@@ -1,5 +1,5 @@
 import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
-import { getExtensionFromFormat, getMimeTypeFromFormat } from './helpers';
+import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf } from './helpers';
 
 const DIRECTORY_HANDLE_KEY = 'skrive-directory-handle';
 
@@ -173,10 +173,27 @@ export async function exportDataToDirectory(
   }
 }
 
-export async function downloadNote(note: Note): Promise<void> {
-  const extension = getExtensionFromFormat(note.format);
-  const mimeType = getMimeTypeFromFormat(note.format);
-  const blob = new Blob([note.content || ''], { type: `${mimeType};charset=utf-8` });
+export type ExportFormat = 'native' | 'markdown' | 'rtf';
+
+export async function downloadNote(note: Note, format: ExportFormat = 'native'): Promise<void> {
+  let content = note.content || '';
+  let extension = getExtensionFromFormat(note.format);
+  let mimeType = getMimeTypeFromFormat(note.format);
+
+  // Convert richtext to other formats if requested
+  if (note.format === 'richtext') {
+    if (format === 'markdown') {
+      content = htmlToMarkdown(content);
+      extension = '.md';
+      mimeType = 'text/markdown';
+    } else if (format === 'rtf') {
+      content = htmlToRtf(content);
+      extension = '.rtf';
+      mimeType = 'application/rtf';
+    }
+  }
+
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

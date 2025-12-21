@@ -186,6 +186,17 @@ export interface I18nStrings {
   notNow: string;
   click: string;
   orPress: string;
+  words: string;
+  characters: string;
+  copyAsMarkdown: string;
+  exportAsMarkdown: string;
+  exportAsHtml: string;
+  exportAsRtf: string;
+  insertLink: string;
+  linkUrl: string;
+  linkText: string;
+  insert: string;
+  cancel: string;
 }
 
 export type I18n = {

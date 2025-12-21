@@ -62,6 +62,7 @@ src/
 - CSP headers configured in vite.config.ts (no unsafe-inline)
 - DOMPurify with strict whitelist for HTML sanitization
 - No external dependencies loaded at runtime (fonts, icons self-hosted)
+- URL validation with `isSafeUrl()` before inserting links
 
 ## Icons
 
@@ -72,13 +73,27 @@ src/
 - Each icon is a React component that renders an inline `<svg>` element
 - To add a new icon: find the SVG path from Material Symbols, create a new export function in Icons.tsx
 
+## Export Formats
+
+Richtext notes support multiple export formats:
+- **HTML** - Native format
+- **Markdown** - Converted from HTML via `htmlToMarkdown()`
+- **RTF** - For Word, WordPad, TextEdit, LibreOffice via `htmlToRtf()`
+
+Conversion functions in `src/utils/helpers.ts`.
+
 ## Versioning
 
+The authoritative version is in `src/components/Sidebar.tsx` (app-footer section). Update package.json to match.
+
 **IMPORTANT**: Before each commit to GitHub that includes code changes, new features, or fixes:
-1. Update the version number in src/components/Sidebar.tsx (in the app-footer section)
-2. Use semantic versioning: MAJOR.MINOR.PATCH
+1. Update the version number in src/components/Sidebar.tsx
+2. Update package.json to match
+3. Use semantic versioning: MAJOR.MINOR.PATCH
    - PATCH: Bug fixes, small improvements
    - MINOR: New features, non-breaking changes
    - MAJOR: Breaking changes
 
 **DO NOT** update version for documentation-only changes (README.md, CLAUDE.md, comments, etc.)
+
+**Exception**: Privacy files (personvern.html, privacy.html) have separate versioning.

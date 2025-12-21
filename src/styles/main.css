@@ -777,6 +777,140 @@ body {
   align-items: center;
 }
 
+.export-menu-container {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.export-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.export-menu button:hover {
+  background: var(--bg-hover);
+}
+
+.export-menu button:first-child {
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Link Dialog */
+.link-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.link-dialog {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 400px;
+  max-width: 90vw;
+}
+
+.link-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.link-dialog-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.link-dialog-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.link-dialog-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.link-dialog-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.link-dialog-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.link-dialog-body label span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.link-dialog-body input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.link-dialog-body input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.link-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-light);
+}
+
 /* Save status indicator */
 .save-status {
   font-size: 12px;
@@ -1109,12 +1243,24 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .preview-pane {
   border-left: 1px solid var(--border);
   background: var(--bg-tertiary);
   border-radius: 6px;
+}
+
+.editor-footer {
+  display: flex;
+  gap: 16px;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
 .editor {
@@ -1128,7 +1274,27 @@ body {
   resize: none;
   outline: none;
   overflow-y: auto;
+  overflow-x: hidden;
   font-family: var(--font-mono);
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.editor::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .editor::placeholder {
@@ -1140,10 +1306,30 @@ body {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-primary);
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+}
+
+.markdown-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.markdown-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-preview::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.markdown-preview::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .markdown-preview h1 {

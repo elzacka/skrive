@@ -9,6 +9,8 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 - **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
 - **Import/Eksport**: Eksporter og importer alle notater som JSON for lokal backup
 - **Flere formater**: Støtter ren tekst, rik tekst og Markdown
+- **Eksportformater**: Rik tekst kan eksporteres som HTML, Markdown eller RTF (for Word, WordPad, TextEdit)
+- **Ord- og tegnteller**: Viser antall ord og tegn i sanntid
 - **Etiketter og mapper**: Organiser notatene dine med etiketter og mappestruktur
 - **Tospråklig**: Norsk og engelsk grensesnitt
 - **Desktop-app**: Optimalisert for desktop-nettlesere (Mac, Windows, Linux)
@@ -21,7 +23,7 @@ Skrive er utviklet med sikkerhet og personvern som prioritet. Se [personvernerkl
 | Tiltak | Beskrivelse |
 |--------|-------------|
 | **Kryptering** | AEGIS-256 (AES-akselerert) eller XChaCha20-Poly1305 (fallback) |
-| **XSS-beskyttelse** | DOMPurify med streng whitelist |
+| **XSS-beskyttelse** | DOMPurify med streng whitelist, URL-validering |
 | **CSP** | Streng Content Security Policy uten `unsafe-inline` |
 | **Clickjacking** | `frame-ancestors: none` blokkerer iframe-embedding |
 | **HTTPS** | Automatisk redirect til HTTPS i produksjon |

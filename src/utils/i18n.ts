@@ -85,7 +85,18 @@ export const i18n: I18n = {
     installApp: 'Installer Skrive',
     notNow: 'Ikke nå',
     click: 'Klikk',
-    orPress: 'eller trykk'
+    orPress: 'eller trykk',
+    words: 'ord',
+    characters: 'tegn',
+    copyAsMarkdown: 'Kopier som Markdown',
+    exportAsMarkdown: 'Eksporter som Markdown',
+    exportAsHtml: 'Eksporter som HTML',
+    exportAsRtf: 'Eksporter som RTF',
+    insertLink: 'Sett inn lenke',
+    linkUrl: 'URL',
+    linkText: 'Lenketekst',
+    insert: 'Sett inn',
+    cancel: 'Avbryt'
   },
   en: {
     save: 'Export',
@@ -171,6 +182,17 @@ export const i18n: I18n = {
     installApp: 'Install Skrive',
     notNow: 'Not now',
     click: 'Click',
-    orPress: 'or press'
+    orPress: 'or press',
+    words: 'words',
+    characters: 'characters',
+    copyAsMarkdown: 'Copy as Markdown',
+    exportAsMarkdown: 'Export as Markdown',
+    exportAsHtml: 'Export as HTML',
+    exportAsRtf: 'Export as RTF',
+    insertLink: 'Insert link',
+    linkUrl: 'URL',
+    linkText: 'Link text',
+    insert: 'Insert',
+    cancel: 'Cancel'
   }
 };

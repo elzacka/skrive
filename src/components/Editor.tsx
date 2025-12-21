@@ -3,7 +3,9 @@ import DOMPurify from 'dompurify';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { useUndoRedo } from '@/hooks';
-import { isMac } from '@/utils';
+import { isMac, htmlToMarkdown } from '@/utils';
+import { downloadNote } from '@/utils/fileSystem';
+import type { ExportFormat } from '@/utils/fileSystem';
 import type { NoteFormat } from '@/types';
 import {
   CopyIcon,
@@ -16,7 +18,8 @@ import {
   CodeIcon,
   LinkIcon,
   CodeBlockIcon,
-  QuoteIcon
+  QuoteIcon,
+  CloseIcon
 } from './Icons';
 
 // Configure DOMPurify to allow safe tags only
@@ -105,6 +108,19 @@ function markdownToHtml(md: string): string {
   return sanitizeHtml(html);
 }
 
+// Count words and characters in content
+function countWordsAndChars(content: string, format: NoteFormat): { words: number; chars: number } {
+  // Strip HTML tags for richtext format
+  const text = format === 'richtext'
+    ? content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ')
+    : content;
+
+  const chars = text.length;
+  const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).filter(Boolean).length;
+
+  return { words, chars };
+}
+
 // Rich text editor component - separate to avoid re-render issues
 function RichTextEditor({
   noteId,
@@ -168,10 +184,17 @@ export function Editor() {
   const [showPreview, setShowPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [copyMdFeedback, setCopyMdFeedback] = useState(false);
   const [currentBlockStyle, setCurrentBlockStyle] = useState('p');
   const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, unorderedList: false, orderedList: false });
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkText, setLinkText] = useState('');
+  const [savedSelection, setSavedSelection] = useState<Range | null>(null);
 
   const tagPickerRef = useRef<HTMLDivElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richtextRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,11 +244,14 @@ export function Editor() {
     };
   }, [note?.content]);
 
-  // Close tag picker on outside click
+  // Close tag picker and export menu on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
         setShowTagPicker(false);
+      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -270,6 +296,19 @@ export function Editor() {
     }
   }, [note]);
 
+  const handleCopyAsMarkdown = useCallback(async () => {
+    if (!note || note.format !== 'richtext') return;
+
+    try {
+      const markdown = htmlToMarkdown(note.content);
+      await navigator.clipboard.writeText(markdown);
+      setCopyMdFeedback(true);
+      setTimeout(() => setCopyMdFeedback(false), 1500);
+    } catch {
+      // Clipboard write failed
+    }
+  }, [note]);
+
   // Check current formatting state at cursor position
   const updateActiveFormats = useCallback(() => {
     setActiveFormats({
@@ -279,6 +318,68 @@ export function Editor() {
       orderedList: document.queryCommandState('insertOrderedList'),
     });
   }, []);
+
+  // Open link dialog and save current selection
+  const openLinkDialog = useCallback(() => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      setSavedSelection(range.cloneRange());
+      setLinkText(selection.toString());
+    }
+    setLinkUrl('');
+    setShowLinkDialog(true);
+  }, []);
+
+  // Insert link at saved selection
+  const insertLink = useCallback(() => {
+    if (!linkUrl || !richtextRef.current) {
+      setShowLinkDialog(false);
+      return;
+    }
+
+    // Validate URL before inserting
+    const url = linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`;
+    if (!isSafeUrl(url)) {
+      setShowLinkDialog(false);
+      return;
+    }
+
+    const editor = richtextRef.current;
+    editor.focus();
+
+    // Restore the saved selection
+    const selection = window.getSelection();
+    if (selection && savedSelection) {
+      selection.removeAllRanges();
+      selection.addRange(savedSelection);
+    }
+
+    // Create the link
+    const text = linkText || linkUrl;
+
+    if (selection && selection.toString()) {
+      // Wrap selected text in link
+      document.execCommand('createLink', false, url);
+    } else {
+      // Insert new link with text
+      const link = document.createElement('a');
+      link.href = url;
+      link.textContent = text;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.execCommand('insertHTML', false, link.outerHTML);
+    }
+
+    // Trigger input event to save changes
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Reset state
+    setShowLinkDialog(false);
+    setLinkUrl('');
+    setLinkText('');
+    setSavedSelection(null);
+  }, [linkUrl, linkText, savedSelection]);
 
   // Format command for rich text - uses Selection API properly
   const applyFormat = useCallback((command: string, value?: string) => {
@@ -440,6 +541,12 @@ export function Editor() {
               document.execCommand('formatBlock', false, 'blockquote');
             }
           }
+          return;
+        }
+        // Link: Cmd/Ctrl+K
+        if (e.key === 'k' && !e.shiftKey && !e.altKey) {
+          e.preventDefault();
+          openLinkDialog();
           return;
         }
       }
@@ -623,6 +730,12 @@ export function Editor() {
     }
   };
 
+  const handleExport = async (format: ExportFormat = 'native') => {
+    if (!note) return;
+    await downloadNote(note, format);
+    setShowExportMenu(false);
+  };
+
   const getSaveStatusText = () => {
     switch (saveStatus) {
       case 'saving': return t.saving;
@@ -680,6 +793,16 @@ export function Editor() {
           >
             {copyFeedback ? '\u2713' : <CopyIcon />}
           </button>
+          {note.format === 'richtext' && (
+            <button
+              className="action-btn icon-btn"
+              onClick={handleCopyAsMarkdown}
+              title={t.copyAsMarkdown}
+              aria-label={t.copyAsMarkdown}
+            >
+              {copyMdFeedback ? '\u2713' : 'MD'}
+            </button>
+          )}
           {note.format === 'markdown' && (
             <button
               className={`action-btn icon-btn ${showPreview ? 'active' : ''}`}
@@ -691,9 +814,28 @@ export function Editor() {
               <PreviewIcon />
             </button>
           )}
-          <button className="action-btn save-btn" onClick={handleSave}>
-            {t.save}
-          </button>
+          {note.format === 'richtext' ? (
+            <div className="export-menu-container" ref={exportMenuRef}>
+              <button
+                className="action-btn save-btn"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                aria-expanded={showExportMenu}
+              >
+                {t.save}
+              </button>
+              {showExportMenu && (
+                <div className="export-menu">
+                  <button onClick={() => handleExport('native')}>{t.exportAsHtml}</button>
+                  <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
+                  <button onClick={() => handleExport('rtf')}>{t.exportAsRtf}</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button className="action-btn save-btn" onClick={handleSave}>
+              {t.save}
+            </button>
+          )}
           <button
             className="action-btn"
             onClick={() => setShowTagPicker(!showTagPicker)}
@@ -775,6 +917,60 @@ export function Editor() {
             >
               <NumberedListIcon />
             </button>
+            <button
+              className="format-btn"
+              onMouseDown={preventFocusLoss}
+              onClick={openLinkDialog}
+              title={`${state.lang === 'no' ? 'Sett inn lenke' : 'Insert link'} (${mac ? '⌘K' : 'Ctrl+K'})`}
+            >
+              <LinkIcon />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showLinkDialog && (
+        <div className="link-dialog-overlay">
+          <div className="link-dialog">
+            <div className="link-dialog-header">
+              <h3>{t.insertLink}</h3>
+              <button
+                className="link-dialog-close"
+                onClick={() => setShowLinkDialog(false)}
+                aria-label={t.cancel}
+              >
+                <CloseIcon size={16} />
+              </button>
+            </div>
+            <div className="link-dialog-body">
+              <label>
+                <span>{t.linkUrl}</span>
+                <input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://..."
+                  autoFocus
+                />
+              </label>
+              <label>
+                <span>{t.linkText}</span>
+                <input
+                  type="text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder={state.lang === 'no' ? 'Valgfritt' : 'Optional'}
+                />
+              </label>
+            </div>
+            <div className="link-dialog-actions">
+              <button className="action-btn" onClick={() => setShowLinkDialog(false)}>
+                {t.cancel}
+              </button>
+              <button className="action-btn save-btn" onClick={insertLink} disabled={!linkUrl}>
+                {t.insert}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -942,6 +1138,16 @@ export function Editor() {
           </div>
         )}
       </div>
+
+      {(() => {
+        const { words, chars } = countWordsAndChars(note.content, note.format);
+        return (
+          <div className="editor-footer">
+            <span className="word-count">{words} {t.words}</span>
+            <span className="char-count">{chars} {t.characters}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
