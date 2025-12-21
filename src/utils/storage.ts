@@ -213,8 +213,51 @@ export function exportToJsonFile(data: ExportData): void {
   URL.revokeObjectURL(url);
 }
 
-// Maximum file size for import (50MB)
+// Maximum file size for import (50MB for JSON, 1MB for single notes)
 const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_NOTE_FILE_SIZE = 1 * 1024 * 1024;
+
+export interface ImportedNote {
+  title: string;
+  content: string;
+  format: 'plaintext' | 'markdown';
+}
+
+export async function importNoteFromFile(): Promise<ImportedNote | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.md';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) {
+        resolve(null);
+        return;
+      }
+
+      if (file.size > MAX_NOTE_FILE_SIZE) {
+        console.warn('Note file too large:', file.size, 'bytes');
+        resolve(null);
+        return;
+      }
+
+      try {
+        const content = await file.text();
+        const filename = file.name;
+        const title = filename.replace(/\.(txt|md)$/i, '');
+        const format = filename.toLowerCase().endsWith('.md') ? 'markdown' : 'plaintext';
+
+        resolve({ title, content, format });
+      } catch (error) {
+        console.warn('Failed to read note file:', error);
+        resolve(null);
+      }
+    };
+
+    input.click();
+  });
+}
 
 export async function importFromJsonFile(): Promise<ExportData | null> {
   return new Promise((resolve) => {

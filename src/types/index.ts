@@ -157,6 +157,7 @@ export interface I18nStrings {
   search: string;
   importExport: string;
   importData: string;
+  importNote: string;
   exportData: string;
   connectFolder: string;
   disconnectFolder: string;

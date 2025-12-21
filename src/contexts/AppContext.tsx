@@ -6,7 +6,8 @@ import {
   loadFromStorageEncrypted,
   createExportData,
   exportToJsonFile,
-  importFromJsonFile
+  importFromJsonFile,
+  importNoteFromFile
 } from '@/utils/storage';
 import { initializeEncryption } from '@/utils/crypto';
 import { 
@@ -204,6 +205,7 @@ interface AppContextValue {
   // Import/Export
   exportAllData: () => void;
   importData: () => Promise<boolean>;
+  importNote: () => Promise<boolean>;
   
   // Helpers
   getSelectedNote: () => Note | undefined;
@@ -401,6 +403,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
+  const importNote = useCallback(async () => {
+    const imported = await importNoteFromFile();
+    if (imported) {
+      const note: Note = {
+        id: generateId(),
+        title: imported.title,
+        content: imported.content,
+        format: imported.format,
+        tags: [],
+        parentId: null,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      dispatch({ type: 'ADD_NOTE', payload: note });
+      dispatch({ type: 'SELECT_NOTE', payload: note.id });
+      return true;
+    }
+    return false;
+  }, []);
+
   const getSelectedNote = useCallback(() => {
     return state.notes.find(n => n.id === state.selectedNoteId);
   }, [state.notes, state.selectedNoteId]);
@@ -444,6 +466,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     disconnectDirectory,
     exportAllData,
     importData,
+    importNote,
     getSelectedNote,
     getFilteredNotes
   };

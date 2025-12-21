@@ -183,7 +183,8 @@ export function Sidebar() {
     updateTag,
     deleteTag,
     exportAllData,
-    importData
+    importData,
+    importNote
   } = useApp();
 
   const t = i18n[state.lang];
@@ -542,6 +543,10 @@ export function Sidebar() {
               <UploadIcon size={16} />
               <span>{t.importData}</span>
             </button>
+            <button className="backup-popup-btn" onClick={async () => { await importNote(); setShowBackupMenu(false); }}>
+              <UploadIcon size={16} />
+              <span>{t.importNote}</span>
+            </button>
           </div>
         )}
         {showShortcuts && (
@@ -656,7 +661,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.7.0</span>
+        <span>v2.8.0</span>
       </div>
 
       {contextMenu && (
