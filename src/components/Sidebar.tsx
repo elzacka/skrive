@@ -13,7 +13,7 @@ import {
   DeleteIcon,
   EditIcon,
   ArrowForwardIcon,
-  SaveAltIcon,
+  SwapVertIcon,
   DownloadIcon,
   UploadIcon
 } from './Icons';
@@ -531,7 +531,7 @@ export function Sidebar() {
           title={t.importExport}
           aria-label={t.importExport}
         >
-          <SaveAltIcon />
+          <SwapVertIcon />
         </button>
         {showBackupMenu && (
           <div className="backup-popup show" onClick={(e) => e.stopPropagation()}>

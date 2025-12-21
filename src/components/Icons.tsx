@@ -173,15 +173,6 @@ export function OpenInNewIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function SaveAltIcon({ size = 24 }: IconProps) {
-  // Material Design "save_alt" icon - for local backup/export
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
-      <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" fill="currentColor" />
-    </svg>
-  );
-}
-
 export function DownloadIcon({ size = 24 }: IconProps) {
   // Material Design "file_download" icon
   return (
@@ -223,6 +214,15 @@ export function CloseIcon({ size = 14 }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
       <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function SwapVertIcon({ size = 24 }: IconProps) {
+  // Material Symbols "swap_vert" icon
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z" fill="currentColor" />
     </svg>
   );
 }

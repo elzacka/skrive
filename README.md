@@ -7,7 +7,7 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 - **Ende-til-ende-kryptering**: Alle notater krypteres lokalt med AEGIS-256 eller XChaCha20-Poly1305
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
 - **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
-- **Import/Eksport**: Eksporter og importer alle notater som JSON for lokal backup
+- **Import/Eksport**: Eksporter og importer alle notater som JSON for lokal backup, eller importer enkeltnotater fra .txt og .md-filer
 - **Flere formater**: Støtter ren tekst, rik tekst og Markdown
 - **Eksportformater**: Rik tekst kan eksporteres som HTML, Markdown eller RTF (for Word, WordPad, TextEdit)
 - **Ord- og tegnteller**: Viser antall ord og tegn i sanntid
