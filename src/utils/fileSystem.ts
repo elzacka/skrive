@@ -175,7 +175,7 @@ export async function exportDataToDirectory(
 
 export type ExportFormat = 'native' | 'markdown' | 'rtf';
 
-export async function downloadNote(note: Note, format: ExportFormat = 'native'): Promise<void> {
+function getExportContent(note: Note, format: ExportFormat): { content: string; extension: string; mimeType: string } {
   let content = note.content || '';
   let extension = getExtensionFromFormat(note.format);
   let mimeType = getMimeTypeFromFormat(note.format);
@@ -193,13 +193,61 @@ export async function downloadNote(note: Note, format: ExportFormat = 'native'):
     }
   }
 
+  return { content, extension, mimeType };
+}
+
+// Use File System Access API (showSaveFilePicker) if available
+async function saveWithFilePicker(
+  content: string,
+  filename: string,
+  mimeType: string,
+  extension: string
+): Promise<boolean> {
+  if (!('showSaveFilePicker' in window)) {
+    return false;
+  }
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{
+        description: 'File',
+        accept: { [mimeType]: [extension] }
+      }]
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    return true;
+  } catch {
+    // User cancelled or API not supported
+    return false;
+  }
+}
+
+// Fallback to blob download (shows in browser download log)
+function downloadWithBlob(content: string, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${note.title}${extension}`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function downloadNote(note: Note, format: ExportFormat = 'native'): Promise<void> {
+  const { content, extension, mimeType } = getExportContent(note, format);
+  const filename = `${note.title}${extension}`;
+
+  // Try File System Access API first (no download log)
+  const saved = await saveWithFilePicker(content, filename, mimeType, extension);
+
+  // Fall back to blob download if user cancelled or API not available
+  if (!saved) {
+    downloadWithBlob(content, filename, mimeType);
+  }
 }
 
 // Use File System Access API if available, otherwise fall back to download

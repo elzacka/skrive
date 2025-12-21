@@ -202,7 +202,7 @@ interface AppContextValue {
   disconnectDirectory: () => Promise<void>;
   
   // Import/Export
-  exportAllData: () => void;
+  exportAllData: () => Promise<void>;
   importData: () => Promise<boolean>;
   
   // Helpers
@@ -387,9 +387,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDirectoryHandle(null);
   }, []);
 
-  const exportAllData = useCallback(() => {
+  const exportAllData = useCallback(async () => {
     const data = createExportData(state);
-    exportToJsonFile(data);
+    await exportToJsonFile(data);
   }, [state]);
 
   const importData = useCallback(async () => {
