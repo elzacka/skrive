@@ -730,9 +730,9 @@ export function Editor() {
     }
   };
 
-  const handleExport = async (format: ExportFormat = 'native') => {
+  const handleExport = (format: ExportFormat = 'native') => {
     if (!note) return;
-    await downloadNote(note, format);
+    downloadNote(note, format);
     setShowExportMenu(false);
   };
 

@@ -104,12 +104,44 @@ skrive/
 
 ## Tastatursnarveier
 
+### Generelt
+
 | Handling | Mac | Windows/Linux |
 |----------|-----|---------------|
 | Nytt notat | `Opt+N` | `Ctrl+Shift+1` |
 | Vis/skjul sidepanel | `Opt+M` | `Ctrl+Shift+3` |
 | Søk | `Cmd+K` | `Ctrl+K` |
 | Eksporter notat | `Cmd+S` | `Ctrl+S` |
+| Angre | `Cmd+Z` | `Ctrl+Z` |
+| Gjenta | `Cmd+Shift+Z` | `Ctrl+Y` |
+
+### Rik tekst og Markdown
+
+| Handling | Mac | Windows/Linux |
+|----------|-----|---------------|
+| Brødtekst | `Cmd+0` | `Ctrl+0` |
+| Overskrift 1 | `Cmd+1` | `Ctrl+1` |
+| Overskrift 2 | `Cmd+2` | `Ctrl+2` |
+| Overskrift 3 | `Cmd+3` | `Ctrl+3` |
+| Fet | `Cmd+B` | `Ctrl+B` |
+| Kursiv | `Cmd+I` | `Ctrl+I` |
+| Punktliste | `Cmd+Shift+8` | `Ctrl+Shift+8` |
+| Nummerert liste | `Cmd+Shift+7` | `Ctrl+Shift+7` |
+
+### Kun Markdown
+
+| Handling | Mac | Windows/Linux |
+|----------|-----|---------------|
+| Inline kode | `Cmd+E` | `Ctrl+E` |
+| Kodeblokk | `Cmd+Shift+E` | `Ctrl+Shift+E` |
+| Lenke | `Cmd+L` | `Ctrl+L` |
+| Sitat | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+
+### Kun Rik tekst
+
+| Handling | Mac | Windows/Linux |
+|----------|-----|---------------|
+| Sett inn lenke | `Cmd+K` | `Ctrl+K` |
 
 ## Lisens
 

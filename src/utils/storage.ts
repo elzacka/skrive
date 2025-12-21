@@ -201,31 +201,9 @@ export function validateImportData(data: unknown): data is ExportData {
   return true;
 }
 
-export async function exportToJsonFile(data: ExportData): Promise<void> {
+export function exportToJsonFile(data: ExportData): void {
   const json = JSON.stringify(data, null, 2);
   const filename = `skrive-backup-${new Date().toISOString().split('T')[0]}.json`;
-
-  // Try File System Access API first (no download log)
-  if ('showSaveFilePicker' in window) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types: [{
-          description: 'JSON file',
-          accept: { 'application/json': ['.json'] }
-        }]
-      });
-
-      const writable = await handle.createWritable();
-      await writable.write(json);
-      await writable.close();
-      return;
-    } catch {
-      // User cancelled - fall through to blob download
-    }
-  }
-
-  // Fallback to blob download
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
