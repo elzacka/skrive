@@ -38,29 +38,39 @@ function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
 }
 
+// Dangerous protocols that should never be allowed in links
+const DANGEROUS_PROTOCOLS = [
+  'javascript:', 'data:', 'vbscript:', 'file:',
+  'about:', 'chrome:', 'edge:', 'brave:', 'opera:'
+];
+
 // Check if URL is safe using URL API for robust validation
 function isSafeUrl(url: string): boolean {
   const trimmed = url.trim();
-
-  // Check for dangerous protocols
   const lower = trimmed.toLowerCase();
-  if (lower.startsWith('javascript:') ||
-      lower.startsWith('data:') ||
-      lower.startsWith('vbscript:')) {
+
+  // Block dangerous protocols
+  if (DANGEROUS_PROTOCOLS.some(p => lower.startsWith(p))) {
     return false;
   }
 
-  // Try to parse as URL - allows relative and absolute URLs
-  try {
-    // For absolute URLs, validate with URL constructor
-    if (/^https?:\/\//i.test(trimmed)) {
+  // Allow safe protocols (http, https, mailto) and relative URLs
+  if (/^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed)) {
+    try {
       new URL(trimmed);
+      return true;
+    } catch {
+      return false;
     }
-    return true;
-  } catch {
-    // If URL parsing fails for absolute URLs, reject
-    return !/^https?:\/\//i.test(trimmed);
   }
+
+  // Reject any other protocol scheme (anything with colon before first slash)
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    return false;
+  }
+
+  // Allow relative URLs
+  return true;
 }
 
 // Simple markdown to HTML converter with syntax highlighting for code
@@ -203,6 +213,7 @@ export function Editor() {
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richtextRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
   const lastNoteIdRef = useRef<string | null>(null);
@@ -212,15 +223,19 @@ export function Editor() {
   // Reset state when note changes
   useEffect(() => {
     if (note && note.id !== lastNoteIdRef.current) {
+      const isNewNote = note.title === 'Notat' || note.title === 'Note';
       lastNoteIdRef.current = note.id;
       reset(note.content);
       lastSavedContentRef.current = note.content;
       setSaveStatus('saved');
       setCurrentBlockStyle('p');
 
-      // Focus editor after a short delay to allow DOM to update
+      // Focus title for new notes, otherwise focus editor
       requestAnimationFrame(() => {
-        if (note.format === 'richtext') {
+        if (isNewNote) {
+          titleInputRef.current?.focus();
+          titleInputRef.current?.select();
+        } else if (note.format === 'richtext') {
           richtextRef.current?.focus();
         } else {
           textareaRef.current?.focus();
@@ -768,6 +783,7 @@ export function Editor() {
     <div className="editor-panel">
       <div className="editor-header">
         <input
+          ref={titleInputRef}
           type="text"
           className="title-input"
           placeholder={t.titlePlaceholder}

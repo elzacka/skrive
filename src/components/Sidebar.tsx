@@ -37,8 +37,14 @@ interface TreeItemProps {
 
 const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const childFolders = folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang));
-  const childNotes = notes.filter(n => n.parentId === folder.id).sort((a, b) => (a.title || untitledText).localeCompare(b.title || untitledText, lang));
+  const childFolders = useMemo(
+    () => folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang)),
+    [folders, folder.id, lang]
+  );
+  const childNotes = useMemo(
+    () => notes.filter(n => n.parentId === folder.id).sort((a, b) => (a.title || untitledText).localeCompare(b.title || untitledText, lang)),
+    [notes, folder.id, untitledText, lang]
+  );
   const hasChildren = childFolders.length > 0 || childNotes.length > 0;
   const isEditing = editingFolderId === folder.id;
 
@@ -189,7 +195,7 @@ export function Sidebar() {
 
   const t = i18n[state.lang];
   const filteredNotes = getFilteredNotes();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'folder' | 'note'; id: string } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'folder' | 'note' | 'sidebar'; id: string } | null>(null);
   const [tagContextMenu, setTagContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState('');
@@ -228,6 +234,10 @@ export function Sidebar() {
     filteredNotes.filter(n => n.parentId === null).sort((a, b) => (a.title || t.untitled).localeCompare(b.title || t.untitled, state.lang)),
     [filteredNotes, state.lang, t.untitled]
   );
+  const sortedTags = useMemo(() =>
+    [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)),
+    [state.tags, state.lang]
+  );
 
   const handleToggleFolder = (id: string) => {
     const folder = state.folders.find(f => f.id === id);
@@ -236,9 +246,17 @@ export function Sidebar() {
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent, type: 'folder' | 'note', id: string) => {
+  const handleContextMenu = (e: React.MouseEvent, type: 'folder' | 'note' | 'sidebar', id: string) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
+  };
+
+  const handleSidebarContextMenu = (e: React.MouseEvent) => {
+    // Only trigger if clicking on the sidebar background, not on items
+    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('tree')) {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, type: 'sidebar', id: '' });
+    }
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -299,7 +317,10 @@ export function Sidebar() {
     if (type === 'note') {
       createNote(parentId);
     } else {
-      createFolder(parentId);
+      const newFolderId = createFolder(parentId);
+      // Start editing the new folder name immediately
+      setEditingFolderId(newFolderId);
+      setEditingFolderName(t.newFolder);
     }
     closeContextMenu();
   };
@@ -394,7 +415,7 @@ export function Sidebar() {
               <span>{t.all}</span>
               <span className="tag-count">{state.notes.length}</span>
             </button>
-            {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
+            {sortedTags.map(tag => (
               editingTagId === tag.id ? (
                 <div key={tag.id} className="tag-filter-btn editing">
                   <input
@@ -433,7 +454,7 @@ export function Sidebar() {
             <PlusIcon />
           </button>
         </div>
-        <div className="notes-tree" role="tree" aria-label={t.notes}>
+        <div className="notes-tree" role="tree" aria-label={t.notes} onContextMenu={handleSidebarContextMenu}>
           {rootFolders.map(folder => (
             <TreeFolder
               key={folder.id}
@@ -661,7 +682,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.8.1</span>
+        <span>v2.8.3</span>
       </div>
 
       {contextMenu && (
@@ -670,28 +691,43 @@ export function Sidebar() {
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
-            <NoteIcon />
-            <span>{t.newNote}</span>
-          </button>
-          <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
-            <FolderIcon />
-            <span>{t.newFolder}</span>
-          </button>
-          {contextMenu.type === 'folder' && (
+          {contextMenu.type === 'sidebar' ? (
             <>
+              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
+                <FolderIcon />
+                <span>{t.newFolder}</span>
+              </button>
+              <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
+                <NoteIcon />
+                <span>{t.newNote}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
+                <NoteIcon />
+                <span>{t.newNote}</span>
+              </button>
+              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
+                <FolderIcon />
+                <span>{t.newFolder}</span>
+              </button>
+              {contextMenu.type === 'folder' && (
+                <>
+                  <div className="context-menu-divider" />
+                  <button className="context-menu-item" onClick={handleStartEditFolder}>
+                    <EditIcon />
+                    <span>{t.rename}</span>
+                  </button>
+                </>
+              )}
               <div className="context-menu-divider" />
-              <button className="context-menu-item" onClick={handleStartEditFolder}>
-                <EditIcon />
-                <span>{t.rename}</span>
+              <button className="context-menu-item" onClick={handleDelete}>
+                <DeleteIcon />
+                <span>{t.delete}</span>
               </button>
             </>
           )}
-          <div className="context-menu-divider" />
-          <button className="context-menu-item" onClick={handleDelete}>
-            <DeleteIcon />
-            <span>{t.delete}</span>
-          </button>
         </div>
       )}
 

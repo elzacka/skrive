@@ -190,7 +190,7 @@ interface AppContextValue {
   setTagFilter: (tagId: string | null) => void;
   
   // Folders
-  createFolder: (parentId?: string | null, name?: string) => void;
+  createFolder: (parentId?: string | null, name?: string) => string;
   updateFolder: (id: string, updates: Partial<Folder>) => void;
   deleteFolder: (id: string) => void;
   
@@ -348,7 +348,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_TAG_FILTER', payload: tagId });
   }, []);
 
-  const createFolder = useCallback((parentId: string | null = null, name?: string) => {
+  const createFolder = useCallback((parentId: string | null = null, name?: string): string => {
     const folderName = name || (state.lang === 'no' ? 'Ny mappe' : 'New folder');
     const folder: Folder = {
       id: generateId(),
@@ -357,6 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       expanded: false
     };
     dispatch({ type: 'ADD_FOLDER', payload: folder });
+    return folder.id;
   }, [state.lang]);
 
   const updateFolder = useCallback((id: string, updates: Partial<Folder>) => {
