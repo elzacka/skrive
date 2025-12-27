@@ -136,14 +136,20 @@ function RichTextEditor({
   placeholder: string;
 }) {
   const lastNoteIdRef = useRef<string | null>(null);
+  const initialContentRef = useRef<string>(initialContent);
+
+  // Update ref when initialContent changes (for use when noteId changes)
+  if (noteId !== lastNoteIdRef.current) {
+    initialContentRef.current = initialContent;
+  }
 
   // Only set innerHTML when note changes (different noteId)
   useEffect(() => {
     if (editorRef.current && noteId !== lastNoteIdRef.current) {
-      editorRef.current.innerHTML = sanitizeHtml(initialContent);
+      editorRef.current.innerHTML = sanitizeHtml(initialContentRef.current);
       lastNoteIdRef.current = noteId;
     }
-  }, [noteId, initialContent, editorRef]);
+  }, [noteId, editorRef]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
@@ -427,6 +433,9 @@ export function Editor() {
     const textarea = textareaRef.current;
     if (!textarea || !note) return;
 
+    // Save scroll position before any changes
+    const scrollTop = textarea.scrollTop;
+
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
@@ -439,19 +448,25 @@ export function Editor() {
     updateNote(note.id, { content: newContent });
     pushState(newContent, start + prefix.length + textToInsert.length + suffix.length);
 
-    // Set cursor position after insert
+    // Set cursor position after insert and restore scroll
     requestAnimationFrame(() => {
-      textarea.focus();
+      textarea.focus({ preventScroll: true });
       if (selectedText) {
         // If text was selected, place cursor after the insertion
         const newPos = start + prefix.length + textToInsert.length + suffix.length;
         textarea.setSelectionRange(newPos, newPos);
-      } else {
-        // If no selection, select the placeholder text
+      } else if (placeholder) {
+        // If no selection but has placeholder, select the placeholder text
         const selectStart = start + prefix.length;
         const selectEnd = selectStart + placeholder.length;
         textarea.setSelectionRange(selectStart, selectEnd);
+      } else {
+        // No selection and no placeholder, place cursor after prefix
+        const newPos = start + prefix.length;
+        textarea.setSelectionRange(newPos, newPos);
       }
+      // Restore scroll position
+      textarea.scrollTop = scrollTop;
     });
   }, [note, updateNote, pushState]);
 
@@ -598,13 +613,13 @@ export function Editor() {
         // Bullet list: Cmd/Ctrl+Shift+8
         if (e.key === '8' && e.shiftKey && !e.altKey) {
           e.preventDefault();
-          insertMarkdown('- ', '', state.lang === 'no' ? 'listepunkt' : 'list item');
+          insertMarkdown('- ', '', '');
           return;
         }
         // Numbered list: Cmd/Ctrl+Shift+7
         if (e.key === '7' && e.shiftKey && !e.altKey) {
           e.preventDefault();
-          insertMarkdown('1. ', '', state.lang === 'no' ? 'listepunkt' : 'list item');
+          insertMarkdown('1. ', '', '');
           return;
         }
         // Link: Cmd/Ctrl+L
@@ -616,7 +631,7 @@ export function Editor() {
         // Quote: Cmd/Ctrl+Shift+.
         if (e.key === '.' && e.shiftKey && !e.altKey) {
           e.preventDefault();
-          insertMarkdown('> ', '', state.lang === 'no' ? 'sitat' : 'quote');
+          insertMarkdown('> ', '', '');
           return;
         }
       }
@@ -1021,14 +1036,14 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
-              onClick={() => insertMarkdown('- ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
+              onClick={() => insertMarkdown('- ', '', '')}
               title={`${state.lang === 'no' ? 'Punktliste' : 'Bullet list'} (${mac ? '⌘⇧8' : 'Ctrl+Shift+8'})`}
             >
               <BulletListIcon />
             </button>
             <button
               className="format-btn"
-              onClick={() => insertMarkdown('1. ', '', state.lang === 'no' ? 'listepunkt' : 'list item')}
+              onClick={() => insertMarkdown('1. ', '', '')}
               title={`${state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'} (${mac ? '⌘⇧7' : 'Ctrl+Shift+7'})`}
             >
               <NumberedListIcon />
@@ -1044,7 +1059,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
-              onClick={() => insertMarkdown('> ', '', state.lang === 'no' ? 'sitat' : 'quote')}
+              onClick={() => insertMarkdown('> ', '', '')}
               title={`${state.lang === 'no' ? 'Sitat' : 'Quote'} (${mac ? '⌘⇧.' : 'Ctrl+Shift+.'})`}
             >
               <QuoteIcon />
