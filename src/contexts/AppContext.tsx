@@ -19,6 +19,24 @@ import {
 } from '@/utils/fileSystem';
 import { generateId } from '@/utils/helpers';
 
+// Helper to build a new note object
+function buildNote(
+  lang: 'no' | 'en',
+  format: Note['format'],
+  parentId: string | null = null
+): Note {
+  return {
+    id: generateId(),
+    title: lang === 'no' ? 'Notat' : 'Note',
+    content: '',
+    format,
+    tags: [],
+    parentId,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+}
+
 // Action types
 type Action =
   | { type: 'SET_LANG'; payload: 'no' | 'en' }
@@ -175,7 +193,7 @@ interface AppContextValue {
   setLang: (lang: 'no' | 'en') => void;
   
   // Notes
-  createNote: (parentId?: string | null) => void;
+  createNote: (parentId?: string | null, format?: Note['format']) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   selectNote: (id: string | null) => void;
@@ -226,8 +244,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await initializeEncryption();
 
       // Load encrypted state
+      let notes: Note[] = [];
+      let lang: 'no' | 'en' = 'no';
+
       const stored = await loadFromStorageEncrypted();
       if (stored) {
+        lang = stored.lang;
+        notes = stored.notes;
         dispatch({ type: 'SET_LANG', payload: stored.lang });
         dispatch({ type: 'SET_NOTES', payload: stored.notes });
         dispatch({ type: 'SET_TAGS', payload: stored.tags });
@@ -236,11 +259,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Fall back to legacy unencrypted storage
         const legacy = loadFromStorage();
         if (legacy) {
+          lang = legacy.lang;
+          notes = legacy.notes;
           dispatch({ type: 'SET_LANG', payload: legacy.lang });
           dispatch({ type: 'SET_NOTES', payload: legacy.notes });
           dispatch({ type: 'SET_TAGS', payload: legacy.tags });
           dispatch({ type: 'SET_FOLDERS', payload: legacy.folders });
         }
+      }
+
+      // Select most recently updated note, or create new richtext note for first-time users
+      if (notes.length > 0) {
+        const mostRecent = notes.reduce((latest, note) =>
+          note.updatedAt > latest.updatedAt ? note : latest
+        );
+        dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
+      } else {
+        const note = buildNote(lang, 'richtext');
+        dispatch({ type: 'ADD_NOTE', payload: note });
+        dispatch({ type: 'SELECT_NOTE', payload: note.id });
       }
 
       // Try to restore directory handle
@@ -282,17 +319,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_LANG', payload: lang });
   }, []);
 
-  const createNote = useCallback((parentId: string | null = null) => {
-    const note: Note = {
-      id: generateId(),
-      title: state.lang === 'no' ? 'Notat' : 'Note',
-      content: '',
-      format: 'plaintext',
-      tags: [],
-      parentId,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
+  const createNote = useCallback((parentId: string | null = null, format: Note['format'] = 'plaintext') => {
+    const note = buildNote(state.lang, format, parentId);
     dispatch({ type: 'ADD_NOTE', payload: note });
     dispatch({ type: 'SELECT_NOTE', payload: note.id });
   }, [state.lang]);

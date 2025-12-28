@@ -73,6 +73,12 @@ src/
 - Each icon is a React component that renders an inline `<svg>` element
 - To add a new icon: find the SVG path from Material Symbols, create a new export function in Icons.tsx
 
+## App Startup Behavior
+
+- First-time users: A new richtext note is created and selected automatically
+- Returning users: The most recently updated note is selected automatically
+- Note creation logic is centralized in `buildNote()` helper in AppContext.tsx
+
 ## Export Formats
 
 Richtext notes support multiple export formats:

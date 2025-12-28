@@ -8,7 +8,8 @@ En lettvekts notatapp med offline-støtte og ende-til-ende-kryptering, bygget me
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
 - **Ingen sporing**: Ingen analytics, ingen cookies, ingen data sendes til servere
 - **Import/Eksport**: Eksporter og importer alle notater som JSON for lokal backup, eller importer enkeltnotater fra .txt og .md-filer
-- **Flere formater**: Støtter ren tekst, rik tekst og Markdown
+- **Flere formater**: Støtter ren tekst, rik tekst og Markdown (rik tekst er standard for nye brukere)
+- **Fortsett der du slapp**: Viser sist redigerte notat automatisk ved oppstart
 - **Eksportformater**: Rik tekst kan eksporteres som HTML, Markdown eller RTF (for Word, WordPad, TextEdit)
 - **Ord- og tegnteller**: Viser antall ord og tegn i sanntid
 - **Etiketter og mapper**: Organiser notatene dine med etiketter og mappestruktur
