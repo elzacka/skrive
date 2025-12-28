@@ -168,6 +168,50 @@ function RichTextEditor({
     }
   }, [editorRef, onContentChange]);
 
+  // Handle Enter key in lists to continue the list
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    // Find if we're inside a list item
+    let node: Node | null = selection.anchorNode;
+    let listItem: HTMLLIElement | null = null;
+    let list: HTMLUListElement | HTMLOListElement | null = null;
+
+    while (node && node !== editorRef.current) {
+      if (node.nodeName === 'LI') {
+        listItem = node as HTMLLIElement;
+      }
+      if (node.nodeName === 'UL' || node.nodeName === 'OL') {
+        list = node as HTMLUListElement | HTMLOListElement;
+        break;
+      }
+      node = node.parentNode;
+    }
+
+    if (!listItem || !list) return;
+
+    // Check if the current list item is empty
+    const isEmpty = listItem.textContent?.trim() === '';
+
+    if (isEmpty) {
+      // Exit the list: remove empty item and insert paragraph after list
+      e.preventDefault();
+      listItem.remove();
+
+      // If list is now empty, remove it too
+      if (list.children.length === 0) {
+        list.remove();
+      }
+
+      // Insert a new paragraph and place cursor there
+      document.execCommand('insertParagraph', false);
+    }
+    // If not empty, let browser handle creating new list item naturally
+  }, [editorRef]);
+
   return (
     <div
       ref={editorRef}
@@ -175,6 +219,7 @@ function RichTextEditor({
       contentEditable
       dir="ltr"
       onInput={handleInput}
+      onKeyDown={handleKeyDown}
       aria-label={placeholder}
       suppressContentEditableWarning
     />
@@ -485,6 +530,74 @@ export function Editor() {
     });
   }, [note, updateNote, pushState]);
 
+  // Toggle markdown list (bullet or numbered)
+  const toggleMarkdownList = useCallback((listType: 'bullet' | 'numbered') => {
+    const textarea = textareaRef.current;
+    if (!textarea || !note) return;
+
+    const scrollTop = textarea.scrollTop;
+    const { value, selectionStart } = textarea;
+
+    // Find the start of the current line
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const lineEnd = value.indexOf('\n', selectionStart);
+    const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
+    const currentLine = value.substring(lineStart, actualLineEnd);
+
+    // Check existing list prefix
+    const bulletMatch = currentLine.match(/^(\s*)([-*])\s(.*)$/);
+    const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
+
+    let newLine: string;
+    let newCursorOffset: number;
+
+    if (listType === 'bullet') {
+      if (bulletMatch) {
+        // Already bullet list - remove it
+        newLine = bulletMatch[1] + bulletMatch[3];
+        newCursorOffset = -2; // "- " removed
+      } else if (numberedMatch) {
+        // Numbered list - convert to bullet
+        const numPrefix = numberedMatch[2].length + 2; // "1. " length
+        newLine = numberedMatch[1] + '- ' + numberedMatch[3];
+        newCursorOffset = 2 - numPrefix;
+      } else {
+        // No list - add bullet
+        newLine = '- ' + currentLine;
+        newCursorOffset = 2;
+      }
+    } else {
+      if (numberedMatch) {
+        // Already numbered - remove it
+        const numPrefix = numberedMatch[2].length + 2;
+        newLine = numberedMatch[1] + numberedMatch[3];
+        newCursorOffset = -numPrefix;
+      } else if (bulletMatch) {
+        // Bullet list - convert to numbered
+        newLine = bulletMatch[1] + '1. ' + bulletMatch[3];
+        newCursorOffset = 1; // "- " (2) -> "1. " (3)
+      } else {
+        // No list - add numbered
+        newLine = '1. ' + currentLine;
+        newCursorOffset = 3;
+      }
+    }
+
+    const before = value.substring(0, lineStart);
+    const after = value.substring(actualLineEnd);
+    const newContent = before + newLine + after;
+    const newPos = Math.max(lineStart, selectionStart + newCursorOffset);
+
+    updateNote(note.id, { content: newContent });
+    pushState(newContent, newPos);
+
+    requestAnimationFrame(() => {
+      textarea.focus({ preventScroll: true });
+      textarea.setSelectionRange(newPos, newPos);
+      textarea.scrollTop = scrollTop;
+    });
+  }, [note, updateNote, pushState]);
+
   // Keyboard shortcuts for undo/redo and formatting
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -628,13 +741,13 @@ export function Editor() {
         // Bullet list: Cmd/Ctrl+Shift+8
         if (e.key === '8' && e.shiftKey && !e.altKey) {
           e.preventDefault();
-          insertMarkdown('- ', '', '');
+          toggleMarkdownList('bullet');
           return;
         }
         // Numbered list: Cmd/Ctrl+Shift+7
         if (e.key === '7' && e.shiftKey && !e.altKey) {
           e.preventDefault();
-          insertMarkdown('1. ', '', '');
+          toggleMarkdownList('numbered');
           return;
         }
         // Link: Cmd/Ctrl+L
@@ -654,7 +767,7 @@ export function Editor() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, note, applyFormat, insertMarkdown, state.lang]);
+  }, [handleUndo, handleRedo, note, applyFormat, insertMarkdown, toggleMarkdownList, state.lang]);
 
   // Update active formats when selection changes in richtext editor
   useEffect(() => {
@@ -693,6 +806,83 @@ export function Editor() {
     const cursorPosition = e.target.selectionStart;
     updateNote(note.id, { content });
     pushState(content, cursorPosition);
+  };
+
+  // Handle Enter key in Markdown lists to continue the list
+  const handleMarkdownKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || note?.format !== 'markdown') return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const { value, selectionStart } = textarea;
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const currentLine = value.substring(lineStart, selectionStart);
+
+    // Check for bullet list (- or *)
+    const bulletMatch = currentLine.match(/^(\s*)([-*])\s(.*)$/);
+    if (bulletMatch) {
+      const [, indent, bullet, content] = bulletMatch;
+      if (content.trim() === '') {
+        // Empty item - exit list
+        e.preventDefault();
+        const before = value.substring(0, lineStart);
+        const after = value.substring(selectionStart);
+        const newContent = before + after;
+        updateNote(note.id, { content: newContent });
+        pushState(newContent, lineStart);
+        requestAnimationFrame(() => {
+          textarea.setSelectionRange(lineStart, lineStart);
+        });
+      } else {
+        // Continue list
+        e.preventDefault();
+        const newItem = `\n${indent}${bullet} `;
+        const before = value.substring(0, selectionStart);
+        const after = value.substring(selectionStart);
+        const newContent = before + newItem + after;
+        const newPos = selectionStart + newItem.length;
+        updateNote(note.id, { content: newContent });
+        pushState(newContent, newPos);
+        requestAnimationFrame(() => {
+          textarea.setSelectionRange(newPos, newPos);
+        });
+      }
+      return;
+    }
+
+    // Check for numbered list (1. 2. etc.)
+    const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
+    if (numberedMatch) {
+      const [, indent, num, content] = numberedMatch;
+      if (content.trim() === '') {
+        // Empty item - exit list
+        e.preventDefault();
+        const before = value.substring(0, lineStart);
+        const after = value.substring(selectionStart);
+        const newContent = before + after;
+        updateNote(note.id, { content: newContent });
+        pushState(newContent, lineStart);
+        requestAnimationFrame(() => {
+          textarea.setSelectionRange(lineStart, lineStart);
+        });
+      } else {
+        // Continue list with incremented number
+        e.preventDefault();
+        const nextNum = parseInt(num, 10) + 1;
+        const newItem = `\n${indent}${nextNum}. `;
+        const before = value.substring(0, selectionStart);
+        const after = value.substring(selectionStart);
+        const newContent = before + newItem + after;
+        const newPos = selectionStart + newItem.length;
+        updateNote(note.id, { content: newContent });
+        pushState(newContent, newPos);
+        requestAnimationFrame(() => {
+          textarea.setSelectionRange(newPos, newPos);
+        });
+      }
+      return;
+    }
   };
 
   const handleFormatChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1052,14 +1242,14 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
-              onClick={() => insertMarkdown('- ', '', '')}
+              onClick={() => toggleMarkdownList('bullet')}
               title={`${state.lang === 'no' ? 'Punktliste' : 'Bullet list'} (${mac ? '⌘⇧8' : 'Ctrl+Shift+8'})`}
             >
               <BulletListIcon />
             </button>
             <button
               className="format-btn"
-              onClick={() => insertMarkdown('1. ', '', '')}
+              onClick={() => toggleMarkdownList('numbered')}
               title={`${state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'} (${mac ? '⌘⇧7' : 'Ctrl+Shift+7'})`}
             >
               <NumberedListIcon />
@@ -1154,6 +1344,7 @@ export function Editor() {
               placeholder={t.editorPlaceholder}
               value={note.content}
               onChange={handleContentChange}
+              onKeyDown={handleMarkdownKeyDown}
               spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
               aria-label={t.editorPlaceholder}
               dir="ltr"
