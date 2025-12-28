@@ -624,6 +624,37 @@ body {
   margin-bottom: 6px;
 }
 
+/* Guide Popup */
+.guide-intro {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+  line-height: 1.4;
+}
+
+.guide-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-item {
+  padding: 0;
+}
+
+.guide-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.guide-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* Privacy Popup */
 .privacy-popup {
   position: absolute;

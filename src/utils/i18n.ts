@@ -97,7 +97,20 @@ export const i18n: I18n = {
     linkUrl: 'URL',
     linkText: 'Lenketekst',
     insert: 'Sett inn',
-    cancel: 'Avbryt'
+    cancel: 'Avbryt',
+    guide: 'Bruksanvisning',
+    guideWelcome: 'Velkommen til Skrive',
+    guideIntro: 'En enkel og sikker notatapp som fungerer offline.',
+    guideFormats: 'Velg format',
+    guideFormatsDesc: 'Bruk rik tekst for formatering, Markdown for kode, eller ren tekst.',
+    guideOrganize: 'Organiser',
+    guideOrganizeDesc: 'Bruk mapper og etiketter for å holde orden. Høyreklikk for alternativer.',
+    guideSecurity: 'Sikkerhet',
+    guideSecurityDesc: 'Alle notater krypteres lokalt. Data forlater aldri enheten din.',
+    guideExport: 'Eksporter',
+    guideExportDesc: 'Lagre notater som HTML, Markdown eller RTF. Ta backup via import/eksport.',
+    guideOffline: 'Offline',
+    guideOfflineDesc: 'Appen fungerer uten internett. Installer som app for best opplevelse.'
   },
   en: {
     save: 'Export',
@@ -195,6 +208,19 @@ export const i18n: I18n = {
     linkUrl: 'URL',
     linkText: 'Link text',
     insert: 'Insert',
-    cancel: 'Cancel'
+    cancel: 'Cancel',
+    guide: 'User guide',
+    guideWelcome: 'Welcome to Skrive',
+    guideIntro: 'A simple and secure note-taking app that works offline.',
+    guideFormats: 'Choose format',
+    guideFormatsDesc: 'Use rich text for formatting, Markdown for code, or plain text.',
+    guideOrganize: 'Organize',
+    guideOrganizeDesc: 'Use folders and tags to stay organized. Right-click for options.',
+    guideSecurity: 'Security',
+    guideSecurityDesc: 'All notes are encrypted locally. Data never leaves your device.',
+    guideExport: 'Export',
+    guideExportDesc: 'Save notes as HTML, Markdown, or RTF. Back up via import/export.',
+    guideOffline: 'Offline',
+    guideOfflineDesc: 'The app works without internet. Install as an app for best experience.'
   }
 };

@@ -15,7 +15,8 @@ import {
   ArrowForwardIcon,
   SwapVertIcon,
   DownloadIcon,
-  UploadIcon
+  UploadIcon,
+  ArticleIcon
 } from './Icons';
 
 interface TreeItemProps {
@@ -202,6 +203,7 @@ export function Sidebar() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   const [showBackupMenu, setShowBackupMenu] = useState(false);
@@ -214,6 +216,7 @@ export function Sidebar() {
     const handleClickOutside = (e: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
         setShowShortcuts(false);
+        setShowGuide(false);
         setShowLangDropdown(false);
         setShowPrivacyInfo(false);
         setShowBackupMenu(false);
@@ -379,7 +382,7 @@ export function Sidebar() {
   }), [mac]);
 
   return (
-    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
+    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
       <div className="sidebar-header">
         <span className="sidebar-title">Skrive</span>
       </div>
@@ -515,16 +518,24 @@ export function Sidebar() {
         )}
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
           title={t.shortcuts}
           aria-label={t.shortcuts}
         >
           <KeyboardIcon />
         </button>
+        <button
+          className="sidebar-footer-btn"
+          onClick={(e) => { e.stopPropagation(); setShowGuide(!showGuide); setShowShortcuts(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
+          title={t.guide}
+          aria-label={t.guide}
+        >
+          <ArticleIcon />
+        </button>
         <div className="lang-picker">
           <button
             className="sidebar-footer-btn"
-            onClick={(e) => { e.stopPropagation(); setShowLangDropdown(!showLangDropdown); }}
+            onClick={(e) => { e.stopPropagation(); setShowLangDropdown(!showLangDropdown); setShowShortcuts(false); setShowGuide(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
             title="Språk"
           >
             {state.lang.toUpperCase()}
@@ -548,7 +559,7 @@ export function Sidebar() {
         </div>
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowPrivacyInfo(false); setShowShortcuts(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowGuide(false); setShowPrivacyInfo(false); setShowShortcuts(false); }}
           title={t.importExport}
           aria-label={t.importExport}
         >
@@ -677,12 +688,40 @@ export function Sidebar() {
             </div>
           </div>
         )}
+        {showGuide && (
+          <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
+            <div className="shortcuts-title">{t.guideWelcome}</div>
+            <p className="guide-intro">{t.guideIntro}</p>
+            <div className="guide-grid">
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideFormats}</div>
+                <div className="guide-item-desc">{t.guideFormatsDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideOrganize}</div>
+                <div className="guide-item-desc">{t.guideOrganizeDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideSecurity}</div>
+                <div className="guide-item-desc">{t.guideSecurityDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideExport}</div>
+                <div className="guide-item-desc">{t.guideExportDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideOffline}</div>
+                <div className="guide-item-desc">{t.guideOfflineDesc}</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2025</span>
-        <span>v2.10.0</span>
+        <span>v2.11.0</span>
       </div>
 
       {contextMenu && (

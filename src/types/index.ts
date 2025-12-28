@@ -198,6 +198,19 @@ export interface I18nStrings {
   linkText: string;
   insert: string;
   cancel: string;
+  guide: string;
+  guideWelcome: string;
+  guideIntro: string;
+  guideFormats: string;
+  guideFormatsDesc: string;
+  guideOrganize: string;
+  guideOrganizeDesc: string;
+  guideSecurity: string;
+  guideSecurityDesc: string;
+  guideExport: string;
+  guideExportDesc: string;
+  guideOffline: string;
+  guideOfflineDesc: string;
 }
 
 export type I18n = {
