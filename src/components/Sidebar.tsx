@@ -518,19 +518,19 @@ export function Sidebar() {
         )}
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
-          title={t.shortcuts}
-          aria-label={t.shortcuts}
-        >
-          <KeyboardIcon />
-        </button>
-        <button
-          className="sidebar-footer-btn"
           onClick={(e) => { e.stopPropagation(); setShowGuide(!showGuide); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
           title={t.guide}
           aria-label={t.guide}
         >
           <ArticleIcon />
+        </button>
+        <button
+          className="sidebar-footer-btn"
+          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
+          title={t.shortcuts}
+          aria-label={t.shortcuts}
+        >
+          <KeyboardIcon />
         </button>
         <div className="lang-picker">
           <button
