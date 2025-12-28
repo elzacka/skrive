@@ -494,7 +494,7 @@ export function Sidebar() {
       <div className="sidebar-footer-buttons">
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); setShowBackupMenu(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowBackupMenu(false); }}
           title={t.securityPrivacy}
           aria-label={t.securityPrivacy}
         >
@@ -518,7 +518,7 @@ export function Sidebar() {
         )}
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
           title={t.shortcuts}
           aria-label={t.shortcuts}
         >
@@ -526,7 +526,7 @@ export function Sidebar() {
         </button>
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowGuide(!showGuide); setShowShortcuts(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowGuide(!showGuide); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
           title={t.guide}
           aria-label={t.guide}
         >
@@ -559,7 +559,7 @@ export function Sidebar() {
         </div>
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowGuide(false); setShowPrivacyInfo(false); setShowShortcuts(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
           title={t.importExport}
           aria-label={t.importExport}
         >
@@ -700,10 +700,6 @@ export function Sidebar() {
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideOrganize}</div>
                 <div className="guide-item-desc">{t.guideOrganizeDesc}</div>
-              </div>
-              <div className="guide-item">
-                <div className="guide-item-title">{t.guideSecurity}</div>
-                <div className="guide-item-desc">{t.guideSecurityDesc}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideExport}</div>

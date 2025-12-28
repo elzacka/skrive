@@ -205,8 +205,6 @@ export interface I18nStrings {
   guideFormatsDesc: string;
   guideOrganize: string;
   guideOrganizeDesc: string;
-  guideSecurity: string;
-  guideSecurityDesc: string;
   guideExport: string;
   guideExportDesc: string;
   guideOffline: string;
