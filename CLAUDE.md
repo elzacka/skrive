@@ -77,7 +77,20 @@ src/
 
 - First-time users: A new richtext note is created and selected automatically
 - Returning users: The most recently updated note is selected automatically
+- If local data is missing but an auto-backup handle exists: restore from backup automatically
 - Note creation logic is centralized in `buildNote()` helper in AppContext.tsx
+- `initRef` guard prevents double initialization in React StrictMode
+
+## Auto-Backup
+
+- Uses the File System Access API (Chrome/Edge only)
+- Writes `skrive-auto-backup.json` to a user-chosen local folder
+- Debounced: writes 5 seconds after notes/tags/folders change
+- Backup includes the encryption key (base64) for full restore
+- `writeAutoBackup()` skips `verifyPermission()` to avoid prompts during background saves
+- Backup handle stored in IndexedDB under key `skrive-backup-handle`
+- Firefox/Safari: feature unavailable, shows info message
+- Core logic in src/utils/fileSystem.ts, state management in src/contexts/AppContext.tsx
 
 ## Export Formats
 

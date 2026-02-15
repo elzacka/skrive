@@ -205,10 +205,22 @@ export interface I18nStrings {
   guideFormatsDesc: string;
   guideOrganize: string;
   guideOrganizeDesc: string;
+  guideAutoBackup: string;
+  guideAutoBackupDesc: string;
   guideExport: string;
   guideExportDesc: string;
   guideOffline: string;
   guideOfflineDesc: string;
+  autoBackup: string;
+  enableAutoBackup: string;
+  disableAutoBackup: string;
+  autoBackupActive: string;
+  autoBackupInactive: string;
+  restoreFromBackup: string;
+  backupRestored: string;
+  backupFailed: string;
+  autoBackupUnsupported: string;
+  lastBackup: string;
 }
 
 export type I18n = {

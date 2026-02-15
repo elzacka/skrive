@@ -764,6 +764,52 @@ body {
   color: var(--accent);
 }
 
+.backup-popup-section {
+  padding: 4px 10px;
+}
+
+.backup-popup-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.backup-popup-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.backup-popup-detail {
+  padding: 2px 10px 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.backup-popup-error {
+  padding: 2px 10px 6px;
+  font-size: 10px;
+  color: var(--danger);
+}
+
+.backup-popup-reminder {
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.backup-popup-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 4px 0;
+}
+
 /* Editor Panel */
 .editor-panel {
   flex: 1;

@@ -3,6 +3,7 @@ import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { isMac } from '@/utils';
 import type { Note, Folder } from '@/types';
+import { formatDate } from '@/utils/helpers';
 import {
   PlusIcon,
   ChevronRightIcon,
@@ -16,7 +17,9 @@ import {
   SwapVertIcon,
   DownloadIcon,
   UploadIcon,
-  ArticleIcon
+  ArticleIcon,
+  BackupIcon,
+  CloudDoneIcon
 } from './Icons';
 
 interface TreeItemProps {
@@ -191,7 +194,14 @@ export function Sidebar() {
     deleteTag,
     exportAllData,
     importData,
-    importNote
+    importNote,
+    autoBackupEnabled,
+    lastBackupTime,
+    backupError,
+    enableAutoBackup,
+    disableAutoBackup,
+    restoreFromBackup,
+    fsAccessSupported
   } = useApp();
 
   const t = i18n[state.lang];
@@ -567,6 +577,53 @@ export function Sidebar() {
         </button>
         {showBackupMenu && (
           <div className="backup-popup show" onClick={(e) => e.stopPropagation()}>
+            {fsAccessSupported ? (
+              <>
+                <div className="backup-popup-section">
+                  <span className="backup-popup-section-title">{t.autoBackup}</span>
+                </div>
+                {autoBackupEnabled ? (
+                  <>
+                    <div className="backup-popup-status">
+                      <CloudDoneIcon size={14} />
+                      <span>{t.autoBackupActive}</span>
+                    </div>
+                    {lastBackupTime && (
+                      <div className="backup-popup-detail">
+                        {t.lastBackup}: {formatDate(lastBackupTime, state.lang)}
+                      </div>
+                    )}
+                    {backupError && (
+                      <div className="backup-popup-error">
+                        {t.backupFailed}
+                      </div>
+                    )}
+                    <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setShowBackupMenu(false); }}>
+                      <BackupIcon size={16} />
+                      <span>{t.disableAutoBackup}</span>
+                    </button>
+                  </>
+                ) : (
+                  <button className="backup-popup-btn" onClick={async () => { await enableAutoBackup(); setShowBackupMenu(false); }}>
+                    <BackupIcon size={16} />
+                    <span>{t.enableAutoBackup}</span>
+                  </button>
+                )}
+                <div className="backup-popup-divider" />
+                <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setShowBackupMenu(false); }}>
+                  <UploadIcon size={16} />
+                  <span>{t.restoreFromBackup}</span>
+                </button>
+                <div className="backup-popup-divider" />
+              </>
+            ) : (
+              <>
+                <div className="backup-popup-reminder">
+                  {t.autoBackupUnsupported}
+                </div>
+                <div className="backup-popup-divider" />
+              </>
+            )}
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setShowBackupMenu(false); }}>
               <DownloadIcon size={16} />
               <span>{t.exportData}</span>
@@ -702,6 +759,10 @@ export function Sidebar() {
                 <div className="guide-item-desc">{t.guideOrganizeDesc}</div>
               </div>
               <div className="guide-item">
+                <div className="guide-item-title">{t.guideAutoBackup}</div>
+                <div className="guide-item-desc">{t.guideAutoBackupDesc}</div>
+              </div>
+              <div className="guide-item">
                 <div className="guide-item-title">{t.guideExport}</div>
                 <div className="guide-item-desc">{t.guideExportDesc}</div>
               </div>
@@ -716,8 +777,8 @@ export function Sidebar() {
 
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
-        <span>2025</span>
-        <span>v2.11.0</span>
+        <span>2026</span>
+        <span>v2.12.0</span>
       </div>
 
       {contextMenu && (

@@ -2,6 +2,12 @@ import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
 import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf } from './helpers';
 
 const DIRECTORY_HANDLE_KEY = 'skrive-directory-handle';
+const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
+
+export interface AutoBackupData extends ExportData {
+  encryptionKey: string;
+  backupTimestamp: number;
+}
 
 // IndexedDB for storing directory handle
 function openDB(): Promise<IDBDatabase> {
@@ -70,8 +76,7 @@ export async function clearStoredDirectoryHandle(): Promise<void> {
 export async function requestDirectoryAccess(): Promise<FileSystemDirectoryHandle | null> {
   try {
     const handle = await window.showDirectoryPicker({
-      mode: 'readwrite',
-      startIn: 'documents'
+      mode: 'readwrite'
     });
     await storeDirectoryHandle(handle);
     return handle;
@@ -114,7 +119,17 @@ export async function saveNoteToDirectory(
     }
     
     const extension = getExtensionFromFormat(note.format);
-    const filename = `${note.title.replace(/[<>:"/\\|?*]/g, '_')}${extension}`;
+    let sanitized = note.title
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/^\.+/, '_')
+      .replace(/\s+$/, '');
+    // Windows reserved names
+    if (/^(CON|PRN|AUX|NUL|COM\d|LPT\d)$/i.test(sanitized)) {
+      sanitized = `_${sanitized}`;
+    }
+    // Max 200 chars for the name (leaving room for extension)
+    sanitized = sanitized.slice(0, 200) || 'note';
+    const filename = `${sanitized}${extension}`;
     
     const fileHandle = await handle.getFileHandle(filename, { create: true });
     const writable = await fileHandle.createWritable();
@@ -222,5 +237,105 @@ export async function saveNote(
   } else {
     downloadNote(note);
     return true;
+  }
+}
+
+// Auto-backup handle management
+
+export async function storeBackupHandle(handle: FileSystemDirectoryHandle): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('handles', 'readwrite');
+    const store = tx.objectStore('handles');
+    store.put(handle, BACKUP_HANDLE_KEY);
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.warn('Failed to store backup handle in IndexedDB:', error);
+  }
+}
+
+export async function getStoredBackupHandle(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('handles', 'readonly');
+    const store = tx.objectStore('handles');
+    const request = store.get(BACKUP_HANDLE_KEY);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn('Failed to get backup handle from IndexedDB:', error);
+    return null;
+  }
+}
+
+export async function clearBackupHandle(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('handles', 'readwrite');
+    const store = tx.objectStore('handles');
+    store.delete(BACKUP_HANDLE_KEY);
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.warn('Failed to clear backup handle from IndexedDB:', error);
+  }
+}
+
+export async function requestBackupDirectoryAccess(): Promise<FileSystemDirectoryHandle | null> {
+  try {
+    const handle = await window.showDirectoryPicker({
+      id: 'skrive-backup',
+      mode: 'readwrite'
+    });
+    await storeBackupHandle(handle);
+    return handle;
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function writeAutoBackup(
+  handle: FileSystemDirectoryHandle,
+  data: AutoBackupData
+): Promise<boolean> {
+  try {
+    // Skip verifyPermission to avoid prompting the user during background saves.
+    // If permission was revoked, the write will throw and fail silently.
+    const fileHandle = await handle.getFileHandle('skrive-auto-backup.json', { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    return true;
+  } catch (error) {
+    console.warn('Auto-backup write failed:', error);
+    return false;
+  }
+}
+
+export async function readAutoBackup(
+  handle: FileSystemDirectoryHandle
+): Promise<AutoBackupData | null> {
+  try {
+    if (!(await verifyPermission(handle))) {
+      return null;
+    }
+    const fileHandle = await handle.getFileHandle('skrive-auto-backup.json');
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    const data = JSON.parse(text) as AutoBackupData;
+    if (!data.encryptionKey || !Array.isArray(data.notes)) {
+      return null;
+    }
+    return data;
+  } catch (error) {
+    console.warn('Failed to read auto-backup:', error);
+    return null;
   }
 }

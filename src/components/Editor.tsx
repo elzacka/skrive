@@ -268,7 +268,8 @@ export function Editor() {
   // Reset state when note changes
   useEffect(() => {
     if (note && note.id !== lastNoteIdRef.current) {
-      const isNewNote = note.title === 'Notat' || note.title === 'Note';
+      const defaultTitles = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
+      const isNewNote = !note.content && defaultTitles.includes(note.title);
       lastNoteIdRef.current = note.id;
       reset(note.content);
       lastSavedContentRef.current = note.content;
@@ -530,73 +531,74 @@ export function Editor() {
     });
   }, [note, updateNote, pushState]);
 
-  // Toggle markdown list (bullet or numbered)
+  // Toggle a single line's list prefix, returns the transformed line and length delta
+  const toggleLineList = useCallback((line: string, listType: 'bullet' | 'numbered', num: number): { line: string; delta: number } => {
+    const bulletMatch = line.match(/^(\s*)([-*])\s(.*)$/);
+    const numberedMatch = line.match(/^(\s*)(\d+)\.\s(.*)$/);
+
+    if (listType === 'bullet') {
+      if (bulletMatch) {
+        return { line: bulletMatch[1] + bulletMatch[3], delta: -2 };
+      } else if (numberedMatch) {
+        const numPrefix = numberedMatch[2].length + 2;
+        return { line: numberedMatch[1] + '- ' + numberedMatch[3], delta: 2 - numPrefix };
+      } else {
+        return { line: '- ' + line, delta: 2 };
+      }
+    } else {
+      if (numberedMatch) {
+        const numPrefix = numberedMatch[2].length + 2;
+        return { line: numberedMatch[1] + numberedMatch[3], delta: -numPrefix };
+      } else if (bulletMatch) {
+        const prefix = `${num}. `;
+        return { line: bulletMatch[1] + prefix + bulletMatch[3], delta: prefix.length - 2 };
+      } else {
+        const prefix = `${num}. `;
+        return { line: prefix + line, delta: prefix.length };
+      }
+    }
+  }, []);
+
+  // Toggle markdown list (bullet or numbered) - supports multi-line selections
   const toggleMarkdownList = useCallback((listType: 'bullet' | 'numbered') => {
     const textarea = textareaRef.current;
     if (!textarea || !note) return;
 
     const scrollTop = textarea.scrollTop;
-    const { value, selectionStart } = textarea;
+    const { value, selectionStart, selectionEnd } = textarea;
 
-    // Find the start of the current line
-    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
-    const lineEnd = value.indexOf('\n', selectionStart);
-    const actualLineEnd = lineEnd === -1 ? value.length : lineEnd;
-    const currentLine = value.substring(lineStart, actualLineEnd);
+    // Find the full range of lines covered by the selection
+    const blockStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    let blockEnd = value.indexOf('\n', selectionEnd);
+    if (blockEnd === -1) blockEnd = value.length;
 
-    // Check existing list prefix
-    const bulletMatch = currentLine.match(/^(\s*)([-*])\s(.*)$/);
-    const numberedMatch = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
+    const selectedBlock = value.substring(blockStart, blockEnd);
+    const lines = selectedBlock.split('\n');
 
-    let newLine: string;
-    let newCursorOffset: number;
+    let totalDelta = 0;
+    const newLines = lines.map((line, i) => {
+      const { line: newLine, delta } = toggleLineList(line, listType, i + 1);
+      totalDelta += delta;
+      return newLine;
+    });
 
-    if (listType === 'bullet') {
-      if (bulletMatch) {
-        // Already bullet list - remove it
-        newLine = bulletMatch[1] + bulletMatch[3];
-        newCursorOffset = -2; // "- " removed
-      } else if (numberedMatch) {
-        // Numbered list - convert to bullet
-        const numPrefix = numberedMatch[2].length + 2; // "1. " length
-        newLine = numberedMatch[1] + '- ' + numberedMatch[3];
-        newCursorOffset = 2 - numPrefix;
-      } else {
-        // No list - add bullet
-        newLine = '- ' + currentLine;
-        newCursorOffset = 2;
-      }
-    } else {
-      if (numberedMatch) {
-        // Already numbered - remove it
-        const numPrefix = numberedMatch[2].length + 2;
-        newLine = numberedMatch[1] + numberedMatch[3];
-        newCursorOffset = -numPrefix;
-      } else if (bulletMatch) {
-        // Bullet list - convert to numbered
-        newLine = bulletMatch[1] + '1. ' + bulletMatch[3];
-        newCursorOffset = 1; // "- " (2) -> "1. " (3)
-      } else {
-        // No list - add numbered
-        newLine = '1. ' + currentLine;
-        newCursorOffset = 3;
-      }
-    }
-
-    const before = value.substring(0, lineStart);
-    const after = value.substring(actualLineEnd);
-    const newContent = before + newLine + after;
-    const newPos = Math.max(lineStart, selectionStart + newCursorOffset);
+    const before = value.substring(0, blockStart);
+    const after = value.substring(blockEnd);
+    const newContent = before + newLines.join('\n') + after;
+    const newEnd = selectionEnd + totalDelta;
 
     updateNote(note.id, { content: newContent });
-    pushState(newContent, newPos);
+    pushState(newContent, newEnd);
 
     requestAnimationFrame(() => {
       textarea.focus({ preventScroll: true });
-      textarea.setSelectionRange(newPos, newPos);
+      // Preserve selection across transformed lines
+      const firstLineDelta = newLines[0].length - lines[0].length;
+      const newStart = Math.max(blockStart, selectionStart + firstLineDelta);
+      textarea.setSelectionRange(newStart, newEnd);
       textarea.scrollTop = scrollTop;
     });
-  }, [note, updateNote, pushState]);
+  }, [note, updateNote, pushState, toggleLineList]);
 
   // Keyboard shortcuts for undo/redo and formatting
   useEffect(() => {
@@ -1201,6 +1203,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading')}
               title={`${state.lang === 'no' ? 'Overskrift' : 'Heading'} (${mac ? '⌘1/2/3' : 'Ctrl+1/2/3'})`}
             >
@@ -1210,6 +1213,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('**', '**', state.lang === 'no' ? 'fet tekst' : 'bold text')}
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
             >
@@ -1217,6 +1221,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('*', '*', state.lang === 'no' ? 'kursiv tekst' : 'italic text')}
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
             >
@@ -1226,6 +1231,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('`', '`', state.lang === 'no' ? 'kode' : 'code')}
               title={`${state.lang === 'no' ? 'Inline kode' : 'Inline code'} (${mac ? '⌘E' : 'Ctrl+E'})`}
             >
@@ -1233,6 +1239,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('```\n', '\n```', state.lang === 'no' ? 'kodeblokk' : 'code block')}
               title={`${state.lang === 'no' ? 'Kodeblokk' : 'Code block'} (${mac ? '⌘⇧E' : 'Ctrl+Shift+E'})`}
             >
@@ -1242,6 +1249,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => toggleMarkdownList('bullet')}
               title={`${state.lang === 'no' ? 'Punktliste' : 'Bullet list'} (${mac ? '⌘⇧8' : 'Ctrl+Shift+8'})`}
             >
@@ -1249,6 +1257,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => toggleMarkdownList('numbered')}
               title={`${state.lang === 'no' ? 'Nummerert liste' : 'Numbered list'} (${mac ? '⌘⇧7' : 'Ctrl+Shift+7'})`}
             >
@@ -1258,6 +1267,7 @@ export function Editor() {
           <div className="format-group">
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text')}
               title={`${state.lang === 'no' ? 'Lenke' : 'Link'} (${mac ? '⌘L' : 'Ctrl+L'})`}
             >
@@ -1265,6 +1275,7 @@ export function Editor() {
             </button>
             <button
               className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={() => insertMarkdown('> ', '', '')}
               title={`${state.lang === 'no' ? 'Sitat' : 'Quote'} (${mac ? '⌘⇧.' : 'Ctrl+Shift+.'})`}
             >

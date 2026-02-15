@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, useState, type ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
 import type { AppState, Note, Tag, Folder, ExportData, FileSystemDirectoryHandle } from '@/types';
 import {
   loadFromStorage,
@@ -9,15 +9,21 @@ import {
   importFromJsonFile,
   importNoteFromFile
 } from '@/utils/storage';
-import { initializeEncryption } from '@/utils/crypto';
-import { 
-  getStoredDirectoryHandle, 
-  requestDirectoryAccess, 
+import { initializeEncryption, getMasterKey, exportKeyToBase64, importKeyFromBase64, setMasterKey } from '@/utils/crypto';
+import {
+  getStoredDirectoryHandle,
+  requestDirectoryAccess,
   clearStoredDirectoryHandle,
   saveNote,
-  verifyPermission
+  verifyPermission,
+  getStoredBackupHandle,
+  requestBackupDirectoryAccess,
+  clearBackupHandle,
+  writeAutoBackup,
+  readAutoBackup,
+  type AutoBackupData
 } from '@/utils/fileSystem';
-import { generateId } from '@/utils/helpers';
+import { generateId, isFileSystemAccessSupported } from '@/utils/helpers';
 
 // Helper to build a new note object
 function buildNote(
@@ -225,6 +231,15 @@ interface AppContextValue {
   importData: () => Promise<boolean>;
   importNote: () => Promise<boolean>;
   
+  // Auto-backup
+  autoBackupEnabled: boolean;
+  lastBackupTime: number | null;
+  backupError: boolean;
+  enableAutoBackup: () => Promise<boolean>;
+  disableAutoBackup: () => Promise<void>;
+  restoreFromBackup: () => Promise<boolean>;
+  fsAccessSupported: boolean;
+
   // Helpers
   getSelectedNote: () => Note | undefined;
   getFilteredNotes: () => Note[];
@@ -236,9 +251,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [backupHandle, setBackupHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
+  const [backupError, setBackupError] = useState(false);
+  const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initRef = useRef(false);
 
   // Load initial state with encryption
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     const initApp = async () => {
       // Initialize encryption first
       await initializeEncryption();
@@ -247,8 +270,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let notes: Note[] = [];
       let lang: 'no' | 'en' = 'no';
 
+      let hasLocalData = false;
       const stored = await loadFromStorageEncrypted();
       if (stored) {
+        hasLocalData = true;
         lang = stored.lang;
         notes = stored.notes;
         dispatch({ type: 'SET_LANG', payload: stored.lang });
@@ -259,12 +284,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Fall back to legacy unencrypted storage
         const legacy = loadFromStorage();
         if (legacy) {
+          hasLocalData = true;
           lang = legacy.lang;
           notes = legacy.notes;
           dispatch({ type: 'SET_LANG', payload: legacy.lang });
           dispatch({ type: 'SET_NOTES', payload: legacy.notes });
           dispatch({ type: 'SET_TAGS', payload: legacy.tags });
           dispatch({ type: 'SET_FOLDERS', payload: legacy.folders });
+        }
+      }
+
+      // Try to restore backup handle
+      const bkHandle = await getStoredBackupHandle();
+      if (bkHandle && await verifyPermission(bkHandle)) {
+        setBackupHandle(bkHandle);
+      }
+
+      // If no local data found, try auto-restore from backup
+      if (!hasLocalData && bkHandle) {
+        const hasPermission = await verifyPermission(bkHandle);
+        if (hasPermission) {
+          const backupData = await readAutoBackup(bkHandle);
+          if (backupData) {
+            const restoredKey = importKeyFromBase64(backupData.encryptionKey);
+            setMasterKey(restoredKey);
+            localStorage.setItem('skrive-key', backupData.encryptionKey);
+
+            dispatch({ type: 'SET_NOTES', payload: backupData.notes });
+            dispatch({ type: 'SET_TAGS', payload: backupData.tags });
+            dispatch({ type: 'SET_FOLDERS', payload: backupData.folders });
+            notes = backupData.notes;
+          }
         }
       }
 
@@ -285,9 +335,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (handle && await verifyPermission(handle)) {
         setDirectoryHandle(handle);
       }
+
+      // Firefox/Safari: request persistent storage
+      if (!isFileSystemAccessSupported()) {
+        navigator.storage?.persist?.();
+      }
     };
 
-    initApp();
+    initApp().catch((error) => {
+      console.warn('App initialization failed:', error);
+    });
   }, []);
 
   // Save state on changes
@@ -299,6 +356,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       folders: state.folders
     });
   }, [state.lang, state.notes, state.tags, state.folders]);
+
+  // Auto-backup to directory (debounced 5s)
+  useEffect(() => {
+    if (!backupHandle) return;
+
+    if (backupTimerRef.current) {
+      clearTimeout(backupTimerRef.current);
+    }
+
+    backupTimerRef.current = setTimeout(async () => {
+      const key = getMasterKey();
+      if (!key) return;
+
+      const exportData = createExportData({
+        notes: state.notes,
+        tags: state.tags,
+        folders: state.folders
+      });
+      const backupData: AutoBackupData = {
+        ...exportData,
+        encryptionKey: exportKeyToBase64(key),
+        backupTimestamp: Date.now()
+      };
+
+      const success = await writeAutoBackup(backupHandle, backupData);
+      if (success) {
+        setLastBackupTime(Date.now());
+        setBackupError(false);
+      } else {
+        setBackupError(true);
+      }
+    }, 5000);
+
+    return () => {
+      if (backupTimerRef.current) {
+        clearTimeout(backupTimerRef.current);
+      }
+    };
+  }, [state.notes, state.tags, state.folders, backupHandle]);
 
   // Online status
   useEffect(() => {
@@ -418,6 +514,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDirectoryHandle(null);
   }, []);
 
+  const enableAutoBackup = useCallback(async () => {
+    if (!isFileSystemAccessSupported()) return false;
+    const handle = await requestBackupDirectoryAccess();
+    if (!handle) return false;
+
+    setBackupHandle(handle);
+
+    // Write initial backup immediately
+    const key = getMasterKey();
+    if (key) {
+      const exportData = createExportData({
+        notes: state.notes,
+        tags: state.tags,
+        folders: state.folders
+      });
+      const backupData: AutoBackupData = {
+        ...exportData,
+        encryptionKey: exportKeyToBase64(key),
+        backupTimestamp: Date.now()
+      };
+      const success = await writeAutoBackup(handle, backupData);
+      if (success) {
+        setLastBackupTime(Date.now());
+        setBackupError(false);
+      }
+    }
+    return true;
+  }, [state.notes, state.tags, state.folders]);
+
+  const disableAutoBackup = useCallback(async () => {
+    await clearBackupHandle();
+    setBackupHandle(null);
+    setLastBackupTime(null);
+    setBackupError(false);
+  }, []);
+
+  const restoreFromBackup = useCallback(async () => {
+    if (!isFileSystemAccessSupported()) return false;
+
+    const handle = await requestBackupDirectoryAccess();
+    if (!handle) return false;
+
+    const backupData = await readAutoBackup(handle);
+    if (!backupData) return false;
+
+    // Restore encryption key
+    const restoredKey = importKeyFromBase64(backupData.encryptionKey);
+    setMasterKey(restoredKey);
+    localStorage.setItem('skrive-key', backupData.encryptionKey);
+
+    // Restore data
+    dispatch({ type: 'IMPORT_DATA', payload: backupData });
+
+    // Select most recent note
+    if (backupData.notes.length > 0) {
+      const mostRecent = backupData.notes.reduce((latest, note) =>
+        note.updatedAt > latest.updatedAt ? note : latest
+      );
+      dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
+    }
+
+    setBackupHandle(handle);
+    return true;
+  }, []);
+
   const exportAllData = useCallback(() => {
     const data = createExportData(state);
     exportToJsonFile(data);
@@ -493,6 +654,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleSidebar,
     connectDirectory,
     disconnectDirectory,
+    autoBackupEnabled: backupHandle !== null,
+    lastBackupTime,
+    backupError,
+    enableAutoBackup,
+    disableAutoBackup,
+    restoreFromBackup,
+    fsAccessSupported: isFileSystemAccessSupported(),
     exportAllData,
     importData,
     importNote,

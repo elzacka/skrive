@@ -105,10 +105,22 @@ export const i18n: I18n = {
     guideFormatsDesc: 'Bruk Ren tekst for spontane skriblerier. Rik tekst når du trenger formatering. Markdown for kode eller instruksjoner i KI-løsninger.',
     guideOrganize: 'Organiser',
     guideOrganizeDesc: 'Bruk mapper og etiketter for å holde orden. Høyreklikk i sidemenyen eller på et element for å se flere funksjoner.',
+    guideAutoBackup: 'Auto-backup',
+    guideAutoBackupDesc: 'Aktiver auto-backup. Da lagres notatene automatisk i en lokal mappe, og du får dem tilbake hvis nettleserdata slettes. Velg en vanlig mappe, ikke en med systemfiler. Får du likevel varsel om systemmappe, opprett en undermappe der du vil lagre, og bruk den. ',
     guideExport: 'Eksporter',
     guideExportDesc: 'Lagre notater som HTML, Markdown eller RTF. Ta/importer backup via eksport/import.',
     guideOffline: 'Offline',
-    guideOfflineDesc: 'Appen fungerer uten internett: Installer som app for å utnytte den best mulig.'
+    guideOfflineDesc: 'Appen fungerer uten internett: Installer som app for å utnytte den best mulig.',
+    autoBackup: 'Auto-backup',
+    enableAutoBackup: 'Aktiver auto-backup',
+    disableAutoBackup: 'Deaktiver auto-backup',
+    autoBackupActive: 'Auto-backup aktiv',
+    autoBackupInactive: 'Auto-backup inaktiv',
+    restoreFromBackup: 'Gjenopprett fra backup',
+    backupRestored: 'Backup gjenopprettet',
+    backupFailed: 'Backup feilet',
+    autoBackupUnsupported: 'Nettleseren din støtter ikke automatisk backup til mappe. Husk å eksportere manuelt jevnlig.',
+    lastBackup: 'Siste backup'
   },
   en: {
     save: 'Export',
@@ -214,9 +226,21 @@ export const i18n: I18n = {
     guideFormatsDesc: 'Use Rich text for formatting, Markdown for code or AI instructions, or Plain text for quick notes.',
     guideOrganize: 'Organize',
     guideOrganizeDesc: 'Use folders and tags to stay organized. Right-click in the sidebar or on an item for more options.',
+    guideAutoBackup: 'Auto backup',
+    guideAutoBackupDesc: 'Enable auto-backup. Your notes will then be saved automatically to a local folder, and you can restore them if browser data is deleted. Choose a regular folder, not one that contains system files. If you still get a system folder warning, create a subfolder where you want to save your notes and select that instead.',
     guideExport: 'Export',
     guideExportDesc: 'Save notes as HTML, Markdown, or RTF. Back up or import backup via import/export.',
     guideOffline: 'Offline',
-    guideOfflineDesc: 'The app works without internet. Install as an app for the best experience.'
+    guideOfflineDesc: 'The app works without internet. Install as an app for the best experience.',
+    autoBackup: 'Auto backup',
+    enableAutoBackup: 'Enable auto backup',
+    disableAutoBackup: 'Disable auto backup',
+    autoBackupActive: 'Auto backup active',
+    autoBackupInactive: 'Auto backup inactive',
+    restoreFromBackup: 'Restore from backup',
+    backupRestored: 'Backup restored',
+    backupFailed: 'Backup failed',
+    autoBackupUnsupported: 'Your browser does not support automatic backup to a folder. Remember to export manually.',
+    lastBackup: 'Last backup'
   }
 };
