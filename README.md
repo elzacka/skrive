@@ -27,7 +27,7 @@ Skrive er utviklet med sikkerhet og personvern som prioritet. Se [personvernerkl
 |--------|-------------|
 | **Kryptering** | AEGIS-256 (AES-akselerert) eller XChaCha20-Poly1305 (fallback) |
 | **Lokal lagring** | Krypterte data i IndexedDB, med gjenopprettingskopi hvis lagringen ikke kan leses |
-| **Backup-kryptering** | Auto-backup beskyttes med en passordfrase (PBKDF2-HMAC-SHA256, AES-GCM) |
+| **Backup-kryptering** | Auto-backup låses med en passordfrase du velger selv. Frasen gjøres om til en krypteringsnøkkel med anerkjente standarder (PBKDF2 og AES-GCM) |
 | **XSS-beskyttelse** | DOMPurify med streng whitelist, URL-validering |
 | **CSP** | Streng Content Security Policy uten `unsafe-inline` |
 | **Clickjacking** | `frame-ancestors: none` blokkerer iframe-embedding |

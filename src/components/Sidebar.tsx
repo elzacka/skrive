@@ -19,7 +19,7 @@ import {
   DownloadIcon,
   UploadIcon,
   ArticleIcon,
-  BackupIcon,
+  FolderSyncIcon,
   CloudDoneIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
@@ -907,7 +907,7 @@ export function Sidebar() {
                           {t.backupPermissionNeeded}
                         </div>
                         <button className="backup-popup-btn" onClick={async () => { await reactivateBackup(); }}>
-                          <BackupIcon size={16} />
+                          <FolderSyncIcon size={16} />
                           <span>{t.reactivateBackup}</span>
                         </button>
                       </>
@@ -927,13 +927,13 @@ export function Sidebar() {
                       </div>
                     )}
                     <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setShowBackupMenu(false); }}>
-                      <BackupIcon size={16} />
+                      <FolderSyncIcon size={16} />
                       <span>{t.disableAutoBackup}</span>
                     </button>
                   </>
                 ) : (
                   <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setShowBackupMenu(false); }}>
-                    <BackupIcon size={16} />
+                    <FolderSyncIcon size={16} />
                     <span>{t.enableAutoBackup}</span>
                   </button>
                 )}
@@ -1141,7 +1141,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2026</span>
-        <span>v2.13.0</span>
+        <span>v2.13.1</span>
       </div>
 
       {contextMenu && (
