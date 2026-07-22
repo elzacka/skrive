@@ -1,29 +1,53 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
 import type { AppState, Note, Tag, Folder, ExportData, FileSystemDirectoryHandle } from '@/types';
 import {
-  loadFromStorage,
-  saveToStorage,
   loadFromStorageEncrypted,
+  saveToStorageEncrypted,
+  saveEmergencySpill,
   createExportData,
   exportToJsonFile,
   importFromJsonFile,
-  importNoteFromFile
+  importNoteFromFile,
+  validateImportData
 } from '@/utils/storage';
-import { initializeEncryption, getMasterKey, exportKeyToBase64, importKeyFromBase64, setMasterKey } from '@/utils/crypto';
+import {
+  initializeEncryption,
+  getMasterKey,
+  persistMasterKey,
+  importKeyFromBase64,
+  wrapKeyWithPassphrase,
+  unwrapKeyWithPassphrase,
+  encrypt,
+  decrypt,
+  type PassphraseWrappedKey
+} from '@/utils/crypto';
 import {
   getStoredDirectoryHandle,
   requestDirectoryAccess,
   clearStoredDirectoryHandle,
   saveNote,
   verifyPermission,
+  hasStoredPermission,
   getStoredBackupHandle,
   requestBackupDirectoryAccess,
   clearBackupHandle,
   writeAutoBackup,
   readAutoBackup,
-  type AutoBackupData
+  storeBackupKeyProtection,
+  getStoredBackupKeyProtection,
+  type EncryptedBackupFile,
+  type LegacyAutoBackupData
 } from '@/utils/fileSystem';
 import { generateId, isFileSystemAccessSupported } from '@/utils/helpers';
+import { sanitizeHtml } from '@/utils/sanitize';
+
+// Sanitize richtext content on any path where notes enter from outside
+// (import, backup restore) so stored content is always clean
+function sanitizeNotes(notes: Note[]): Note[] {
+  return notes.map(note =>
+    note.format === 'richtext' ? { ...note, content: sanitizeHtml(note.content) } : note
+  );
+}
 
 // Helper to build a new note object
 function buildNote(
@@ -49,7 +73,7 @@ type Action =
   | { type: 'SET_NOTES'; payload: Note[] }
   | { type: 'ADD_NOTE'; payload: Note }
   | { type: 'UPDATE_NOTE'; payload: { id: string; updates: Partial<Note> } }
-  | { type: 'DELETE_NOTE'; payload: string }
+  | { type: 'DELETE_NOTES'; payload: string[] }
   | { type: 'SET_TAGS'; payload: Tag[] }
   | { type: 'ADD_TAG'; payload: Tag }
   | { type: 'UPDATE_TAG'; payload: { id: string; updates: Partial<Tag> } }
@@ -96,11 +120,13 @@ function reducer(state: AppState, action: Action): AppState {
         )
       };
     
-    case 'DELETE_NOTE':
+    case 'DELETE_NOTES':
       return {
         ...state,
-        notes: state.notes.filter(note => note.id !== action.payload),
-        selectedNoteId: state.selectedNoteId === action.payload ? null : state.selectedNoteId
+        notes: state.notes.filter(note => !action.payload.includes(note.id)),
+        selectedNoteId: state.selectedNoteId && action.payload.includes(state.selectedNoteId)
+          ? null
+          : state.selectedNoteId
       };
     
     case 'SET_TAGS':
@@ -190,11 +216,25 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
+
 interface AppContextValue {
   state: AppState;
   directoryHandle: FileSystemDirectoryHandle | null;
   isOnline: boolean;
-  
+
+  // Persistence
+  saveStatus: SaveStatus;
+  flushSave: () => void;
+  storageLoadError: boolean;
+  dismissStorageError: () => void;
+  storagePersisted: boolean | null;
+
+  // Delete undo
+  lastDeletedNotes: Note[] | null;
+  undoDelete: () => void;
+  dismissDeleted: () => void;
+
   // Language
   setLang: (lang: 'no' | 'en') => void;
   
@@ -202,6 +242,7 @@ interface AppContextValue {
   createNote: (parentId?: string | null, format?: Note['format']) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
+  deleteNotes: (ids: string[]) => void;
   selectNote: (id: string | null) => void;
   saveCurrentNote: () => Promise<void>;
   moveNote: (noteId: string, targetFolderId: string | null) => void;
@@ -235,9 +276,14 @@ interface AppContextValue {
   autoBackupEnabled: boolean;
   lastBackupTime: number | null;
   backupError: boolean;
-  enableAutoBackup: () => Promise<boolean>;
+  backupPermissionNeeded: boolean;
+  reactivateBackup: () => Promise<boolean>;
+  enableAutoBackup: (passphrase: string) => Promise<boolean>;
   disableAutoBackup: () => Promise<void>;
   restoreFromBackup: () => Promise<boolean>;
+  pendingRestore: boolean;
+  confirmRestore: (passphrase: string) => Promise<boolean>;
+  cancelRestore: () => void;
   fsAccessSupported: boolean;
 
   // Helpers
@@ -252,10 +298,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [backupHandle, setBackupHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [backupKeyProtection, setBackupKeyProtection] = useState<PassphraseWrappedKey | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
   const [backupError, setBackupError] = useState(false);
+  const [pendingRestoreState, setPendingRestoreState] = useState<{
+    file: EncryptedBackupFile;
+    handle: FileSystemDirectoryHandle;
+    source: 'init' | 'manual';
+  } | null>(null);
+  const [backupPermissionNeeded, setBackupPermissionNeeded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const [storageLoadError, setStorageLoadError] = useState(false);
+  const [storagePersisted, setStoragePersisted] = useState<boolean | null>(null);
+  const [lastDeletedNotes, setLastDeletedNotes] = useState<Note[] | null>(null);
   const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initRef = useRef(false);
+  // Saving is blocked until the initial load finishes so a save can never
+  // overwrite stored data the app has not read yet
+  const loadedRef = useRef(false);
+  const pendingSaveRef = useRef<Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'> | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Apply restored/imported data to state and select the most recent note
+  const applyRestoredData = useCallback((data: { notes: Note[]; tags: Tag[]; folders: Folder[] }) => {
+    const notes = sanitizeNotes(data.notes);
+    dispatch({ type: 'SET_NOTES', payload: notes });
+    dispatch({ type: 'SET_TAGS', payload: data.tags });
+    dispatch({ type: 'SET_FOLDERS', payload: data.folders });
+    if (notes.length > 0) {
+      const mostRecent = notes.reduce((latest, note) =>
+        note.updatedAt > latest.updatedAt ? note : latest
+      );
+      dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
+    }
+  }, []);
+
+  // Restore from a legacy plaintext backup file (validated); the key is
+  // migrated into wrapped IndexedDB storage
+  const restoreLegacyBackup = useCallback(async (data: LegacyAutoBackupData): Promise<boolean> => {
+    try {
+      if (!validateImportData(data)) {
+        console.warn('Legacy backup failed validation');
+        return false;
+      }
+      const restoredKey = importKeyFromBase64(data.encryptionKey);
+      await persistMasterKey(restoredKey);
+      applyRestoredData(data);
+      return true;
+    } catch (error) {
+      console.warn('Legacy backup restore failed:', error);
+      return false;
+    }
+  }, [applyRestoredData]);
 
   // Load initial state with encryption
   useEffect(() => {
@@ -271,54 +366,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let lang: 'no' | 'en' = 'no';
 
       let hasLocalData = false;
-      const stored = await loadFromStorageEncrypted();
-      if (stored) {
+      const loadResult = await loadFromStorageEncrypted();
+      if (loadResult.status === 'ok') {
         hasLocalData = true;
-        lang = stored.lang;
-        notes = stored.notes;
-        dispatch({ type: 'SET_LANG', payload: stored.lang });
-        dispatch({ type: 'SET_NOTES', payload: stored.notes });
-        dispatch({ type: 'SET_TAGS', payload: stored.tags });
-        dispatch({ type: 'SET_FOLDERS', payload: stored.folders });
-      } else {
-        // Fall back to legacy unencrypted storage
-        const legacy = loadFromStorage();
-        if (legacy) {
-          hasLocalData = true;
-          lang = legacy.lang;
-          notes = legacy.notes;
-          dispatch({ type: 'SET_LANG', payload: legacy.lang });
-          dispatch({ type: 'SET_NOTES', payload: legacy.notes });
-          dispatch({ type: 'SET_TAGS', payload: legacy.tags });
-          dispatch({ type: 'SET_FOLDERS', payload: legacy.folders });
-        }
+        lang = loadResult.state.lang;
+        notes = loadResult.state.notes;
+        dispatch({ type: 'SET_LANG', payload: loadResult.state.lang });
+        dispatch({ type: 'SET_NOTES', payload: loadResult.state.notes });
+        dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
+        dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
+      } else if (loadResult.status === 'error') {
+        // Stored data exists but could not be read; a recovery copy has
+        // been preserved so continuing with a fresh state is safe
+        setStorageLoadError(true);
       }
+      loadedRef.current = true;
 
-      // Try to restore backup handle
+      // Try to restore backup handle and stored key protection.
+      // Only query permission here: requesting it without a user gesture
+      // is auto-denied, so an expired permission must be surfaced instead
       const bkHandle = await getStoredBackupHandle();
-      if (bkHandle && await verifyPermission(bkHandle)) {
-        setBackupHandle(bkHandle);
-      }
-
-      // If no local data found, try auto-restore from backup
-      if (!hasLocalData && bkHandle) {
-        const hasPermission = await verifyPermission(bkHandle);
-        if (hasPermission) {
-          const backupData = await readAutoBackup(bkHandle);
-          if (backupData) {
-            const restoredKey = importKeyFromBase64(backupData.encryptionKey);
-            setMasterKey(restoredKey);
-            localStorage.setItem('skrive-key', backupData.encryptionKey);
-
-            dispatch({ type: 'SET_NOTES', payload: backupData.notes });
-            dispatch({ type: 'SET_TAGS', payload: backupData.tags });
-            dispatch({ type: 'SET_FOLDERS', payload: backupData.folders });
-            notes = backupData.notes;
+      if (bkHandle) {
+        if (await hasStoredPermission(bkHandle)) {
+          setBackupHandle(bkHandle);
+          const protection = await getStoredBackupKeyProtection();
+          if (protection) {
+            setBackupKeyProtection(protection);
           }
+
+          // If no local data found, try auto-restore from backup
+          if (!hasLocalData) {
+            const result = await readAutoBackup(bkHandle);
+            if (result?.kind === 'legacy') {
+              if (await restoreLegacyBackup(result.data)) {
+                notes = sanitizeNotes(result.data.notes);
+              }
+            } else if (result?.kind === 'encrypted') {
+              // Encrypted backup needs the passphrase; ask via dialog
+              setPendingRestoreState({ file: result.file, handle: bkHandle, source: 'init' });
+            }
+          }
+        } else {
+          // Handle exists but permission expired; keep it and let the
+          // user reactivate with a click (which may prompt)
+          setBackupHandle(bkHandle);
+          setBackupPermissionNeeded(true);
         }
       }
 
-      // Select most recently updated note, or create new richtext note for first-time users
+      // Restore persisted last-backup timestamp
+      const storedBackupTime = localStorage.getItem('skrive-last-backup');
+      if (storedBackupTime) {
+        const parsed = parseInt(storedBackupTime, 10);
+        if (!Number.isNaN(parsed)) setLastBackupTime(parsed);
+      }
+
+      // Select most recently updated note, or create an empty richtext
+      // note for first-time users (its placeholder explains the naming
+      // flow; the guide popup covers the rest)
       if (notes.length > 0) {
         const mostRecent = notes.reduce((latest, note) =>
           note.updatedAt > latest.updatedAt ? note : latest
@@ -330,59 +435,123 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SELECT_NOTE', payload: note.id });
       }
 
-      // Try to restore directory handle
+      // Try to restore directory handle (query-only, no prompt)
       const handle = await getStoredDirectoryHandle();
-      if (handle && await verifyPermission(handle)) {
+      if (handle && await hasStoredPermission(handle)) {
         setDirectoryHandle(handle);
       }
 
-      // Firefox/Safari: request persistent storage
-      if (!isFileSystemAccessSupported()) {
-        navigator.storage?.persist?.();
+      // Request persistent storage on all browsers so stored data is
+      // protected against automatic eviction
+      try {
+        const persisted = await navigator.storage?.persist?.();
+        setStoragePersisted(persisted ?? null);
+      } catch {
+        setStoragePersisted(null);
       }
     };
 
     initApp().catch((error) => {
       console.warn('App initialization failed:', error);
+      loadedRef.current = true;
     });
   }, []);
 
-  // Save state on changes
+  // Write the pending state and report the real result
+  const performSave = useCallback(async () => {
+    const data = pendingSaveRef.current;
+    if (!data) return;
+    pendingSaveRef.current = null;
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    setSaveStatus('saving');
+    const ok = await saveToStorageEncrypted(data);
+    // A newer change may have arrived while this write was in flight
+    setSaveStatus(pendingSaveRef.current ? 'unsaved' : ok ? 'saved' : 'error');
+  }, []);
+
+  // Save state on changes (debounced; encrypting the full corpus on every
+  // keystroke would not scale)
   useEffect(() => {
-    saveToStorage({
+    if (!loadedRef.current) return;
+    pendingSaveRef.current = {
       lang: state.lang,
       notes: state.notes,
       tags: state.tags,
       folders: state.folders
-    });
-  }, [state.lang, state.notes, state.tags, state.folders]);
+    };
+    setSaveStatus('unsaved');
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(performSave, 800);
+  }, [state.lang, state.notes, state.tags, state.folders, performSave]);
 
-  // Auto-backup to directory (debounced 5s)
+  // Flush pending saves when the tab is hidden or about to close.
+  // On pagehide the async IndexedDB write may not complete, so spill an
+  // encrypted copy synchronously to localStorage as well; it is read and
+  // migrated back on next startup
   useEffect(() => {
-    if (!backupHandle) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') performSave();
+    };
+    const handlePageHide = () => {
+      const data = pendingSaveRef.current;
+      if (data) {
+        saveEmergencySpill(data);
+        performSave();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [performSave]);
+
+  // Build an encrypted backup file: payload encrypted with the master key,
+  // master key wrapped with the passphrase-derived key
+  const buildEncryptedBackup = useCallback(async (
+    protection: PassphraseWrappedKey,
+    data: Pick<AppState, 'notes' | 'tags' | 'folders'>
+  ): Promise<EncryptedBackupFile | null> => {
+    const key = getMasterKey();
+    if (!key) return null;
+    const exportData = createExportData(data);
+    const payload = await encrypt(JSON.stringify(exportData), key);
+    return {
+      format: 'skrive-encrypted-backup',
+      version: 1,
+      backupTimestamp: Date.now(),
+      keyProtection: protection,
+      payload
+    };
+  }, []);
+
+  // Auto-backup to directory (debounced 5s).
+  // Never write while a restore is pending: the state still holds a fresh
+  // empty note and writing would destroy the backup being restored from
+  useEffect(() => {
+    if (!backupHandle || !backupKeyProtection || pendingRestoreState || backupPermissionNeeded) return;
 
     if (backupTimerRef.current) {
       clearTimeout(backupTimerRef.current);
     }
 
     backupTimerRef.current = setTimeout(async () => {
-      const key = getMasterKey();
-      if (!key) return;
-
-      const exportData = createExportData({
+      const backupFile = await buildEncryptedBackup(backupKeyProtection, {
         notes: state.notes,
         tags: state.tags,
         folders: state.folders
       });
-      const backupData: AutoBackupData = {
-        ...exportData,
-        encryptionKey: exportKeyToBase64(key),
-        backupTimestamp: Date.now()
-      };
+      if (!backupFile) return;
 
-      const success = await writeAutoBackup(backupHandle, backupData);
+      const success = await writeAutoBackup(backupHandle, backupFile);
       if (success) {
-        setLastBackupTime(Date.now());
+        const now = Date.now();
+        setLastBackupTime(now);
+        localStorage.setItem('skrive-last-backup', String(now));
         setBackupError(false);
       } else {
         setBackupError(true);
@@ -394,7 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(backupTimerRef.current);
       }
     };
-  }, [state.notes, state.tags, state.folders, backupHandle]);
+  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, buildEncryptedBackup]);
 
   // Online status
   useEffect(() => {
@@ -415,7 +584,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_LANG', payload: lang });
   }, []);
 
-  const createNote = useCallback((parentId: string | null = null, format: Note['format'] = 'plaintext') => {
+  const createNote = useCallback((parentId: string | null = null, format: Note['format'] = 'richtext') => {
     const note = buildNote(state.lang, format, parentId);
     dispatch({ type: 'ADD_NOTE', payload: note });
     dispatch({ type: 'SELECT_NOTE', payload: note.id });
@@ -425,8 +594,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'UPDATE_NOTE', payload: { id, updates } });
   }, []);
 
+  // Deleting keeps the notes around briefly so the user can undo
+  const deleteNotes = useCallback((ids: string[]) => {
+    const notes = state.notes.filter(n => ids.includes(n.id));
+    if (notes.length === 0) return;
+    dispatch({ type: 'DELETE_NOTES', payload: ids });
+    setLastDeletedNotes(notes);
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    deleteTimerRef.current = setTimeout(() => setLastDeletedNotes(null), 6000);
+  }, [state.notes]);
+
   const deleteNote = useCallback((id: string) => {
-    dispatch({ type: 'DELETE_NOTE', payload: id });
+    deleteNotes([id]);
+  }, [deleteNotes]);
+
+  const undoDelete = useCallback(() => {
+    if (!lastDeletedNotes) return;
+    for (const note of lastDeletedNotes) {
+      dispatch({ type: 'ADD_NOTE', payload: note });
+    }
+    dispatch({ type: 'SELECT_NOTE', payload: lastDeletedNotes[0].id });
+    setLastDeletedNotes(null);
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+  }, [lastDeletedNotes]);
+
+  const dismissDeleted = useCallback(() => {
+    setLastDeletedNotes(null);
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
   }, []);
 
   const selectNote = useCallback((id: string | null) => {
@@ -514,40 +708,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDirectoryHandle(null);
   }, []);
 
-  const enableAutoBackup = useCallback(async () => {
+  const enableAutoBackup = useCallback(async (passphrase: string) => {
     if (!isFileSystemAccessSupported()) return false;
+    const key = getMasterKey();
+    if (!key) return false;
+
     const handle = await requestBackupDirectoryAccess();
     if (!handle) return false;
 
+    const protection = await wrapKeyWithPassphrase(key, passphrase);
+    await storeBackupKeyProtection(protection);
+    setBackupKeyProtection(protection);
     setBackupHandle(handle);
+    setBackupPermissionNeeded(false);
 
     // Write initial backup immediately
-    const key = getMasterKey();
-    if (key) {
-      const exportData = createExportData({
-        notes: state.notes,
-        tags: state.tags,
-        folders: state.folders
-      });
-      const backupData: AutoBackupData = {
-        ...exportData,
-        encryptionKey: exportKeyToBase64(key),
-        backupTimestamp: Date.now()
-      };
-      const success = await writeAutoBackup(handle, backupData);
+    const backupFile = await buildEncryptedBackup(protection, {
+      notes: state.notes,
+      tags: state.tags,
+      folders: state.folders
+    });
+    if (backupFile) {
+      const success = await writeAutoBackup(handle, backupFile);
       if (success) {
         setLastBackupTime(Date.now());
         setBackupError(false);
       }
     }
     return true;
-  }, [state.notes, state.tags, state.folders]);
+  }, [state.notes, state.tags, state.folders, buildEncryptedBackup]);
 
   const disableAutoBackup = useCallback(async () => {
     await clearBackupHandle();
     setBackupHandle(null);
+    setBackupKeyProtection(null);
     setLastBackupTime(null);
     setBackupError(false);
+    setBackupPermissionNeeded(false);
+    localStorage.removeItem('skrive-last-backup');
   }, []);
 
   const restoreFromBackup = useCallback(async () => {
@@ -556,28 +754,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handle = await requestBackupDirectoryAccess();
     if (!handle) return false;
 
-    const backupData = await readAutoBackup(handle);
-    if (!backupData) return false;
+    const result = await readAutoBackup(handle);
+    if (!result) return false;
 
-    // Restore encryption key
-    const restoredKey = importKeyFromBase64(backupData.encryptionKey);
-    setMasterKey(restoredKey);
-    localStorage.setItem('skrive-key', backupData.encryptionKey);
-
-    // Restore data
-    dispatch({ type: 'IMPORT_DATA', payload: backupData });
-
-    // Select most recent note
-    if (backupData.notes.length > 0) {
-      const mostRecent = backupData.notes.reduce((latest, note) =>
-        note.updatedAt > latest.updatedAt ? note : latest
-      );
-      dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
+    if (result.kind === 'legacy') {
+      // Legacy plaintext backup: restore directly, but do not enable
+      // auto-backup until the user re-enables it with a passphrase
+      return restoreLegacyBackup(result.data);
     }
 
-    setBackupHandle(handle);
+    // Encrypted backup: ask for the passphrase via dialog
+    setPendingRestoreState({ file: result.file, handle, source: 'manual' });
     return true;
-  }, []);
+  }, [restoreLegacyBackup]);
+
+  const confirmRestore = useCallback(async (passphrase: string) => {
+    if (!pendingRestoreState) return false;
+    const { file, handle } = pendingRestoreState;
+
+    try {
+      const restoredKey = await unwrapKeyWithPassphrase(file.keyProtection, passphrase);
+      const json = await decrypt(file.payload, restoredKey);
+      const data: unknown = JSON.parse(json);
+      if (!validateImportData(data)) {
+        console.warn('Encrypted backup failed validation');
+        return false;
+      }
+
+      await persistMasterKey(restoredKey);
+      applyRestoredData(data);
+
+      // Keep auto-backup running with the same passphrase protection
+      await storeBackupKeyProtection(file.keyProtection);
+      setBackupKeyProtection(file.keyProtection);
+      setBackupHandle(handle);
+      setPendingRestoreState(null);
+      return true;
+    } catch {
+      // Wrong passphrase or corrupted backup; keep the dialog open
+      return false;
+    }
+  }, [pendingRestoreState, applyRestoredData]);
+
+  const cancelRestore = useCallback(() => {
+    // If the restore was triggered at startup (no local data), cancelling
+    // must also disarm auto-backup: the state holds a fresh empty note and
+    // an armed backup would overwrite the backup file with it
+    if (pendingRestoreState?.source === 'init') {
+      setBackupHandle(null);
+      setBackupKeyProtection(null);
+    }
+    setPendingRestoreState(null);
+  }, [pendingRestoreState]);
+
+  // Re-request backup folder permission after it expired (needs a user
+  // gesture, so this is called from a click)
+  const reactivateBackup = useCallback(async () => {
+    if (!backupHandle) return false;
+    if (!(await verifyPermission(backupHandle))) return false;
+    const protection = await getStoredBackupKeyProtection();
+    if (protection) {
+      setBackupKeyProtection(protection);
+    }
+    setBackupPermissionNeeded(false);
+    return true;
+  }, [backupHandle]);
 
   const exportAllData = useCallback(() => {
     const data = createExportData(state);
@@ -587,7 +828,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const importData = useCallback(async () => {
     const data = await importFromJsonFile();
     if (data) {
-      dispatch({ type: 'IMPORT_DATA', payload: data });
+      dispatch({ type: 'IMPORT_DATA', payload: { ...data, notes: sanitizeNotes(data.notes) } });
       return true;
     }
     return false;
@@ -624,8 +865,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (state.searchQuery) {
         const q = state.searchQuery.toLowerCase();
-        return note.title.toLowerCase().includes(q) || 
-               note.content.toLowerCase().includes(q);
+        // Match against visible text, not markup: richtext content is HTML
+        const text = note.format === 'richtext'
+          ? note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ')
+          : note.content;
+        return note.title.toLowerCase().includes(q) ||
+               text.toLowerCase().includes(q);
       }
       return true;
     });
@@ -635,10 +880,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     directoryHandle,
     isOnline,
+    saveStatus,
+    flushSave: performSave,
+    storageLoadError,
+    dismissStorageError: () => setStorageLoadError(false),
+    storagePersisted,
+    lastDeletedNotes,
+    undoDelete,
+    dismissDeleted,
     setLang,
     createNote,
     updateNote,
     deleteNote,
+    deleteNotes,
     selectNote,
     saveCurrentNote,
     moveNote,
@@ -657,9 +911,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     autoBackupEnabled: backupHandle !== null,
     lastBackupTime,
     backupError,
+    backupPermissionNeeded,
+    reactivateBackup,
     enableAutoBackup,
     disableAutoBackup,
     restoreFromBackup,
+    pendingRestore: pendingRestoreState !== null,
+    confirmRestore,
+    cancelRestore,
     fsAccessSupported: isFileSystemAccessSupported(),
     exportAllData,
     importData,

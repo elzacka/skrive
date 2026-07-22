@@ -3,22 +3,35 @@ import { useApp } from '@/contexts';
 import { isMac } from '@/utils';
 
 export function useKeyboardShortcuts() {
-  const { createNote, toggleSidebar, saveCurrentNote } = useApp();
+  const { createNote, toggleSidebar, flushSave, directoryHandle, saveCurrentNote } = useApp();
   const mac = isMac();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
 
-      // Ctrl+S / Cmd+S to export
+      // Ctrl+S / Cmd+S: notes auto-save, so just flush the pending write.
+      // Only write a file when a folder is connected (a download dialog on
+      // habitual Cmd+S is surprising)
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && key === 's') {
         e.preventDefault();
-        saveCurrentNote();
+        flushSave();
+        if (directoryHandle) {
+          saveCurrentNote();
+        }
         return;
       }
 
-      // Ctrl+K / Cmd+K to focus search
+      // Ctrl+K / Cmd+K to focus search.
+      // Skip when the rich text editor claims the key (there Cmd+K inserts
+      // a link). Two guards because listener order is not guaranteed and
+      // React flushes discrete-event state synchronously: if the editor's
+      // handler ran first it has called preventDefault; if this handler
+      // runs first the editor still has focus
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && key === 'k') {
+        if (e.defaultPrevented || (document.activeElement as HTMLElement | null)?.isContentEditable) {
+          return;
+        }
         e.preventDefault();
         const searchInput = document.querySelector('.search-input') as HTMLInputElement;
         if (searchInput) {
@@ -52,7 +65,7 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [createNote, toggleSidebar, saveCurrentNote, mac]);
+  }, [createNote, toggleSidebar, flushSave, directoryHandle, saveCurrentNote, mac]);
 }
 
 export function getShortcutLabels() {

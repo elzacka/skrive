@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import DOMPurify from 'dompurify';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { useUndoRedo } from '@/hooks';
-import { isMac, htmlToMarkdown } from '@/utils';
+import { isMac, htmlToMarkdown, markdownToHtml, htmlToPlainText, deriveTitleFromContent, escapeHtml, formatDate } from '@/utils';
 import { downloadNote } from '@/utils/fileSystem';
+import { FindReplaceBar } from './FindReplaceBar';
 import type { ExportFormat } from '@/utils/fileSystem';
 import type { NoteFormat } from '@/types';
+import { sanitizeHtml, isSafeUrl, escapeHtmlAttribute } from '@/utils/sanitize';
 import {
   CopyIcon,
   UndoIcon,
@@ -15,108 +16,22 @@ import {
   BulletListIcon,
   NumberedListIcon,
   HeadingIcon,
+  BoldIcon,
+  ItalicIcon,
+  UnderlineIcon,
+  StrikethroughIcon,
   CodeIcon,
   LinkIcon,
   CodeBlockIcon,
   QuoteIcon,
-  CloseIcon
+  CloseIcon,
+  CheckIcon,
+  CircleIcon,
+  LoaderCircleIcon,
+  CircleAlertIcon
 } from './Icons';
 
-// Configure DOMPurify to allow safe tags only
-const DOMPURIFY_CONFIG = {
-  ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li',
-                 'strong', 'b', 'em', 'i', 'u', 'strike', 's', 'del', 'code', 'pre',
-                 'blockquote', 'a', 'span', 'div'],
-  ALLOWED_ATTR: ['href', 'target', 'rel'],
-  ALLOW_DATA_ATTR: false,
-  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
-  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'dir'],
-};
-
-// Sanitize HTML content
-function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
-}
-
-// Dangerous protocols that should never be allowed in links
-const DANGEROUS_PROTOCOLS = [
-  'javascript:', 'data:', 'vbscript:', 'file:',
-  'about:', 'chrome:', 'edge:', 'brave:', 'opera:'
-];
-
-// Check if URL is safe using URL API for robust validation
-function isSafeUrl(url: string): boolean {
-  const trimmed = url.trim();
-  const lower = trimmed.toLowerCase();
-
-  // Block dangerous protocols
-  if (DANGEROUS_PROTOCOLS.some(p => lower.startsWith(p))) {
-    return false;
-  }
-
-  // Allow safe protocols (http, https, mailto) and relative URLs
-  if (/^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed)) {
-    try {
-      new URL(trimmed);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  // Reject any other protocol scheme (anything with colon before first slash)
-  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
-    return false;
-  }
-
-  // Allow relative URLs
-  return true;
-}
-
-// Simple markdown to HTML converter with syntax highlighting for code
-function markdownToHtml(md: string): string {
-  let html = md
-    // Code blocks with language specification
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      const languageClass = lang ? ` class="language-${lang}"` : '';
-      const escapedCode = code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return `<pre${languageClass}><code>${escapedCode}</code></pre>`;
-    })
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, (_, text, url) => {
-      if (isSafeUrl(url)) {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-      }
-      return text;
-    })
-    .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-    .replace(/^\d+\. (.+)$/gm, '<li class="ordered">$1</li>')
-    .replace(/^---$/gm, '<hr>')
-    .replace(/\n/g, '<br>');
-
-  // Wrap consecutive list items in ul/ol
-  html = html.replace(/(<li>.*?<\/li>)(\s*<br>\s*<li>.*?<\/li>)+/g, (match) => {
-    return '<ul>' + match.replace(/<br>/g, '') + '</ul>';
-  });
-  html = html.replace(/(<li class="ordered">.*?<\/li>)(\s*<br>\s*<li class="ordered">.*?<\/li>)+/g, (match) => {
-    return '<ol>' + match.replace(/<br>/g, '').replace(/ class="ordered"/g, '') + '</ol>';
-  });
-
-  return sanitizeHtml(html);
-}
+const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
 
 // Count words and characters in content
 function countWordsAndChars(content: string, format: NoteFormat): { words: number; chars: number } {
@@ -136,12 +51,14 @@ function RichTextEditor({
   noteId,
   initialContent,
   onContentChange,
+  onEnterCapture,
   editorRef,
   placeholder
 }: {
   noteId: string;
   initialContent: string;
   onContentChange: (content: string) => void;
+  onEnterCapture: () => boolean;
   editorRef: React.RefObject<HTMLDivElement | null>;
   placeholder: string;
 }) {
@@ -155,28 +72,244 @@ function RichTextEditor({
 
   // Only set innerHTML when note changes (different noteId)
   useEffect(() => {
+    // Chrome's default block is <div>; using <p> keeps the DOM consistent
+    // with the sanitizer whitelist and the converters. styleWithCSS off
+    // makes execCommand emit tags (b/i) instead of styled spans
+    document.execCommand('defaultParagraphSeparator', false, 'p');
+    document.execCommand('styleWithCSS', false, 'false');
     if (editorRef.current && noteId !== lastNoteIdRef.current) {
-      editorRef.current.innerHTML = sanitizeHtml(initialContentRef.current);
+      // Seed empty notes with an empty paragraph: text typed directly
+      // into the editor root becomes a bare text node, which makes
+      // execCommand produce invalid nesting later
+      editorRef.current.innerHTML = sanitizeHtml(initialContentRef.current) || '<p><br></p>';
       lastNoteIdRef.current = noteId;
     }
   }, [noteId, editorRef]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
-      const newContent = editorRef.current.innerHTML;
+      // Sanitize on write so stored content is always clean, not only
+      // at render time (pasted HTML can carry unsafe markup)
+      const newContent = sanitizeHtml(editorRef.current.innerHTML);
       onContentChange(newContent);
     }
   }, [editorRef, onContentChange]);
 
+  const notifyInput = useCallback(() => {
+    editorRef.current?.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [editorRef]);
+
+  // Markdown-style input rules and URL auto-linking, hooked on beforeinput
+  // (fires for semantic text insertion, independent of keyboard layout)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const applyBlockTrigger = (trigger: string): boolean => {
+      if (trigger === '-' || trigger === '*') {
+        document.execCommand('insertUnorderedList');
+      } else if (/^\d+\.$/.test(trigger)) {
+        document.execCommand('insertOrderedList');
+      } else if (/^#{1,3}$/.test(trigger)) {
+        document.execCommand('formatBlock', false, `h${trigger.length}`);
+      } else if (trigger === '>') {
+        document.execCommand('formatBlock', false, 'blockquote');
+      } else {
+        return false;
+      }
+      return true;
+    };
+
+    // "- ", "1. ", "# ".."### ", "> " at line start become formatting
+    const handleSpace = (e: InputEvent) => {
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed || selection.rangeCount === 0) return;
+      const node = selection.anchorNode;
+      if (!node || node.nodeType !== Node.TEXT_NODE) return;
+      const textNode = node as Text;
+      const offset = selection.anchorOffset;
+      const before = textNode.data.slice(0, offset);
+      const parent = textNode.parentElement;
+      if (!parent) return;
+
+      const isLineStart = !textNode.previousSibling &&
+        (parent === editor || parent.tagName === 'P' || parent.tagName === 'DIV') &&
+        !parent.closest('li, pre, blockquote');
+      if (isLineStart && /^(-|\*|#{1,3}|>|\d+\.)$/.test(before)) {
+        e.preventDefault();
+        textNode.deleteData(0, offset);
+        // An empty text node left behind makes Chrome resolve the caret
+        // to the PREVIOUS block and format the wrong paragraph; replace
+        // it with the <br> an empty block normally holds
+        if (parent !== editor && textNode.data.length === 0) {
+          textNode.remove();
+          if (!parent.hasChildNodes()) {
+            parent.appendChild(document.createElement('br'));
+          }
+        }
+        const caret = document.createRange();
+        caret.selectNodeContents(parent === editor ? editor : parent);
+        caret.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(caret);
+        if (applyBlockTrigger(before)) {
+          // Chrome nests the new list inside the emptied paragraph
+          const nested = parent !== editor && parent.childNodes.length === 1
+            ? parent.firstElementChild
+            : null;
+          if (nested && (nested.tagName === 'UL' || nested.tagName === 'OL')) {
+            parent.replaceWith(nested);
+          }
+          notifyInput();
+        }
+        return;
+      }
+
+      // Typed URL followed by space becomes a link
+      if (!parent.closest('a')) {
+        const urlMatch = before.match(/(?:^|\s)(https?:\/\/[^\s]+)$/);
+        if (urlMatch && isSafeUrl(urlMatch[1])) {
+          const url = urlMatch[1];
+          e.preventDefault();
+          const range = document.createRange();
+          range.setStart(textNode, offset - url.length);
+          range.setEnd(textNode, offset);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          document.execCommand('insertHTML', false,
+            `<a href="${escapeHtmlAttribute(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>&nbsp;`);
+          notifyInput();
+        }
+      }
+    };
+
+    // Closing "**bold**" or "*italic*" applies the formatting
+    const handleStar = (e: InputEvent) => {
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed || selection.rangeCount === 0) return;
+      const node = selection.anchorNode;
+      if (!node || node.nodeType !== Node.TEXT_NODE) return;
+      const textNode = node as Text;
+      const offset = selection.anchorOffset;
+      const before = textNode.data.slice(0, offset);
+
+      const bold = before.match(/\*\*([^*]+)\*$/);
+      const italic = bold ? null : before.match(/(?:^|[^*])\*([^*]+)$/);
+      const inner = bold ? bold[1] : italic?.[1];
+      if (!inner || inner.trim() !== inner) return;
+
+      const patternLength = bold ? bold[0].length : inner.length + 1;
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStart(textNode, offset - patternLength);
+      range.setEnd(textNode, offset);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const tag = bold ? 'strong' : 'em';
+      document.execCommand('insertHTML', false, `<${tag}>${escapeHtml(inner)}</${tag}>`);
+      // Keep further typing unformatted
+      const command = bold ? 'bold' : 'italic';
+      if (document.queryCommandState(command)) {
+        document.execCommand(command);
+      }
+      notifyInput();
+    };
+
+    // A caret anchored on the editor root (e.g. right after focus) makes
+    // typed text a bare text node outside any block, which later breaks
+    // execCommand; move it into the block at that position
+    const normalizeRootCaret = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return;
+      if (selection.anchorNode !== editor || editor.childNodes.length === 0) return;
+      const atEnd = selection.anchorOffset >= editor.childNodes.length;
+      const child = editor.childNodes[atEnd ? editor.childNodes.length - 1 : selection.anchorOffset];
+      if (!child) return;
+      const range = document.createRange();
+      range.selectNodeContents(child);
+      range.collapse(!atEnd);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+
+    const handleBeforeInput = (e: Event) => {
+      const ie = e as InputEvent;
+      if (ie.inputType !== 'insertText' || !ie.data) return;
+      normalizeRootCaret();
+      if (ie.data === ' ') {
+        handleSpace(ie);
+      } else if (ie.data === '*') {
+        handleStar(ie);
+      }
+    };
+
+    const handleFocus = () => {
+      requestAnimationFrame(normalizeRootCaret);
+    };
+
+    editor.addEventListener('beforeinput', handleBeforeInput);
+    editor.addEventListener('focus', handleFocus);
+    return () => {
+      editor.removeEventListener('beforeinput', handleBeforeInput);
+      editor.removeEventListener('focus', handleFocus);
+    };
+  }, [editorRef, notifyInput]);
+
+  // Smart paste: a URL over selected text becomes a link; plain-text
+  // markdown is converted to formatting
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    const text = e.clipboardData.getData('text/plain').trim();
+    const hasHtml = e.clipboardData.types.includes('text/html');
+    const selection = window.getSelection();
+
+    if (text && /^https?:\/\/\S+$/.test(text) && isSafeUrl(text) &&
+        selection && !selection.isCollapsed) {
+      e.preventDefault();
+      document.execCommand('createLink', false, text);
+      notifyInput();
+      return;
+    }
+
+    if (text && !hasHtml && /^(#{1,6}\s|[-*]\s|\d+\.\s|>\s)/m.test(text)) {
+      e.preventDefault();
+      document.execCommand('insertHTML', false, markdownToHtml(text));
+      notifyInput();
+    }
+  }, [notifyInput]);
+
   // Handle Enter key in lists to continue the list
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
+
+    // Naming flow: the first line of an unnamed note becomes its name
+    // and leaves the content
+    if (onEnterCapture()) {
+      e.preventDefault();
+      const editor = editorRef.current;
+      if (editor) {
+        editor.innerHTML = '<p><br></p>';
+        const selection = window.getSelection();
+        if (selection && editor.firstChild) {
+          const range = document.createRange();
+          range.selectNodeContents(editor.firstChild);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+      return;
+    }
 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
     // Find if we're inside a list item
     let node: Node | null = selection.anchorNode;
+    // The caret can anchor on the list element itself (offset = item
+    // index); descend into the list item so the walk below finds it
+    if (node && (node.nodeName === 'UL' || node.nodeName === 'OL') && node.childNodes.length > 0) {
+      node = node.childNodes[Math.min(selection.anchorOffset, node.childNodes.length - 1)];
+    }
     let listItem: HTMLLIElement | null = null;
     let list: HTMLUListElement | HTMLOListElement | null = null;
 
@@ -197,20 +330,29 @@ function RichTextEditor({
     const isEmpty = listItem.textContent?.trim() === '';
 
     if (isEmpty) {
-      // Exit the list: remove empty item and insert paragraph after list
+      // Exit the list: insert a paragraph after the list and move the
+      // caret there BEFORE removing the empty item (removing the node
+      // holding the selection first would invalidate the caret)
       e.preventDefault();
-      listItem.remove();
+      const paragraph = document.createElement('p');
+      paragraph.appendChild(document.createElement('br'));
+      list.parentNode?.insertBefore(paragraph, list.nextSibling);
 
-      // If list is now empty, remove it too
+      const range = document.createRange();
+      range.setStart(paragraph, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      listItem.remove();
       if (list.children.length === 0) {
         list.remove();
       }
 
-      // Insert a new paragraph and place cursor there
-      document.execCommand('insertParagraph', false);
+      editorRef.current?.dispatchEvent(new Event('input', { bubbles: true }));
     }
     // If not empty, let browser handle creating new list item naturally
-  }, [editorRef]);
+  }, [editorRef, onEnterCapture]);
 
   return (
     <div
@@ -220,14 +362,16 @@ function RichTextEditor({
       dir="ltr"
       onInput={handleInput}
       onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
       aria-label={placeholder}
+      data-placeholder={placeholder}
       suppressContentEditableWarning
     />
   );
 }
 
 export function Editor() {
-  const { state, getSelectedNote, updateNote, deleteNote, saveCurrentNote, addTag, toggleNoteTag } = useApp();
+  const { state, getSelectedNote, updateNote, deleteNote, saveCurrentNote, addTag, toggleNoteTag, saveStatus } = useApp();
   const t = i18n[state.lang];
   const note = getSelectedNote();
   const mac = isMac();
@@ -243,24 +387,24 @@ export function Editor() {
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [showFind, setShowFind] = useState(false);
+  const [findFocusTick, setFindFocusTick] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [copyMdFeedback, setCopyMdFeedback] = useState(false);
   const [currentBlockStyle, setCurrentBlockStyle] = useState('p');
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, unorderedList: false, orderedList: false });
+  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false, strikethrough: false, unorderedList: false, orderedList: false });
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
   const [savedSelection, setSavedSelection] = useState<Range | null>(null);
+  const [savedTextRange, setSavedTextRange] = useState<{ start: number; end: number } | null>(null);
+  const [bubblePos, setBubblePos] = useState<{ x: number; y: number; below: boolean } | null>(null);
 
   const tagPickerRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richtextRef = useRef<HTMLDivElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedContentRef = useRef<string>('');
   const lastNoteIdRef = useRef<string | null>(null);
 
   const { pushState, undo, redo, canUndo, canRedo, reset } = useUndoRedo(note?.content || '');
@@ -268,20 +412,13 @@ export function Editor() {
   // Reset state when note changes
   useEffect(() => {
     if (note && note.id !== lastNoteIdRef.current) {
-      const defaultTitles = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
-      const isNewNote = !note.content && defaultTitles.includes(note.title);
       lastNoteIdRef.current = note.id;
       reset(note.content);
-      lastSavedContentRef.current = note.content;
-      setSaveStatus('saved');
       setCurrentBlockStyle('p');
+      setShowFind(false);
 
-      // Focus title for new notes, otherwise focus editor
       requestAnimationFrame(() => {
-        if (isNewNote) {
-          titleInputRef.current?.focus();
-          titleInputRef.current?.select();
-        } else if (note.format === 'richtext') {
+        if (note.format === 'richtext') {
           richtextRef.current?.focus();
         } else {
           textareaRef.current?.focus();
@@ -289,27 +426,6 @@ export function Editor() {
       });
     }
   }, [note?.id, note?.content, note?.format, reset]);
-
-  // Track unsaved changes
-  useEffect(() => {
-    if (note && note.content !== lastSavedContentRef.current) {
-      setSaveStatus('unsaved');
-
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      saveTimeoutRef.current = setTimeout(() => {
-        lastSavedContentRef.current = note.content;
-        setSaveStatus('saved');
-      }, 2000);
-    }
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [note?.content]);
 
   // Close tag picker and export menu on outside click
   useEffect(() => {
@@ -325,7 +441,34 @@ export function Editor() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Escape closes open dialogs and menus (WCAG: keyboard-dismissable)
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showLinkDialog) {
+        setShowLinkDialog(false);
+        richtextRef.current?.focus();
+      } else if (showTagPicker) {
+        setShowTagPicker(false);
+      } else if (showExportMenu) {
+        setShowExportMenu(false);
+      } else if (showFind) {
+        setShowFind(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showLinkDialog, showTagPicker, showExportMenu, showFind]);
+
   const handleUndo = useCallback(() => {
+    // Richtext uses the browser's native undo stack: applying history to
+    // state would not update the contentEditable DOM (it only re-renders
+    // on note change) and the two would silently diverge
+    if (note?.format === 'richtext') {
+      richtextRef.current?.focus();
+      document.execCommand('undo');
+      return;
+    }
     const undoState = undo();
     if (undoState && note) {
       updateNote(note.id, { content: undoState.content });
@@ -339,6 +482,11 @@ export function Editor() {
   }, [undo, note, updateNote]);
 
   const handleRedo = useCallback(() => {
+    if (note?.format === 'richtext') {
+      richtextRef.current?.focus();
+      document.execCommand('redo');
+      return;
+    }
     const redoState = redo();
     if (redoState && note) {
       updateNote(note.id, { content: redoState.content });
@@ -355,7 +503,18 @@ export function Editor() {
     if (!note) return;
 
     try {
-      await navigator.clipboard.writeText(note.content);
+      if (note.format === 'richtext' && typeof ClipboardItem !== 'undefined') {
+        // Rich copy: formatted for Word/mail, readable text everywhere else.
+        // Copying the raw HTML source would paste literal tags
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([note.content], { type: 'text/html' }),
+            'text/plain': new Blob([htmlToPlainText(note.content)], { type: 'text/plain' })
+          })
+        ]);
+      } else {
+        await navigator.clipboard.writeText(note.content);
+      }
       setCopyFeedback(true);
       setTimeout(() => setCopyFeedback(false), 1500);
     } catch {
@@ -381,26 +540,54 @@ export function Editor() {
     setActiveFormats({
       bold: document.queryCommandState('bold'),
       italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+      strikethrough: document.queryCommandState('strikeThrough'),
       unorderedList: document.queryCommandState('insertUnorderedList'),
       orderedList: document.queryCommandState('insertOrderedList'),
     });
   }, []);
 
-  // Open link dialog and save current selection
+  // Open link dialog and save the current selection (richtext Range or
+  // textarea offsets, depending on format)
   const openLinkDialog = useCallback(() => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      setSavedSelection(range.cloneRange());
-      setLinkText(selection.toString());
+    if (note?.format === 'markdown') {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        setSavedTextRange({ start: textarea.selectionStart, end: textarea.selectionEnd });
+        setLinkText(textarea.value.substring(textarea.selectionStart, textarea.selectionEnd));
+      }
+    } else {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        setSavedSelection(range.cloneRange());
+        setLinkText(selection.toString());
+      }
     }
     setLinkUrl('');
     setShowLinkDialog(true);
-  }, []);
+  }, [note?.format]);
+
+  // Insert a markdown link at the saved textarea selection
+  const insertMarkdownLink = useCallback((url: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea || !note || !savedTextRange) return;
+    const text = linkText || url;
+    const markdownLink = `[${text}](${url})`;
+    const value = note.content;
+    const newContent = value.slice(0, savedTextRange.start) + markdownLink + value.slice(savedTextRange.end);
+    const position = savedTextRange.start + markdownLink.length;
+    updateNote(note.id, { content: newContent });
+    pushState(newContent, position);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(position, position);
+    });
+  }, [note, savedTextRange, linkText, updateNote, pushState]);
 
   // Insert link at saved selection
   const insertLink = useCallback(() => {
-    if (!linkUrl || !richtextRef.current) {
+    if (!linkUrl) {
       setShowLinkDialog(false);
       return;
     }
@@ -408,6 +595,20 @@ export function Editor() {
     // Validate URL before inserting
     const url = linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`;
     if (!isSafeUrl(url)) {
+      setShowLinkDialog(false);
+      return;
+    }
+
+    if (note?.format === 'markdown') {
+      insertMarkdownLink(url);
+      setShowLinkDialog(false);
+      setLinkUrl('');
+      setLinkText('');
+      setSavedTextRange(null);
+      return;
+    }
+
+    if (!richtextRef.current) {
       setShowLinkDialog(false);
       return;
     }
@@ -446,7 +647,7 @@ export function Editor() {
     setLinkUrl('');
     setLinkText('');
     setSavedSelection(null);
-  }, [linkUrl, linkText, savedSelection]);
+  }, [linkUrl, linkText, savedSelection, note?.format, insertMarkdownLink]);
 
   // Format command for rich text - uses Selection API properly
   const applyFormat = useCallback((command: string, value?: string) => {
@@ -487,6 +688,22 @@ export function Editor() {
       updateNote(note.id, { content });
       pushState(content, 0);
     }
+  }, [note, updateNote, pushState]);
+
+  // Naming flow: in an unnamed note, the first line plus Enter becomes the
+  // note's name and is REMOVED from the content, so exports contain only
+  // the actual content. Returns whether the capture happened
+  const captureNoteName = useCallback((): boolean => {
+    if (!note) return false;
+    const isUnnamed = !note.title || DEFAULT_TITLES.includes(note.title);
+    if (!isUnnamed) return false;
+    const text = note.format === 'richtext' ? htmlToPlainText(note.content) : note.content;
+    if (!text.trim() || text.includes('\n')) return false;
+    const name = deriveTitleFromContent(note.content, note.format);
+    if (!name) return false;
+    updateNote(note.id, { title: name, content: '' });
+    pushState('', 0);
+    return true;
   }, [note, updateNote, pushState]);
 
   // Insert markdown syntax at cursor position
@@ -600,25 +817,87 @@ export function Editor() {
     });
   }, [note, updateNote, pushState, toggleLineList]);
 
-  // Keyboard shortcuts for undo/redo and formatting
+  // Transform each line covered by the selection (line-prefix operations
+  // like headings and quotes must not insert mid-line)
+  const transformMarkdownLines = useCallback((transform: (line: string) => string) => {
+    const textarea = textareaRef.current;
+    if (!textarea || !note) return;
+
+    const scrollTop = textarea.scrollTop;
+    const { value, selectionStart, selectionEnd } = textarea;
+    const blockStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    let blockEnd = value.indexOf('\n', selectionEnd);
+    if (blockEnd === -1) blockEnd = value.length;
+
+    const newBlock = value.substring(blockStart, blockEnd).split('\n').map(transform).join('\n');
+    const newContent = value.substring(0, blockStart) + newBlock + value.substring(blockEnd);
+    const newEnd = blockStart + newBlock.length;
+
+    updateNote(note.id, { content: newContent });
+    pushState(newContent, newEnd);
+
+    requestAnimationFrame(() => {
+      textarea.focus({ preventScroll: true });
+      textarea.setSelectionRange(Math.min(selectionStart, newEnd), newEnd);
+      textarea.scrollTop = scrollTop;
+    });
+  }, [note, updateNote, pushState]);
+
+  // Heading button cycles none -> H1 -> H2 -> H3 -> none
+  const cycleMarkdownHeading = useCallback(() => {
+    transformMarkdownLines(line => {
+      if (/^###\s/.test(line)) return line.replace(/^###\s/, '');
+      if (/^##\s/.test(line)) return line.replace(/^##\s/, '### ');
+      if (/^#\s/.test(line)) return line.replace(/^#\s/, '## ');
+      return '# ' + line;
+    });
+  }, [transformMarkdownLines]);
+
+  // Shortcut sets an exact heading level (0 = body text)
+  const setMarkdownHeading = useCallback((level: number) => {
+    transformMarkdownLines(line => {
+      const stripped = line.replace(/^#{1,6}\s+/, '');
+      return level === 0 ? stripped : '#'.repeat(level) + ' ' + stripped;
+    });
+  }, [transformMarkdownLines]);
+
+  const toggleMarkdownQuote = useCallback(() => {
+    transformMarkdownLines(line =>
+      line.startsWith('> ') ? line.slice(2) : '> ' + line
+    );
+  }, [transformMarkdownLines]);
+
+  // Keyboard shortcuts for undo/redo and formatting.
+  // All checks use e.code (physical key): with Shift or Alt held, e.key
+  // reports the shifted character and varies by keyboard layout, so
+  // e.key-based checks silently break on Windows and non-US layouts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmd = e.metaKey || e.ctrlKey;
+      const mac = isMac();
 
       // Undo/Redo - only for plain text and markdown
       // For rich text (contentEditable), let browser handle native undo/redo
       const isRichtextFocused = document.activeElement === richtextRef.current;
 
       if (isCmd && !e.altKey && !isRichtextFocused) {
-        if (e.key === 'z' && !e.shiftKey) {
+        if (e.code === 'KeyZ' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
           return;
-        } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        } else if ((e.code === 'KeyZ' && e.shiftKey) || e.code === 'KeyY') {
           e.preventDefault();
           handleRedo();
           return;
         }
+      }
+
+      // Find and replace: Cmd/Ctrl+F
+      if (isCmd && !e.altKey && !e.shiftKey && e.code === 'KeyF' && note) {
+        e.preventDefault();
+        setShowFind(true);
+        setFindFocusTick(tick => tick + 1);
+        return;
       }
 
       // Formatting shortcuts - only when editor has focus
@@ -626,70 +905,65 @@ export function Editor() {
 
       if (!isCmd || !note) return;
 
+      // Headings: Cmd+Opt+digit on Mac (Cmd+digit switches browser tabs),
+      // Ctrl+digit on Windows (Ctrl+Alt would collide with AltGr)
+      const headingCombo = !e.shiftKey && (mac ? e.altKey : !e.altKey);
+      const headingLevel = headingCombo
+        ? ({ Digit1: 1, Digit2: 2, Digit3: 3, Digit0: 0 } as Record<string, number>)[e.code]
+        : undefined;
+
       // Rich text formatting shortcuts
       if (isRichtextFocused) {
+        if (headingLevel !== undefined) {
+          e.preventDefault();
+          applyFormat('formatBlock', headingLevel === 0 ? 'p' : `h${headingLevel}`);
+          return;
+        }
+        if (e.altKey) return;
         // Bold: Cmd/Ctrl+B
-        if (e.key === 'b' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyB' && !e.shiftKey) {
           e.preventDefault();
           applyFormat('bold');
           return;
         }
         // Italic: Cmd/Ctrl+I
-        if (e.key === 'i' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyI' && !e.shiftKey) {
           e.preventDefault();
           applyFormat('italic');
           return;
         }
-        // Heading 1: Cmd/Ctrl+1
-        if (e.key === '1' && !e.shiftKey && !e.altKey) {
+        // Underline: Cmd/Ctrl+U
+        if (e.code === 'KeyU' && !e.shiftKey) {
           e.preventDefault();
-          applyFormat('formatBlock', 'h1');
+          applyFormat('underline');
           return;
         }
-        // Heading 2: Cmd/Ctrl+2
-        if (e.key === '2' && !e.shiftKey && !e.altKey) {
+        // Strikethrough: Cmd/Ctrl+Shift+X
+        if (e.code === 'KeyX' && e.shiftKey) {
           e.preventDefault();
-          applyFormat('formatBlock', 'h2');
-          return;
-        }
-        // Heading 3: Cmd/Ctrl+3
-        if (e.key === '3' && !e.shiftKey && !e.altKey) {
-          e.preventDefault();
-          applyFormat('formatBlock', 'h3');
-          return;
-        }
-        // Body text: Cmd/Ctrl+0
-        if (e.key === '0' && !e.shiftKey && !e.altKey) {
-          e.preventDefault();
-          applyFormat('formatBlock', 'p');
+          applyFormat('strikeThrough');
           return;
         }
         // Bullet list: Cmd/Ctrl+Shift+8
-        if (e.key === '8' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Digit8' && e.shiftKey) {
           e.preventDefault();
           applyFormat('insertUnorderedList');
           return;
         }
         // Numbered list: Cmd/Ctrl+Shift+7
-        if (e.key === '7' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Digit7' && e.shiftKey) {
           e.preventDefault();
           applyFormat('insertOrderedList');
           return;
         }
         // Quote: Cmd/Ctrl+Shift+.
-        if (e.key === '.' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Period' && e.shiftKey) {
           e.preventDefault();
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            const text = selection.toString();
-            if (text) {
-              document.execCommand('formatBlock', false, 'blockquote');
-            }
-          }
+          applyFormat('formatBlock', 'blockquote');
           return;
         }
         // Link: Cmd/Ctrl+K
-        if (e.key === 'k' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyK' && !e.shiftKey) {
           e.preventDefault();
           openLinkDialog();
           return;
@@ -698,70 +972,64 @@ export function Editor() {
 
       // Markdown formatting shortcuts
       if (isMarkdownFocused) {
+        if (headingLevel !== undefined) {
+          e.preventDefault();
+          setMarkdownHeading(headingLevel);
+          return;
+        }
+        if (e.altKey) return;
         // Bold: Cmd/Ctrl+B
-        if (e.key === 'b' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyB' && !e.shiftKey) {
           e.preventDefault();
           insertMarkdown('**', '**', state.lang === 'no' ? 'fet tekst' : 'bold text');
           return;
         }
         // Italic: Cmd/Ctrl+I
-        if (e.key === 'i' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyI' && !e.shiftKey) {
           e.preventDefault();
           insertMarkdown('*', '*', state.lang === 'no' ? 'kursiv tekst' : 'italic text');
           return;
         }
-        // Heading: Cmd/Ctrl+1
-        if (e.key === '1' && !e.shiftKey && !e.altKey) {
+        // Strikethrough: Cmd/Ctrl+Shift+X
+        if (e.code === 'KeyX' && e.shiftKey) {
           e.preventDefault();
-          insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
-          return;
-        }
-        // Heading 2: Cmd/Ctrl+2
-        if (e.key === '2' && !e.shiftKey && !e.altKey) {
-          e.preventDefault();
-          insertMarkdown('## ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
-          return;
-        }
-        // Heading 3: Cmd/Ctrl+3
-        if (e.key === '3' && !e.shiftKey && !e.altKey) {
-          e.preventDefault();
-          insertMarkdown('### ', '', state.lang === 'no' ? 'Overskrift' : 'Heading');
+          insertMarkdown('~~', '~~', state.lang === 'no' ? 'gjennomstreket' : 'strikethrough');
           return;
         }
         // Inline code: Cmd/Ctrl+E
-        if (e.key === 'e' && !e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyE' && !e.shiftKey) {
           e.preventDefault();
           insertMarkdown('`', '`', state.lang === 'no' ? 'kode' : 'code');
           return;
         }
         // Code block: Cmd/Ctrl+Shift+E
-        if (e.key === 'e' && e.shiftKey && !e.altKey) {
+        if (e.code === 'KeyE' && e.shiftKey) {
           e.preventDefault();
           insertMarkdown('```\n', '\n```', state.lang === 'no' ? 'kodeblokk' : 'code block');
           return;
         }
         // Bullet list: Cmd/Ctrl+Shift+8
-        if (e.key === '8' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Digit8' && e.shiftKey) {
           e.preventDefault();
           toggleMarkdownList('bullet');
           return;
         }
         // Numbered list: Cmd/Ctrl+Shift+7
-        if (e.key === '7' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Digit7' && e.shiftKey) {
           e.preventDefault();
           toggleMarkdownList('numbered');
           return;
         }
-        // Link: Cmd/Ctrl+L
-        if (e.key === 'l' && !e.shiftKey && !e.altKey) {
+        // Link: Cmd/Ctrl+K (same dialog and binding as rich text)
+        if (e.code === 'KeyK' && !e.shiftKey) {
           e.preventDefault();
-          insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text');
+          openLinkDialog();
           return;
         }
         // Quote: Cmd/Ctrl+Shift+.
-        if (e.key === '.' && e.shiftKey && !e.altKey) {
+        if (e.code === 'Period' && e.shiftKey) {
           e.preventDefault();
-          insertMarkdown('> ', '', '');
+          toggleMarkdownQuote();
           return;
         }
       }
@@ -769,7 +1037,7 @@ export function Editor() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, note, applyFormat, insertMarkdown, toggleMarkdownList, state.lang]);
+  }, [handleUndo, handleRedo, note, applyFormat, insertMarkdown, toggleMarkdownList, setMarkdownHeading, toggleMarkdownQuote, openLinkDialog, state.lang]);
 
   // Update active formats when selection changes in richtext editor
   useEffect(() => {
@@ -786,6 +1054,57 @@ export function Editor() {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [note?.format, updateActiveFormats]);
 
+  // Selection bubble: a small formatting menu floats above selected text
+  useEffect(() => {
+    if (note?.format !== 'richtext') {
+      setBubblePos(null);
+      return;
+    }
+
+    const update = () => {
+      const editor = richtextRef.current;
+      const selection = window.getSelection();
+      if (!editor || !selection || selection.isCollapsed || selection.rangeCount === 0 ||
+          !editor.contains(selection.anchorNode) || !editor.contains(selection.focusNode)) {
+        setBubblePos(null);
+        return;
+      }
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        setBubblePos(null);
+        return;
+      }
+      // Flip below the selection when there is no room above it
+      const editorTop = editor.getBoundingClientRect().top;
+      const below = rect.top - 44 < editorTop;
+      setBubblePos({
+        x: rect.left + rect.width / 2,
+        y: below ? rect.bottom : rect.top,
+        below
+      });
+    };
+
+    const hide = () => setBubblePos(null);
+    const editor = richtextRef.current;
+    document.addEventListener('selectionchange', update);
+    editor?.addEventListener('scroll', hide);
+    return () => {
+      document.removeEventListener('selectionchange', update);
+      editor?.removeEventListener('scroll', hide);
+    };
+  }, [note?.format, note?.id]);
+
+  // Arrow keys move focus within a toolbar (WAI-ARIA toolbar pattern)
+  const handleToolbarKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button, select'));
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    if (index === -1) return;
+    e.preventDefault();
+    const next = e.key === 'ArrowRight' ? index + 1 : index + items.length - 1;
+    items[next % items.length].focus();
+  };
+
   if (!note) {
     const newNoteShortcut = mac ? '\u2325N' : 'Ctrl+Shift+1';
     return (
@@ -799,10 +1118,6 @@ export function Editor() {
     );
   }
 
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateNote(note.id, { title: e.target.value });
-  };
-
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const content = e.target.value;
     const cursorPosition = e.target.selectionStart;
@@ -810,9 +1125,21 @@ export function Editor() {
     pushState(content, cursorPosition);
   };
 
-  // Handle Enter key in Markdown lists to continue the list
+  // Handle Enter in the textarea: naming flow first, then Markdown lists
   const handleMarkdownKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key !== 'Enter' || e.shiftKey || note?.format !== 'markdown') return;
+    if (e.key !== 'Enter' || e.shiftKey) return;
+
+    // Naming flow: the first line of an unnamed note becomes its name
+    // and leaves the content
+    if (captureNoteName()) {
+      e.preventDefault();
+      requestAnimationFrame(() => {
+        textareaRef.current?.setSelectionRange(0, 0);
+      });
+      return;
+    }
+
+    if (note?.format !== 'markdown') return;
 
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -903,6 +1230,14 @@ export function Editor() {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .trim();
+    } else if (newFormat === 'markdown' && oldFormat === 'richtext') {
+      newContent = htmlToMarkdown(note.content);
+    } else if (newFormat === 'richtext' && oldFormat === 'markdown') {
+      newContent = markdownToHtml(note.content);
+    } else if (newFormat === 'richtext' && oldFormat === 'plaintext') {
+      newContent = note.content
+        ? note.content.split('\n').map(line => `<p>${line ? escapeHtml(line) : '<br>'}</p>`).join('')
+        : '';
     }
 
     updateNote(note.id, { format: newFormat, content: newContent });
@@ -935,20 +1270,16 @@ export function Editor() {
     }
   };
 
+  // No confirm dialog: deletion shows an undo toast instead
   const handleDelete = () => {
-    if (confirm(t.confirmDelete)) {
-      deleteNote(note.id);
-    }
+    deleteNote(note.id);
   };
 
   const handleSave = async () => {
-    setSaveStatus('saving');
     try {
       await saveCurrentNote();
-      lastSavedContentRef.current = note.content;
-      setSaveStatus('saved');
     } catch {
-      setSaveStatus('unsaved');
+      // Export failed or was cancelled
     }
   };
 
@@ -962,6 +1293,7 @@ export function Editor() {
     switch (saveStatus) {
       case 'saving': return t.saving;
       case 'unsaved': return t.unsaved;
+      case 'error': return t.saveError;
       default: return t.saved;
     }
   };
@@ -971,29 +1303,37 @@ export function Editor() {
     e.preventDefault();
   };
 
+  // Unnamed notes get the naming instruction; named notes a plain prompt
+  const isUnnamed = !note.title || DEFAULT_TITLES.includes(note.title);
+  const placeholderText = isUnnamed ? t.editorPlaceholder : t.writeHere;
+
   return (
     <div className="editor-panel">
       <div className="editor-header">
-        <input
-          ref={titleInputRef}
-          type="text"
-          className="title-input"
-          placeholder={t.titlePlaceholder}
-          value={note.title}
-          onChange={handleTitleChange}
-          aria-label={t.titlePlaceholder}
-          dir="ltr"
-        />
+        <div className="format-selector">
+          <span className="format-label">{t.format}</span>
+          <select
+            className="format-select"
+            value={note.format}
+            onChange={handleFormatChange}
+            aria-label={t.format}
+          >
+            <option value="plaintext">{t.plaintext}</option>
+            <option value="richtext">{t.richtext}</option>
+            <option value="markdown">{t.markdown}</option>
+          </select>
+        </div>
         <div className="header-actions">
-          <span className={`save-status ${saveStatus}`} title={getSaveStatusText()}>
-            {saveStatus === 'unsaved' && '●'}
-            {saveStatus === 'saving' && '○'}
-            {saveStatus === 'saved' && '✓'}
+          <span className={`save-status ${saveStatus}`} title={getSaveStatusText()} aria-live="polite">
+            {saveStatus === 'unsaved' && <CircleIcon size={9} />}
+            {saveStatus === 'saving' && <LoaderCircleIcon size={12} />}
+            {saveStatus === 'saved' && <CheckIcon size={13} />}
+            {saveStatus === 'error' && <CircleAlertIcon size={13} />}
           </span>
           <button
             className="action-btn icon-btn"
             onClick={handleUndo}
-            disabled={!canUndo}
+            disabled={note.format !== 'richtext' && !canUndo}
             title={`${t.undo} (${mac ? '\u2318Z' : 'Ctrl+Z'})`}
             aria-label={t.undo}
           >
@@ -1002,7 +1342,7 @@ export function Editor() {
           <button
             className="action-btn icon-btn"
             onClick={handleRedo}
-            disabled={!canRedo}
+            disabled={note.format !== 'richtext' && !canRedo}
             title={`${t.redo} (${mac ? '\u2318\u21E7Z' : 'Ctrl+Y'})`}
             aria-label={t.redo}
           >
@@ -1014,7 +1354,7 @@ export function Editor() {
             title={t.copyToClipboard}
             aria-label={t.copy}
           >
-            {copyFeedback ? '\u2713' : <CopyIcon />}
+            {copyFeedback ? <CheckIcon /> : <CopyIcon />}
           </button>
           {note.format === 'richtext' && (
             <button
@@ -1023,7 +1363,7 @@ export function Editor() {
               title={t.copyAsMarkdown}
               aria-label={t.copyAsMarkdown}
             >
-              {copyMdFeedback ? '\u2713' : 'MD'}
+              {copyMdFeedback ? <CheckIcon /> : 'MD'}
             </button>
           )}
           {note.format === 'markdown' && (
@@ -1037,7 +1377,11 @@ export function Editor() {
               <PreviewIcon />
             </button>
           )}
-          {note.format === 'richtext' ? (
+          {note.format === 'plaintext' ? (
+            <button className="action-btn save-btn" onClick={handleSave}>
+              {t.save}
+            </button>
+          ) : (
             <div className="export-menu-container" ref={exportMenuRef}>
               <button
                 className="action-btn save-btn"
@@ -1048,16 +1392,21 @@ export function Editor() {
               </button>
               {showExportMenu && (
                 <div className="export-menu">
-                  <button onClick={() => handleExport('native')}>{t.exportAsHtml}</button>
-                  <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
-                  <button onClick={() => handleExport('rtf')}>{t.exportAsRtf}</button>
+                  {note.format === 'richtext' ? (
+                    <>
+                      <button onClick={() => handleExport('native')}>{t.exportAsHtml}</button>
+                      <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
+                      <button onClick={() => handleExport('rtf')}>{t.exportAsRtf}</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleExport('native')}>{t.exportAsMarkdown}</button>
+                      <button onClick={() => handleExport('html')}>{t.exportAsHtml}</button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-          ) : (
-            <button className="action-btn save-btn" onClick={handleSave}>
-              {t.save}
-            </button>
           )}
           <button
             className="action-btn"
@@ -1072,28 +1421,14 @@ export function Editor() {
         </div>
       </div>
 
-      <div className="format-selector">
-        <span className="format-label">{t.format}</span>
-        <select
-          className="format-select"
-          value={note.format}
-          onChange={handleFormatChange}
-          aria-label={t.format}
-        >
-          <option value="plaintext">{t.plaintext}</option>
-          <option value="richtext">{t.richtext}</option>
-          <option value="markdown">{t.markdown}</option>
-        </select>
-      </div>
-
       {note.format === 'richtext' && (
-        <div className="formatting-toolbar">
+        <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
           <div className="format-group">
             <select
               className="style-select"
               value={currentBlockStyle}
               onChange={handleBlockStyleChange}
-              title={`${t.bodyText}: ${mac ? '⌘0' : 'Ctrl+0'} | ${t.heading1}: ${mac ? '⌘1' : 'Ctrl+1'} | ${t.heading2}: ${mac ? '⌘2' : 'Ctrl+2'} | ${t.heading3}: ${mac ? '⌘3' : 'Ctrl+3'}`}
+              title={`${t.bodyText}: ${mac ? '⌘⌥0' : 'Ctrl+0'} | ${t.heading1}: ${mac ? '⌘⌥1' : 'Ctrl+1'} | ${t.heading2}: ${mac ? '⌘⌥2' : 'Ctrl+2'} | ${t.heading3}: ${mac ? '⌘⌥3' : 'Ctrl+3'}`}
             >
               <option value="p">{t.bodyText}</option>
               <option value="h1">{t.heading1}</option>
@@ -1109,7 +1444,7 @@ export function Editor() {
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
               aria-pressed={activeFormats.bold}
             >
-              <strong>B</strong>
+              <BoldIcon />
             </button>
             <button
               className={`format-btn ${activeFormats.italic ? 'active' : ''}`}
@@ -1118,7 +1453,25 @@ export function Editor() {
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
               aria-pressed={activeFormats.italic}
             >
-              <em>I</em>
+              <ItalicIcon />
+            </button>
+            <button
+              className={`format-btn ${activeFormats.underline ? 'active' : ''}`}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('underline')}
+              title={`${state.lang === 'no' ? 'Understreking' : 'Underline'} (${mac ? '⌘U' : 'Ctrl+U'})`}
+              aria-pressed={activeFormats.underline}
+            >
+              <UnderlineIcon />
+            </button>
+            <button
+              className={`format-btn ${activeFormats.strikethrough ? 'active' : ''}`}
+              onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('strikeThrough')}
+              title={`${state.lang === 'no' ? 'Gjennomstreking' : 'Strikethrough'} (${mac ? '⌘⇧X' : 'Ctrl+Shift+X'})`}
+              aria-pressed={activeFormats.strikethrough}
+            >
+              <StrikethroughIcon />
             </button>
           </div>
           <div className="format-group">
@@ -1143,12 +1496,75 @@ export function Editor() {
             <button
               className="format-btn"
               onMouseDown={preventFocusLoss}
+              onClick={() => applyFormat('formatBlock', 'blockquote')}
+              title={`${state.lang === 'no' ? 'Sitat' : 'Quote'} (${mac ? '⌘⇧.' : 'Ctrl+Shift+.'})`}
+            >
+              <QuoteIcon />
+            </button>
+            <button
+              className="format-btn"
+              onMouseDown={preventFocusLoss}
               onClick={openLinkDialog}
               title={`${state.lang === 'no' ? 'Sett inn lenke' : 'Insert link'} (${mac ? '⌘K' : 'Ctrl+K'})`}
             >
               <LinkIcon />
             </button>
           </div>
+        </div>
+      )}
+
+      {note.format === 'richtext' && bubblePos && !showLinkDialog && (
+        <div
+          className={`selection-bubble ${bubblePos.below ? 'below' : ''}`}
+          style={{ left: bubblePos.x, top: bubblePos.y }}
+          onMouseDown={preventFocusLoss}
+          role="toolbar"
+          aria-label={t.formatting}
+        >
+          <button
+            className={activeFormats.bold ? 'active' : ''}
+            onClick={() => applyFormat('bold')}
+            title={state.lang === 'no' ? 'Fet' : 'Bold'}
+            aria-pressed={activeFormats.bold}
+          >
+            <BoldIcon />
+          </button>
+          <button
+            className={activeFormats.italic ? 'active' : ''}
+            onClick={() => applyFormat('italic')}
+            title={state.lang === 'no' ? 'Kursiv' : 'Italic'}
+            aria-pressed={activeFormats.italic}
+          >
+            <ItalicIcon />
+          </button>
+          <button
+            className={activeFormats.underline ? 'active' : ''}
+            onClick={() => applyFormat('underline')}
+            title={state.lang === 'no' ? 'Understreking' : 'Underline'}
+            aria-pressed={activeFormats.underline}
+          >
+            <UnderlineIcon />
+          </button>
+          <button
+            className={activeFormats.strikethrough ? 'active' : ''}
+            onClick={() => applyFormat('strikeThrough')}
+            title={state.lang === 'no' ? 'Gjennomstreking' : 'Strikethrough'}
+            aria-pressed={activeFormats.strikethrough}
+          >
+            <StrikethroughIcon />
+          </button>
+          <button
+            onClick={openLinkDialog}
+            title={state.lang === 'no' ? 'Sett inn lenke' : 'Insert link'}
+          >
+            <LinkIcon />
+          </button>
+          <button
+            onClick={() => applyFormat('formatBlock', 'blockquote')}
+            title={state.lang === 'no' ? 'Sitat' : 'Quote'}
+          >
+            <QuoteIcon />
+          </button>
         </div>
       )}
 
@@ -1172,6 +1588,7 @@ export function Editor() {
                   type="url"
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) insertLink(); }}
                   placeholder="https://..."
                   autoFocus
                 />
@@ -1182,6 +1599,7 @@ export function Editor() {
                   type="text"
                   value={linkText}
                   onChange={(e) => setLinkText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) insertLink(); }}
                   placeholder={state.lang === 'no' ? 'Valgfritt' : 'Optional'}
                 />
               </label>
@@ -1199,13 +1617,13 @@ export function Editor() {
       )}
 
       {note.format === 'markdown' && (
-        <div className="formatting-toolbar">
+        <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
           <div className="format-group">
             <button
               className="format-btn"
               onMouseDown={preventFocusLoss}
-              onClick={() => insertMarkdown('# ', '', state.lang === 'no' ? 'Overskrift' : 'Heading')}
-              title={`${state.lang === 'no' ? 'Overskrift' : 'Heading'} (${mac ? '⌘1/2/3' : 'Ctrl+1/2/3'})`}
+              onClick={cycleMarkdownHeading}
+              title={`${state.lang === 'no' ? 'Overskrift' : 'Heading'} (${mac ? '⌘⌥1/2/3' : 'Ctrl+1/2/3'})`}
             >
               <HeadingIcon />
             </button>
@@ -1217,7 +1635,7 @@ export function Editor() {
               onClick={() => insertMarkdown('**', '**', state.lang === 'no' ? 'fet tekst' : 'bold text')}
               title={`${state.lang === 'no' ? 'Fet' : 'Bold'} (${mac ? '⌘B' : 'Ctrl+B'})`}
             >
-              <strong>B</strong>
+              <BoldIcon />
             </button>
             <button
               className="format-btn"
@@ -1225,7 +1643,15 @@ export function Editor() {
               onClick={() => insertMarkdown('*', '*', state.lang === 'no' ? 'kursiv tekst' : 'italic text')}
               title={`${state.lang === 'no' ? 'Kursiv' : 'Italic'} (${mac ? '⌘I' : 'Ctrl+I'})`}
             >
-              <em>I</em>
+              <ItalicIcon />
+            </button>
+            <button
+              className="format-btn"
+              onMouseDown={preventFocusLoss}
+              onClick={() => insertMarkdown('~~', '~~', state.lang === 'no' ? 'gjennomstreket' : 'strikethrough')}
+              title={`${state.lang === 'no' ? 'Gjennomstreking' : 'Strikethrough'} (${mac ? '⌘⇧X' : 'Ctrl+Shift+X'})`}
+            >
+              <StrikethroughIcon />
             </button>
           </div>
           <div className="format-group">
@@ -1268,15 +1694,15 @@ export function Editor() {
             <button
               className="format-btn"
               onMouseDown={preventFocusLoss}
-              onClick={() => insertMarkdown('[', '](url)', state.lang === 'no' ? 'lenketekst' : 'link text')}
-              title={`${state.lang === 'no' ? 'Lenke' : 'Link'} (${mac ? '⌘L' : 'Ctrl+L'})`}
+              onClick={openLinkDialog}
+              title={`${state.lang === 'no' ? 'Sett inn lenke' : 'Insert link'} (${mac ? '⌘K' : 'Ctrl+K'})`}
             >
               <LinkIcon />
             </button>
             <button
               className="format-btn"
               onMouseDown={preventFocusLoss}
-              onClick={() => insertMarkdown('> ', '', '')}
+              onClick={toggleMarkdownQuote}
               title={`${state.lang === 'no' ? 'Sitat' : 'Quote'} (${mac ? '⌘⇧.' : 'Ctrl+Shift+.'})`}
             >
               <QuoteIcon />
@@ -1302,7 +1728,7 @@ export function Editor() {
                     onClick={() => toggleNoteTag(note.id, tag.id)}
                   >
                     <span>{tag.name}</span>
-                    {note.tags.includes(tag.id) && <span className="check-mark">✓</span>}
+                    {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={12} /></span>}
                   </button>
                 ))
               )}
@@ -1333,9 +1759,32 @@ export function Editor() {
             .filter((tag): tag is NonNullable<typeof tag> => tag !== undefined)
             .sort((a, b) => a.name.localeCompare(b.name, state.lang))
             .map(tag => (
-              <span key={tag.id} className="current-tag">{tag.name}</span>
+              <button
+                key={tag.id}
+                className="current-tag"
+                onClick={() => toggleNoteTag(note.id, tag.id)}
+                title={t.removeTag}
+                aria-label={`${t.removeTag}: ${tag.name}`}
+              >
+                {tag.name}
+                <CloseIcon size={10} />
+              </button>
             ))}
         </div>
+      )}
+
+      {showFind && (
+        <FindReplaceBar
+          note={note}
+          textareaRef={textareaRef}
+          richtextRef={richtextRef}
+          onApplyText={(content, cursor) => {
+            updateNote(note.id, { content });
+            pushState(content, cursor);
+          }}
+          onClose={() => setShowFind(false)}
+          focusTick={findFocusTick}
+        />
       )}
 
       <div className={`editor-container ${note.format === 'markdown' && showPreview ? 'with-preview' : ''}`}>
@@ -1345,19 +1794,20 @@ export function Editor() {
               noteId={note.id}
               initialContent={note.content}
               onContentChange={handleRichtextChange}
+              onEnterCapture={captureNoteName}
               editorRef={richtextRef}
-              placeholder={t.editorPlaceholder}
+              placeholder={placeholderText}
             />
           ) : (
             <textarea
               ref={textareaRef}
               className={`editor ${note.format}`}
-              placeholder={t.editorPlaceholder}
+              placeholder={placeholderText}
               value={note.content}
               onChange={handleContentChange}
               onKeyDown={handleMarkdownKeyDown}
               spellCheck={note.format === 'plaintext' || note.format === 'markdown'}
-              aria-label={t.editorPlaceholder}
+              aria-label={placeholderText}
               dir="ltr"
             />
           )}
@@ -1378,6 +1828,7 @@ export function Editor() {
           <div className="editor-footer">
             <span className="word-count">{words} {t.words}</span>
             <span className="char-count">{chars} {t.characters}</span>
+            <span className="note-modified">{t.modified}: {formatDate(note.updatedAt, state.lang)}</span>
           </div>
         );
       })()}

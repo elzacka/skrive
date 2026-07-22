@@ -116,11 +116,13 @@ export interface I18nStrings {
   manageTags: string;
   titlePlaceholder: string;
   editorPlaceholder: string;
+  writeHere: string;
   created: string;
   modified: string;
   export: string;
   delete: string;
   rename: string;
+  moveToRoot: string;
   shortcuts: string;
   newNoteShortcut: string;
   searchShortcut: string;
@@ -132,6 +134,8 @@ export interface I18nStrings {
   formatShortcut: string;
   boldShortcut: string;
   italicShortcut: string;
+  underlineShortcut: string;
+  strikethroughShortcut: string;
   heading1Shortcut: string;
   heading2Shortcut: string;
   heading3Shortcut: string;
@@ -205,6 +209,10 @@ export interface I18nStrings {
   guideFormatsDesc: string;
   guideOrganize: string;
   guideOrganizeDesc: string;
+  guideNaming: string;
+  guideNamingDesc: string;
+  guideQuickWrite: string;
+  guideQuickWriteDesc: string;
   guideAutoBackup: string;
   guideAutoBackupDesc: string;
   guideExport: string;
@@ -221,6 +229,39 @@ export interface I18nStrings {
   backupFailed: string;
   autoBackupUnsupported: string;
   lastBackup: string;
+  setBackupPassphraseTitle: string;
+  enterBackupPassphraseTitle: string;
+  backupPassphraseHint: string;
+  restorePassphraseHint: string;
+  passphraseLabel: string;
+  repeatPassphraseLabel: string;
+  passphraseTooShort: string;
+  passphraseMismatch: string;
+  wrongPassphrase: string;
+  confirm: string;
+  language: string;
+  close: string;
+  saveError: string;
+  storageLoadError: string;
+  storagePersistent: string;
+  storageNotPersistent: string;
+  backupPermissionNeeded: string;
+  reactivateBackup: string;
+  noteDeleted: string;
+  notesDeleted: string;
+  confirmDeleteFolder: string;
+  find: string;
+  findShortcut: string;
+  findPlaceholder: string;
+  replace: string;
+  replaceAll: string;
+  replacePlaceholder: string;
+  nextMatch: string;
+  prevMatch: string;
+  noMatches: string;
+  sortByName: string;
+  sortByDate: string;
+  removeTag: string;
 }
 
 export type I18n = {

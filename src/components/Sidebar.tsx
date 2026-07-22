@@ -8,6 +8,7 @@ import {
   PlusIcon,
   ChevronRightIcon,
   FolderIcon,
+  FolderOutputIcon,
   NoteIcon,
   KeyboardIcon,
   EncryptedIcon,
@@ -21,13 +22,18 @@ import {
   BackupIcon,
   CloudDoneIcon
 } from './Icons';
+import { PassphraseDialog } from './PassphraseDialog';
+// "Skrive" in Columbia Titling, outlined to paths (the font itself is
+// commercial and cannot be self-hosted as a webfont)
+import wordmarkUrl from '@/assets/skrive-wordmark.svg';
 
 interface TreeItemProps {
   folder: Folder;
   folders: Folder[];
   notes: Note[];
   selectedNoteId: string | null;
-  onSelectNote: (id: string) => void;
+  multiSelectedIds: Set<string>;
+  onSelectNote: (id: string, e: React.MouseEvent) => void;
   onToggleFolder: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, type: 'folder' | 'note', id: string) => void;
   onMoveNote?: (noteId: string, targetFolderId: string | null) => void;
@@ -37,17 +43,32 @@ interface TreeItemProps {
   onSaveFolderName: () => void;
   onFolderKeyDown: (e: React.KeyboardEvent) => void;
   untitledText: string;
+  sortMode: NoteSortMode;
+  editingNoteId: string | null;
+  editingNoteName: string;
+  onEditingNoteNameChange: (name: string) => void;
+  onSaveNoteName: () => void;
+  onNoteNameKeyDown: (e: React.KeyboardEvent) => void;
 }
 
-const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, lang }: TreeItemProps & { lang: string }) {
+export type NoteSortMode = 'alpha' | 'recent';
+
+function compareNotes(a: Note, b: Note, sortMode: NoteSortMode, untitledText: string, lang: string): number {
+  if (sortMode === 'recent') {
+    return b.updatedAt - a.updatedAt;
+  }
+  return (a.title || untitledText).localeCompare(b.title || untitledText, lang);
+}
+
+const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = useMemo(
     () => folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang)),
     [folders, folder.id, lang]
   );
   const childNotes = useMemo(
-    () => notes.filter(n => n.parentId === folder.id).sort((a, b) => (a.title || untitledText).localeCompare(b.title || untitledText, lang)),
-    [notes, folder.id, untitledText, lang]
+    () => notes.filter(n => n.parentId === folder.id).sort((a, b) => compareNotes(a, b, sortMode, untitledText, lang)),
+    [notes, folder.id, untitledText, sortMode, lang]
   );
   const hasChildren = childFolders.length > 0 || childNotes.length > 0;
   const isEditing = editingFolderId === folder.id;
@@ -116,6 +137,7 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               folders={folders}
               notes={notes}
               selectedNoteId={selectedNoteId}
+              multiSelectedIds={multiSelectedIds}
               onSelectNote={onSelectNote}
               onToggleFolder={onToggleFolder}
               onContextMenu={onContextMenu}
@@ -126,6 +148,12 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               onSaveFolderName={onSaveFolderName}
               onFolderKeyDown={onFolderKeyDown}
               untitledText={untitledText}
+              sortMode={sortMode}
+              editingNoteId={editingNoteId}
+              editingNoteName={editingNoteName}
+              onEditingNoteNameChange={onEditingNoteNameChange}
+              onSaveNoteName={onSaveNoteName}
+              onNoteNameKeyDown={onNoteNameKeyDown}
               lang={lang}
             />
           ))}
@@ -134,9 +162,16 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               key={note.id}
               note={note}
               isSelected={note.id === selectedNoteId}
+              isMultiSelected={multiSelectedIds.has(note.id)}
               onSelect={onSelectNote}
               onContextMenu={onContextMenu}
+              onMoveNote={onMoveNote}
               untitledText={untitledText}
+              editingNoteId={editingNoteId}
+              editingNoteName={editingNoteName}
+              onEditingNoteNameChange={onEditingNoteNameChange}
+              onSaveNoteName={onSaveNoteName}
+              onNoteNameKeyDown={onNoteNameKeyDown}
             />
           ))}
         </div>
@@ -148,29 +183,69 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
 interface TreeNoteProps {
   note: Note;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  isMultiSelected: boolean;
+  onSelect: (id: string, e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent, type: 'folder' | 'note', id: string) => void;
+  onMoveNote?: (noteId: string, targetFolderId: string | null) => void;
   untitledText: string;
+  editingNoteId: string | null;
+  editingNoteName: string;
+  onEditingNoteNameChange: (name: string) => void;
+  onSaveNoteName: () => void;
+  onNoteNameKeyDown: (e: React.KeyboardEvent) => void;
 }
 
-const TreeNote = memo(function TreeNote({ note, isSelected, onSelect, onContextMenu, untitledText }: TreeNoteProps) {
+const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, onMoveNote, untitledText, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown }: TreeNoteProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', note.id);
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  // Dropping a note onto another note places it next to that note
+  // (same folder, or the root) - this is how notes leave folders
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId && draggedId !== note.id && onMoveNote) {
+      onMoveNote(draggedId, note.parentId);
+    }
+  };
+
+  const isEditing = editingNoteId === note.id;
+
   return (
     <div className="tree-item">
       <div
-        className={`tree-item-row ${isSelected ? 'active' : ''}`}
-        onClick={() => onSelect(note.id)}
+        className={`tree-item-row ${isSelected ? 'active' : ''} ${isMultiSelected ? 'multi-selected' : ''}`}
+        onClick={(e) => !isEditing && onSelect(note.id, e)}
         onContextMenu={(e) => onContextMenu(e, 'note', note.id)}
-        draggable
+        draggable={!isEditing}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         <span className="tree-expand hidden"><ChevronRightIcon /></span>
         <span className="tree-icon"><NoteIcon /></span>
-        <span className="tree-label">{note.title || untitledText}</span>
+        {isEditing ? (
+          <input
+            type="text"
+            className="folder-edit-input"
+            value={editingNoteName}
+            onChange={(e) => onEditingNoteNameChange(e.target.value)}
+            onBlur={onSaveNoteName}
+            onKeyDown={onNoteNameKeyDown}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="tree-label">{note.title || untitledText}</span>
+        )}
       </div>
     </div>
   );
@@ -182,7 +257,9 @@ export function Sidebar() {
     createNote,
     createFolder,
     deleteNote,
+    deleteNotes,
     deleteFolder,
+    updateNote,
     updateFolder,
     selectNote,
     setTagFilter,
@@ -198,10 +275,13 @@ export function Sidebar() {
     autoBackupEnabled,
     lastBackupTime,
     backupError,
+    backupPermissionNeeded,
+    reactivateBackup,
     enableAutoBackup,
     disableAutoBackup,
     restoreFromBackup,
-    fsAccessSupported
+    fsAccessSupported,
+    storagePersisted
   } = useApp();
 
   const t = i18n[state.lang];
@@ -212,14 +292,29 @@ export function Sidebar() {
   const [editingTagName, setEditingTagName] = useState('');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteName, setEditingNoteName] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   const [showBackupMenu, setShowBackupMenu] = useState(false);
+  const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [sortMode, setSortMode] = useState<NoteSortMode>(() =>
+    localStorage.getItem('skrive-sort') === 'recent' ? 'recent' : 'alpha'
+  );
+  // Multi-selection (Cmd/Ctrl+Click toggles, Shift+Click selects a range)
+  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
+  const selectionAnchorRef = useRef<string | null>(null);
 
   const sidebarRef = useRef<HTMLElement>(null);
+
+  const toggleSortMode = () => {
+    const next: NoteSortMode = sortMode === 'alpha' ? 'recent' : 'alpha';
+    setSortMode(next);
+    localStorage.setItem('skrive-sort', next);
+  };
 
   // Close popups when clicking outside sidebar
   useEffect(() => {
@@ -239,14 +334,112 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Escape closes popups and context menus (WCAG: keyboard-dismissable)
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setShowShortcuts(false);
+      setShowGuide(false);
+      setShowLangDropdown(false);
+      setShowPrivacyInfo(false);
+      setShowBackupMenu(false);
+      setContextMenu(null);
+      setTagContextMenu(null);
+      setMultiSelected(new Set());
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, []);
+
+  // Delete/Backspace removes the multi-selection (undo toast covers it),
+  // but never while typing in an input or the editor
+  useEffect(() => {
+    if (multiSelected.size === 0) return;
+    const handleDeleteKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+        return;
+      }
+      e.preventDefault();
+      deleteNotes(Array.from(multiSelected));
+      setMultiSelected(new Set());
+    };
+    window.addEventListener('keydown', handleDeleteKey);
+    return () => window.removeEventListener('keydown', handleDeleteKey);
+  }, [multiSelected, deleteNotes]);
+
   const rootFolders = useMemo(() =>
     state.folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, state.lang)),
     [state.folders, state.lang]
   );
   const rootNotes = useMemo(() =>
-    filteredNotes.filter(n => n.parentId === null).sort((a, b) => (a.title || t.untitled).localeCompare(b.title || t.untitled, state.lang)),
-    [filteredNotes, state.lang, t.untitled]
+    filteredNotes.filter(n => n.parentId === null).sort((a, b) => compareNotes(a, b, sortMode, t.untitled, state.lang)),
+    [filteredNotes, state.lang, t.untitled, sortMode]
   );
+  // While searching, folders are ignored and all matches are shown flat:
+  // matches inside collapsed folders would otherwise stay invisible
+  const isSearching = state.searchQuery.trim().length > 0;
+  const searchResults = useMemo(() =>
+    isSearching ? [...filteredNotes].sort((a, b) => b.updatedAt - a.updatedAt) : [],
+    [isSearching, filteredNotes]
+  );
+
+  // Visible notes in render order; Shift+Click ranges follow this list
+  const visibleNoteIds = useMemo(() => {
+    if (isSearching) return searchResults.map(n => n.id);
+    const ids: string[] = [];
+    const collectFolder = (folderId: string) => {
+      const childFolders = state.folders
+        .filter(f => f.parentId === folderId)
+        .sort((a, b) => a.name.localeCompare(b.name, state.lang));
+      for (const child of childFolders) {
+        if (child.expanded) collectFolder(child.id);
+      }
+      const childNotes = filteredNotes
+        .filter(n => n.parentId === folderId)
+        .sort((a, b) => compareNotes(a, b, sortMode, t.untitled, state.lang));
+      ids.push(...childNotes.map(n => n.id));
+    };
+    for (const folder of rootFolders) {
+      if (folder.expanded) collectFolder(folder.id);
+    }
+    ids.push(...rootNotes.map(n => n.id));
+    return ids;
+  }, [isSearching, searchResults, state.folders, state.lang, filteredNotes, sortMode, t.untitled, rootFolders, rootNotes]);
+
+  // Finder-style selection: plain click opens a note, Cmd/Ctrl+Click
+  // toggles it in the selection, Shift+Click selects the range from the
+  // last clicked note
+  const handleSelectNote = (id: string, e: React.MouseEvent) => {
+    if (e.shiftKey && selectionAnchorRef.current) {
+      const from = visibleNoteIds.indexOf(selectionAnchorRef.current);
+      const to = visibleNoteIds.indexOf(id);
+      if (from !== -1 && to !== -1) {
+        const [start, end] = from < to ? [from, to] : [to, from];
+        setMultiSelected(new Set(visibleNoteIds.slice(start, end + 1)));
+        return;
+      }
+    }
+    if (e.metaKey || e.ctrlKey) {
+      const next = new Set(multiSelected);
+      // The open note is part of the selection being extended
+      if (next.size === 0 && state.selectedNoteId && state.selectedNoteId !== id) {
+        next.add(state.selectedNoteId);
+      }
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      setMultiSelected(next);
+      selectionAnchorRef.current = id;
+      return;
+    }
+    setMultiSelected(new Set());
+    selectionAnchorRef.current = id;
+    selectNote(id);
+  };
   const sortedTags = useMemo(() =>
     [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)),
     [state.tags, state.lang]
@@ -261,6 +454,10 @@ export function Sidebar() {
 
   const handleContextMenu = (e: React.MouseEvent, type: 'folder' | 'note' | 'sidebar', id: string) => {
     e.preventDefault();
+    // Right-clicking outside the current multi-selection resets it
+    if (type === 'note' && !multiSelected.has(id)) {
+      setMultiSelected(new Set());
+    }
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
   };
 
@@ -314,10 +511,41 @@ export function Sidebar() {
     }
   };
 
+  // Dropping on the tree background (folders and notes stop propagation)
+  // moves the note out to the root level
+  const handleRootDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const noteId = e.dataTransfer.getData('text/plain');
+    if (noteId) {
+      moveNote(noteId, null);
+    }
+  };
+
+  // Move the clicked note (or the whole multi-selection) out of folders
+  const handleMoveToRoot = () => {
+    if (!contextMenu) return;
+    if (multiSelected.size > 1 && multiSelected.has(contextMenu.id)) {
+      for (const id of multiSelected) {
+        moveNote(id, null);
+      }
+      setMultiSelected(new Set());
+    } else {
+      moveNote(contextMenu.id, null);
+    }
+    closeContextMenu();
+  };
+
   const handleDelete = () => {
     if (!contextMenu) return;
     if (contextMenu.type === 'folder') {
-      deleteFolder(contextMenu.id);
+      // Folder deletion is recursive and has no undo, so confirm it;
+      // note deletion shows an undo toast instead
+      if (confirm(t.confirmDeleteFolder)) {
+        deleteFolder(contextMenu.id);
+      }
+    } else if (multiSelected.size > 1 && multiSelected.has(contextMenu.id)) {
+      deleteNotes(Array.from(multiSelected));
+      setMultiSelected(new Set());
     } else {
       deleteNote(contextMenu.id);
     }
@@ -336,6 +564,33 @@ export function Sidebar() {
       setEditingFolderName(t.newFolder);
     }
     closeContextMenu();
+  };
+
+  const handleStartEditNote = () => {
+    if (!contextMenu || contextMenu.type !== 'note') return;
+    const note = state.notes.find(n => n.id === contextMenu.id);
+    if (note) {
+      setEditingNoteId(note.id);
+      setEditingNoteName(note.title);
+    }
+    closeContextMenu();
+  };
+
+  const handleSaveNoteName = () => {
+    if (editingNoteId && editingNoteName.trim()) {
+      updateNote(editingNoteId, { title: editingNoteName.trim() });
+    }
+    setEditingNoteId(null);
+    setEditingNoteName('');
+  };
+
+  const handleNoteNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveNoteName();
+    } else if (e.key === 'Escape') {
+      setEditingNoteId(null);
+      setEditingNoteName('');
+    }
   };
 
   const handleStartEditFolder = () => {
@@ -373,28 +628,31 @@ export function Sidebar() {
   const shortcuts = useMemo(() => ({
     newNote: mac ? '\u2325N' : 'Ctrl+Shift+1',
     search: mac ? '\u2318K' : 'Ctrl+K',
+    find: mac ? '\u2318F' : 'Ctrl+F',
     save: mac ? '\u2318S' : 'Ctrl+S',
     toggleSidebar: mac ? '\u2325M' : 'Ctrl+Shift+3',
     undo: mac ? '\u2318Z' : 'Ctrl+Z',
     redo: mac ? '\u2318\u21E7Z' : 'Ctrl+Y',
     bold: mac ? '\u2318B' : 'Ctrl+B',
     italic: mac ? '\u2318I' : 'Ctrl+I',
-    heading1: mac ? '\u23181' : 'Ctrl+1',
-    heading2: mac ? '\u23182' : 'Ctrl+2',
-    heading3: mac ? '\u23183' : 'Ctrl+3',
-    bodyText: mac ? '\u23180' : 'Ctrl+0',
+    underline: mac ? '\u2318U' : 'Ctrl+U',
+    strikethrough: mac ? '\u2318\u21e7X' : 'Ctrl+Shift+X',
+    heading1: mac ? '\u2318\u23251' : 'Ctrl+1',
+    heading2: mac ? '\u2318\u23252' : 'Ctrl+2',
+    heading3: mac ? '\u2318\u23253' : 'Ctrl+3',
+    bodyText: mac ? '\u2318\u23250' : 'Ctrl+0',
     bulletList: mac ? '\u2318\u21E78' : 'Ctrl+Shift+8',
     numberedList: mac ? '\u2318\u21E77' : 'Ctrl+Shift+7',
     inlineCode: mac ? '\u2318E' : 'Ctrl+E',
     codeBlock: mac ? '\u2318\u21E7E' : 'Ctrl+Shift+E',
-    link: mac ? '\u2318L' : 'Ctrl+L',
+    link: mac ? '\u2318K' : 'Ctrl+K',
     quote: mac ? '\u2318\u21E7.' : 'Ctrl+Shift+.'
   }), [mac]);
 
   return (
     <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
       <div className="sidebar-header">
-        <span className="sidebar-title">Skrive</span>
+        <img src={wordmarkUrl} alt="Skrive" className="sidebar-wordmark" />
       </div>
 
       <div className="search-container">
@@ -463,41 +721,94 @@ export function Sidebar() {
       <div className="notes-section">
         <div className="notes-header">
           <span className="section-title">{t.notes}</span>
-          <button className="new-btn" onClick={() => createNote()} title={t.newNote} aria-label={t.newNote}>
-            <PlusIcon />
-          </button>
+          <div className="notes-header-actions">
+            <button
+              className="sort-btn"
+              onClick={toggleSortMode}
+              title={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
+              aria-label={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
+            >
+              <SwapVertIcon size={16} />
+            </button>
+            <button className="new-btn" onClick={() => createNote()} title={t.newNote} aria-label={t.newNote}>
+              <PlusIcon />
+            </button>
+          </div>
         </div>
-        <div className="notes-tree" role="tree" aria-label={t.notes} onContextMenu={handleSidebarContextMenu}>
-          {rootFolders.map(folder => (
-            <TreeFolder
-              key={folder.id}
-              folder={folder}
-              folders={state.folders}
-              notes={filteredNotes}
-              selectedNoteId={state.selectedNoteId}
-              onSelectNote={selectNote}
-              onToggleFolder={handleToggleFolder}
-              onContextMenu={handleContextMenu}
-              onMoveNote={moveNote}
-              editingFolderId={editingFolderId}
-              editingFolderName={editingFolderName}
-              onEditingFolderNameChange={setEditingFolderName}
-              onSaveFolderName={handleSaveFolderName}
-              onFolderKeyDown={handleFolderKeyDown}
-              untitledText={t.untitled}
-              lang={state.lang}
-            />
-          ))}
-          {rootNotes.map(note => (
-            <TreeNote
-              key={note.id}
-              note={note}
-              isSelected={note.id === state.selectedNoteId}
-              onSelect={selectNote}
-              onContextMenu={handleContextMenu}
-              untitledText={t.untitled}
-            />
-          ))}
+        <div
+          className="notes-tree"
+          role="tree"
+          aria-label={t.notes}
+          onContextMenu={handleSidebarContextMenu}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleRootDrop}
+        >
+          {isSearching ? (
+            searchResults.map(note => (
+              <TreeNote
+                key={note.id}
+                note={note}
+                isSelected={note.id === state.selectedNoteId}
+                isMultiSelected={multiSelected.has(note.id)}
+                onSelect={handleSelectNote}
+                onContextMenu={handleContextMenu}
+                onMoveNote={moveNote}
+                untitledText={t.untitled}
+                editingNoteId={editingNoteId}
+                editingNoteName={editingNoteName}
+                onEditingNoteNameChange={setEditingNoteName}
+                onSaveNoteName={handleSaveNoteName}
+                onNoteNameKeyDown={handleNoteNameKeyDown}
+              />
+            ))
+          ) : (
+            <>
+              {rootFolders.map(folder => (
+                <TreeFolder
+                  key={folder.id}
+                  folder={folder}
+                  folders={state.folders}
+                  notes={filteredNotes}
+                  selectedNoteId={state.selectedNoteId}
+                  multiSelectedIds={multiSelected}
+                  onSelectNote={handleSelectNote}
+                  onToggleFolder={handleToggleFolder}
+                  onContextMenu={handleContextMenu}
+                  onMoveNote={moveNote}
+                  editingFolderId={editingFolderId}
+                  editingFolderName={editingFolderName}
+                  onEditingFolderNameChange={setEditingFolderName}
+                  onSaveFolderName={handleSaveFolderName}
+                  onFolderKeyDown={handleFolderKeyDown}
+                  untitledText={t.untitled}
+                  sortMode={sortMode}
+                  editingNoteId={editingNoteId}
+                  editingNoteName={editingNoteName}
+                  onEditingNoteNameChange={setEditingNoteName}
+                  onSaveNoteName={handleSaveNoteName}
+                  onNoteNameKeyDown={handleNoteNameKeyDown}
+                  lang={state.lang}
+                />
+              ))}
+              {rootNotes.map(note => (
+                <TreeNote
+                  key={note.id}
+                  note={note}
+                  isSelected={note.id === state.selectedNoteId}
+                  isMultiSelected={multiSelected.has(note.id)}
+                  onSelect={handleSelectNote}
+                  onContextMenu={handleContextMenu}
+                  onMoveNote={moveNote}
+                  untitledText={t.untitled}
+                  editingNoteId={editingNoteId}
+                  editingNoteName={editingNoteName}
+                  onEditingNoteNameChange={setEditingNoteName}
+                  onSaveNoteName={handleSaveNoteName}
+                  onNoteNameKeyDown={handleNoteNameKeyDown}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -514,9 +825,14 @@ export function Sidebar() {
           <div className="privacy-popup show" onClick={(e) => e.stopPropagation()}>
             <p className="privacy-popup-text">
               {state.lang === 'no'
-                ? 'Notatene dine er ende-til-ende-kryptert med AEGIS-256. Bare du kan lese dem.'
-                : 'Your notes are end-to-end encrypted with AEGIS-256. Only you can read them.'}
+                ? 'Notatene lagres kryptert på din maskin og sendes aldri til noen server.'
+                : 'Your notes are stored encrypted on your device and are never sent to any server.'}
             </p>
+            {storagePersisted !== null && (
+              <p className="privacy-popup-text privacy-popup-storage">
+                {storagePersisted ? t.storagePersistent : t.storageNotPersistent}
+              </p>
+            )}
             <a
               href={`${import.meta.env.BASE_URL}${state.lang === 'no' ? 'personvern.html' : 'privacy.html'}`}
               className="privacy-popup-link"
@@ -546,7 +862,8 @@ export function Sidebar() {
           <button
             className="sidebar-footer-btn"
             onClick={(e) => { e.stopPropagation(); setShowLangDropdown(!showLangDropdown); setShowShortcuts(false); setShowGuide(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
-            title="Språk"
+            title={t.language}
+            aria-label={t.language}
           >
             {state.lang.toUpperCase()}
           </button>
@@ -562,7 +879,7 @@ export function Sidebar() {
                 className={`lang-option ${state.lang === 'en' ? 'active' : ''}`}
                 onClick={() => { setLang('en'); setShowLangDropdown(false); }}
               >
-                Engelsk
+                English
               </button>
             </div>
           )}
@@ -584,6 +901,17 @@ export function Sidebar() {
                 </div>
                 {autoBackupEnabled ? (
                   <>
+                    {backupPermissionNeeded && (
+                      <>
+                        <div className="backup-popup-error">
+                          {t.backupPermissionNeeded}
+                        </div>
+                        <button className="backup-popup-btn" onClick={async () => { await reactivateBackup(); }}>
+                          <BackupIcon size={16} />
+                          <span>{t.reactivateBackup}</span>
+                        </button>
+                      </>
+                    )}
                     <div className="backup-popup-status">
                       <CloudDoneIcon size={14} />
                       <span>{t.autoBackupActive}</span>
@@ -604,7 +932,7 @@ export function Sidebar() {
                     </button>
                   </>
                 ) : (
-                  <button className="backup-popup-btn" onClick={async () => { await enableAutoBackup(); setShowBackupMenu(false); }}>
+                  <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setShowBackupMenu(false); }}>
                     <BackupIcon size={16} />
                     <span>{t.enableAutoBackup}</span>
                   </button>
@@ -637,6 +965,17 @@ export function Sidebar() {
               <span>{t.importNote}</span>
             </button>
           </div>
+        )}
+        {showPassphraseDialog && (
+          <PassphraseDialog
+            mode="set"
+            onSubmit={async (passphrase) => {
+              const ok = await enableAutoBackup(passphrase);
+              if (ok) setShowPassphraseDialog(false);
+              return ok;
+            }}
+            onCancel={() => setShowPassphraseDialog(false)}
+          />
         )}
         {showShortcuts && (
           <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
@@ -674,6 +1013,12 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.save}</span>
                 </div>
               </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.findShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.find}</span>
+                </div>
+              </div>
             </div>
 
             <div className="shortcuts-section-title">{t.shortcutsRichtextMarkdown}</div>
@@ -704,8 +1049,8 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.heading2}</span>
                 </div>
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.bulletListShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.bulletList}</span>
+                  <span className="shortcut-desc">{t.underlineShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.underline}</span>
                 </div>
               </div>
               <div className="shortcut-row">
@@ -714,8 +1059,28 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.heading3}</span>
                 </div>
                 <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.strikethroughShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.strikethrough}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.bulletListShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.bulletList}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.linkShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.link}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
                   <span className="shortcut-desc">{t.numberedListShortcut}</span>
                   <span className="shortcut-key">{shortcuts.numberedList}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.quoteShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.quote}</span>
                 </div>
               </div>
             </div>
@@ -728,18 +1093,8 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.inlineCode}</span>
                 </div>
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.linkShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.link}</span>
-                </div>
-              </div>
-              <div className="shortcut-row">
-                <div className="shortcut-item">
                   <span className="shortcut-desc">{t.codeBlockShortcut}</span>
                   <span className="shortcut-key">{shortcuts.codeBlock}</span>
-                </div>
-                <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.quoteShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.quote}</span>
                 </div>
               </div>
             </div>
@@ -753,6 +1108,14 @@ export function Sidebar() {
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideFormats}</div>
                 <div className="guide-item-desc">{t.guideFormatsDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideNaming}</div>
+                <div className="guide-item-desc">{t.guideNamingDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideQuickWrite}</div>
+                <div className="guide-item-desc">{t.guideQuickWriteDesc}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideOrganize}</div>
@@ -778,7 +1141,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2026</span>
-        <span>v2.12.0</span>
+        <span>v2.13.0</span>
       </div>
 
       {contextMenu && (
@@ -808,19 +1171,33 @@ export function Sidebar() {
                 <FolderIcon />
                 <span>{t.newFolder}</span>
               </button>
-              {contextMenu.type === 'folder' && (
-                <>
-                  <div className="context-menu-divider" />
-                  <button className="context-menu-item" onClick={handleStartEditFolder}>
-                    <EditIcon />
-                    <span>{t.rename}</span>
-                  </button>
-                </>
+              <div className="context-menu-divider" />
+              <button
+                className="context-menu-item"
+                onClick={contextMenu.type === 'folder' ? handleStartEditFolder : handleStartEditNote}
+              >
+                <EditIcon />
+                <span>{t.rename}</span>
+              </button>
+              {contextMenu.type === 'note' &&
+                state.notes.find(n => n.id === contextMenu.id)?.parentId != null && (
+                <button className="context-menu-item" onClick={handleMoveToRoot}>
+                  <FolderOutputIcon />
+                  <span>
+                    {multiSelected.size > 1 && multiSelected.has(contextMenu.id)
+                      ? `${t.moveToRoot} (${multiSelected.size})`
+                      : t.moveToRoot}
+                  </span>
+                </button>
               )}
               <div className="context-menu-divider" />
               <button className="context-menu-item" onClick={handleDelete}>
                 <DeleteIcon />
-                <span>{t.delete}</span>
+                <span>
+                  {contextMenu.type === 'note' && multiSelected.size > 1 && multiSelected.has(contextMenu.id)
+                    ? `${t.delete} (${multiSelected.size})`
+                    : t.delete}
+                </span>
               </button>
             </>
           )}

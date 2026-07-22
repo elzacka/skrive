@@ -25,9 +25,10 @@
   --bg-hover: rgba(10, 82, 13, 0.05);
   --bg-active: rgba(10, 82, 13, 0.1);
 
-  --text-primary: #0A520D;
-  --text-secondary: #0A520D;
-  --text-muted: rgba(10, 82, 13, 0.6);
+  /* Neutral near-black for all reading text; green is reserved for brand */
+  --text-primary: #2c2c2c;
+  --text-secondary: #2c2c2c;
+  --text-muted: rgba(44, 44, 44, 0.65);
 
   --accent: #0A520D;
   --accent-hover: #0d6610;
@@ -104,15 +105,10 @@ body {
   flex-shrink: 0;
 }
 
-.sidebar-title {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-weight: 700;
-  font-size: 18px;
-  color: #fff;
-  letter-spacing: 0.5px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+.sidebar-wordmark {
+  display: block;
+  height: 22px;
+  width: auto;
 }
 
 /* Hide sidebar header when running as installed PWA to avoid duplicate "Skrive" */
@@ -340,7 +336,8 @@ body {
 .new-btn svg {
   width: 16px;
   height: 16px;
-  fill: #fff;
+  stroke: #fff;
+  fill: none;
 }
 
 .new-btn:hover {
@@ -401,7 +398,8 @@ body {
 .tree-expand svg {
   width: 12px;
   height: 12px;
-  fill: var(--text-primary);
+  stroke: var(--text-primary);
+  fill: none;
   transition: transform 0.2s;
 }
 
@@ -422,7 +420,8 @@ body {
 .tree-icon svg {
   width: 100%;
   height: 100%;
-  fill: var(--text-muted);
+  stroke: var(--text-muted);
+  fill: none;
 }
 
 .tree-label {
@@ -471,7 +470,8 @@ body {
 .sidebar-footer-btn svg {
   width: 14px;
   height: 14px;
-  fill: currentColor;
+  stroke: currentColor;
+  fill: none;
 }
 
 .sidebar-footer-btn:hover {
@@ -824,28 +824,10 @@ body {
 .editor-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-light);
   gap: 12px;
-}
-
-.title-input {
-  flex: 1;
-  padding: 6px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  outline: none;
-}
-
-.title-input:focus {
-  border-color: var(--accent);
-}
-
-.title-input::placeholder {
-  color: var(--text-muted);
 }
 
 .header-actions {
@@ -1043,7 +1025,8 @@ body {
 }
 
 .action-btn.icon-btn svg {
-  fill: currentColor;
+  stroke: currentColor;
+  fill: none;
 }
 
 .action-btn.icon-btn.active {
@@ -1063,12 +1046,11 @@ body {
 }
 
 /* Format Selector */
+/* Sits inside the editor header row, left of the actions */
 .format-selector {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-light);
 }
 
 .format-label {
@@ -1141,7 +1123,8 @@ body {
 .format-btn svg {
   width: 14px;
   height: 14px;
-  fill: currentColor;
+  stroke: currentColor;
+  fill: none;
 }
 
 .style-select {
@@ -1608,7 +1591,8 @@ body {
 .context-menu-item svg {
   width: 14px;
   height: 14px;
-  fill: var(--text-primary);
+  stroke: var(--text-primary);
+  fill: none;
 }
 
 .context-menu-divider {
@@ -1616,33 +1600,6 @@ body {
   background: var(--border-light);
   margin: 4px 0;
 }
-
-/* PWA Install Prompt */
-.install-prompt {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 20px rgba(10, 82, 13, 0.15);
-  z-index: 1000;
-  max-width: 280px;
-}
-
-.install-prompt-title {
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text-primary);
-}
-
-.install-prompt-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
 
 /* Scrollbar */
 ::-webkit-scrollbar {
@@ -1802,7 +1759,7 @@ body {
 }
 
 .password-prompt-button:hover:not(:disabled) {
-  background: var(--accent-dark);
+  background: var(--accent-hover);
 }
 
 .password-prompt-button:disabled {
@@ -1815,4 +1772,394 @@ body {
   color: var(--text-muted);
   margin-top: 16px;
   margin-bottom: 0;
+}
+
+/* ============ Find and replace bar ============ */
+
+.find-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-tertiary);
+}
+
+.find-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.find-bar-input {
+  flex: 1;
+  max-width: 320px;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.find-bar-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.find-bar-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 56px;
+  text-align: center;
+}
+
+.find-bar-btn,
+.find-bar-toggle {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.find-bar-btn:hover:not(:disabled),
+.find-bar-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.find-bar-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.find-bar-btn svg,
+.find-bar-toggle svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+.find-bar-toggle-spacer {
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.find-bar-text-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.find-bar-text-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.find-bar-text-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+::highlight(skrive-find) {
+  background-color: rgba(255, 200, 0, 0.4);
+}
+
+::highlight(skrive-find-current) {
+  background-color: rgba(255, 150, 0, 0.75);
+}
+
+/* ============ Save status error ============ */
+
+.save-status.error {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ============ Notes header actions and sort ============ */
+
+.notes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sort-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sort-btn svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+/* ============ Removable tag chips ============ */
+
+.current-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.current-tag svg {
+  stroke: currentColor;
+  fill: none;
+  opacity: 0.7;
+}
+
+.current-tag:hover {
+  background: var(--danger);
+}
+
+.current-tag:hover svg {
+  opacity: 1;
+}
+
+/* ============ Storage error banner ============ */
+
+.storage-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #fff;
+  background: var(--danger);
+}
+
+.storage-banner-close {
+  padding: 3px 10px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.storage-banner-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ============ Delete undo toast ============ */
+
+.undo-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #fff;
+  background: var(--text-primary);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.undo-toast-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.undo-toast-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.undo-toast-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.undo-toast-close:hover {
+  color: #fff;
+}
+
+/* ============ Privacy popup storage status ============ */
+
+.privacy-popup-storage {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light);
+  color: var(--text-muted);
+}
+
+.find-bar-toggle.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* ============ Richtext placeholder ============ */
+
+.editor.richtext:empty::before,
+.editor.richtext:has(> p:only-child > br:only-child)::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  position: absolute;
+}
+
+/* ============ Prose typography ============ */
+
+.editor,
+.markdown-preview {
+  padding: 24px 32px;
+}
+
+.editor.richtext {
+  font-size: 15px;
+}
+
+/* ============ Selection bubble menu ============ */
+
+.selection-bubble {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 8px));
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+}
+
+.selection-bubble button {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.selection-bubble button:hover {
+  background: var(--bg-hover);
+}
+
+.selection-bubble button.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.selection-bubble button svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* ============ Modified date in footer ============ */
+
+.note-modified {
+  margin-left: auto;
+}
+
+.selection-bubble.below {
+  transform: translate(-50%, 8px);
+}
+
+/* ============ Lucide icon adjustments ============ */
+
+.find-bar-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.find-bar-text-btn svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+}
+
+.save-status svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+.save-status.unsaved svg {
+  fill: currentColor;
+}
+
+.save-status.saving svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.check-mark {
+  display: inline-flex;
+  align-items: center;
+}
+
+.check-mark svg,
+.undo-toast-close svg,
+.storage-banner svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+.undo-toast-close {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ============ Multi-selected notes ============ */
+
+.tree-item-row.multi-selected {
+  background: var(--accent-light);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }

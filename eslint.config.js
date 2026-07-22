@@ -32,7 +32,7 @@ const commonRules = {
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: ['dist/**', 'dev-dist/**', 'node_modules/**'],
   },
   {
     files: ['**/*.{js,jsx}'],

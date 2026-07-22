@@ -1,6 +1,6 @@
 {
   "name": "skrive",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "type": "module",
   "description": "En lettvekts notatapp med offline-støtte og File System Access API",
   "scripts": {
@@ -10,15 +10,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "dompurify": "^3.3.1",
+    "dompurify": "^3.4.12",
     "libsodium-wrappers": "^0.7.15",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "react-router": "^7.10.1"
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
-    "@types/dompurify": "^3.0.5",
     "@types/libsodium-wrappers": "^0.7.14",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

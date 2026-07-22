@@ -11,6 +11,18 @@ const STORAGE_KEY = 'skrive-state';
 const ENCRYPTED_STORAGE_KEY = 'skrive-encrypted';
 const VERSION = '2.0.0';
 
+// IndexedDB for encrypted state (localStorage has a ~5MB quota and
+// synchronous writes; IndexedDB has neither problem)
+const DATA_DB_NAME = 'skrive-data';
+const DATA_STORE = 'state';
+const STATE_KEY = 'encrypted-state';
+const RECOVERY_KEY = 'encrypted-state-recovery';
+// Encrypted spill written during pagehide when a debounced save is still
+// pending: async IndexedDB writes cannot complete during unload, but
+// localStorage.setItem is synchronous (libsodium encrypt resolves in a
+// microtask). Read and migrated to IndexedDB on next startup.
+const EMERGENCY_KEY = 'skrive-emergency';
+
 export interface StoredState {
   lang: 'no' | 'en';
   notes: Note[];
@@ -23,58 +35,156 @@ interface EncryptedStoredState {
   encrypted: EncryptedData;
 }
 
+// A load must distinguish "nothing stored" from "stored but unreadable":
+// treating an unreadable blob as first-run would let the next save
+// overwrite data that might still be recoverable
+export type StorageLoadResult =
+  | { status: 'ok'; state: StoredState }
+  | { status: 'empty' }
+  | { status: 'error' };
+
+function openDataDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DATA_DB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(DATA_STORE)) {
+        db.createObjectStore(DATA_STORE);
+      }
+    };
+  });
+}
+
+async function idbGet(key: string): Promise<unknown> {
+  const db = await openDataDB();
+  const request = db.transaction(DATA_STORE, 'readonly').objectStore(DATA_STORE).get(key);
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function idbSet(key: string, value: unknown): Promise<void> {
+  const db = await openDataDB();
+  const tx = db.transaction(DATA_STORE, 'readwrite');
+  tx.objectStore(DATA_STORE).put(value, key);
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 /**
  * Initialize encryption on app startup
- * Loads existing key from localStorage or generates a new one
+ * Loads existing key from storage or generates a new one
  */
 export async function initializeStorage(): Promise<void> {
   await initializeEncryption();
 }
 
-/**
- * Load state from storage (handles both encrypted and legacy unencrypted)
- */
-export async function loadFromStorageEncrypted(): Promise<StoredState | null> {
-  try {
-    // First try encrypted storage
-    const encrypted = localStorage.getItem(ENCRYPTED_STORAGE_KEY);
-    if (encrypted) {
-      const parsed = JSON.parse(encrypted) as EncryptedStoredState;
-      const key = getMasterKey();
-      if (key) {
-        const decrypted = await decrypt(parsed.encrypted, key);
-        const state = JSON.parse(decrypted) as StoredState;
-        return {
-          lang: state.lang || 'no',
-          notes: state.notes || [],
-          tags: state.tags || [],
-          folders: state.folders || []
-        };
-      }
-    }
+function normalizeState(state: StoredState): StoredState {
+  return {
+    lang: state.lang || 'no',
+    notes: state.notes || [],
+    tags: state.tags || [],
+    folders: state.folders || []
+  };
+}
 
-    // Fall back to legacy unencrypted storage (for migration)
-    const legacy = localStorage.getItem(STORAGE_KEY);
-    if (legacy) {
-      const parsed = JSON.parse(legacy) as StoredState;
-      // Migrate to encrypted storage on next save
-      return {
-        lang: parsed.lang || 'no',
-        notes: parsed.notes || [],
-        tags: parsed.tags || [],
-        folders: parsed.folders || []
-      };
-    }
-  } catch (error) {
-    console.warn('Failed to load storage (corrupted or decryption failed):', error);
+async function decryptStoredState(parsed: EncryptedStoredState): Promise<StoredState> {
+  const key = getMasterKey();
+  if (!key) {
+    throw new Error('No encryption key available');
   }
-  return null;
+  const decrypted = await decrypt(parsed.encrypted, key);
+  return normalizeState(JSON.parse(decrypted) as StoredState);
+}
+
+// Preserve an unreadable blob under a recovery key so a later save
+// cannot destroy it
+async function preserveRecoveryCopy(blob: unknown): Promise<void> {
+  try {
+    await idbSet(RECOVERY_KEY, blob);
+    console.warn('Unreadable stored state preserved under recovery key');
+  } catch (error) {
+    console.error('Failed to preserve recovery copy:', error);
+  }
 }
 
 /**
- * Save state to encrypted storage
+ * Load state: IndexedDB first, then legacy localStorage (encrypted, then
+ * plaintext) for migration. Unreadable data is preserved, never discarded.
  */
-export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<void> {
+export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
+  // 0. Emergency spill from a previous unload. Only exists if the last
+  // session ended with unsaved changes, so it is always newest
+  const emergency = localStorage.getItem(EMERGENCY_KEY);
+  if (emergency) {
+    try {
+      const parsed = JSON.parse(emergency) as EncryptedStoredState;
+      const state = await decryptStoredState(parsed);
+      return { status: 'ok', state };
+    } catch (error) {
+      console.warn('Failed to read emergency spill, falling back:', error);
+      await preserveRecoveryCopy(emergency);
+      localStorage.removeItem(EMERGENCY_KEY);
+    }
+  }
+
+  // 1. IndexedDB (current)
+  let idbBlob: unknown = null;
+  try {
+    idbBlob = await idbGet(STATE_KEY);
+  } catch (error) {
+    console.warn('IndexedDB unavailable:', error);
+  }
+  if (idbBlob) {
+    try {
+      const state = await decryptStoredState(idbBlob as EncryptedStoredState);
+      return { status: 'ok', state };
+    } catch (error) {
+      console.warn('Failed to decrypt stored state:', error);
+      await preserveRecoveryCopy(idbBlob);
+      return { status: 'error' };
+    }
+  }
+
+  // 2. Legacy encrypted localStorage (migrated to IndexedDB on next save)
+  const encrypted = localStorage.getItem(ENCRYPTED_STORAGE_KEY);
+  if (encrypted) {
+    try {
+      const parsed = JSON.parse(encrypted) as EncryptedStoredState;
+      const state = await decryptStoredState(parsed);
+      return { status: 'ok', state };
+    } catch (error) {
+      console.warn('Failed to decrypt legacy encrypted storage:', error);
+      await preserveRecoveryCopy(encrypted);
+      return { status: 'error' };
+    }
+  }
+
+  // 3. Legacy plaintext localStorage (migrated to encrypted on next save)
+  const legacy = localStorage.getItem(STORAGE_KEY);
+  if (legacy) {
+    try {
+      return { status: 'ok', state: normalizeState(JSON.parse(legacy) as StoredState) };
+    } catch (error) {
+      console.warn('Failed to parse legacy storage:', error);
+      await preserveRecoveryCopy(legacy);
+      return { status: 'error' };
+    }
+  }
+
+  return { status: 'empty' };
+}
+
+/**
+ * Save state encrypted to IndexedDB. Returns whether the write succeeded
+ * so the UI can show a truthful save status.
+ */
+export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<boolean> {
   try {
     const toSave: StoredState = {
       lang: state.lang,
@@ -84,54 +194,48 @@ export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'not
     };
 
     const key = getMasterKey();
-    if (key) {
-      const encrypted = await encrypt(JSON.stringify(toSave), key);
-      const encryptedState: EncryptedStoredState = {
-        version: 1,
-        encrypted
-      };
-      localStorage.setItem(ENCRYPTED_STORAGE_KEY, JSON.stringify(encryptedState));
-
-      // Remove legacy unencrypted storage after successful encrypted save
-      localStorage.removeItem(STORAGE_KEY);
-    } else {
-      // Fallback to unencrypted if no key
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    if (!key) {
+      // Never fall back to writing plaintext; a missing key is an error
+      console.error('No encryption key available, state not saved');
+      return false;
     }
+    const encrypted = await encrypt(JSON.stringify(toSave), key);
+    const encryptedState: EncryptedStoredState = {
+      version: 1,
+      encrypted
+    };
+    await idbSet(STATE_KEY, encryptedState);
+
+    // Remove legacy copies and any emergency spill after a successful save
+    localStorage.removeItem(ENCRYPTED_STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(EMERGENCY_KEY);
+    return true;
   } catch (error) {
-    console.warn('Failed to save to encrypted storage:', error);
+    console.error('Failed to save to encrypted storage:', error);
+    return false;
   }
 }
 
 /**
- * Legacy synchronous load (for initial render before crypto is ready)
+ * Emergency save during pagehide: encrypt (microtask-fast with libsodium)
+ * and write synchronously to localStorage
  */
-export function loadFromStorage(): StoredState | null {
+export async function saveEmergencySpill(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<void> {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved) as StoredState;
-      return {
-        lang: parsed.lang || 'no',
-        notes: parsed.notes || [],
-        tags: parsed.tags || [],
-        folders: parsed.folders || []
-      };
-    }
+    const key = getMasterKey();
+    if (!key) return;
+    const encrypted = await encrypt(JSON.stringify({
+      lang: state.lang,
+      notes: state.notes,
+      tags: state.tags,
+      folders: state.folders
+    }), key);
+    const encryptedState: EncryptedStoredState = { version: 1, encrypted };
+    localStorage.setItem(EMERGENCY_KEY, JSON.stringify(encryptedState));
   } catch (error) {
-    console.warn('Failed to load legacy storage:', error);
+    console.warn('Emergency spill failed:', error);
   }
-  return null;
-}
-
-/**
- * Legacy synchronous save (deprecated, use saveToStorageEncrypted)
- */
-export function saveToStorage(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): void {
-  // Call async version but don't await (fire and forget for compatibility)
-  saveToStorageEncrypted(state).catch((error) => {
-    console.warn('Failed to save storage:', error);
-  });
 }
 
 export function createExportData(state: Pick<AppState, 'notes' | 'tags' | 'folders'>): ExportData {

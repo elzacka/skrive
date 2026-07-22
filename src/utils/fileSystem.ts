@@ -1,13 +1,31 @@
 import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
-import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf } from './helpers';
+import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf, markdownToHtml } from './helpers';
+import type { EncryptedData, PassphraseWrappedKey } from './crypto';
 
 const DIRECTORY_HANDLE_KEY = 'skrive-directory-handle';
 const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
+const BACKUP_KEY_PROTECTION_KEY = 'skrive-backup-key-protection';
 
-export interface AutoBackupData extends ExportData {
+// Legacy backup format (plaintext notes + plaintext key); still readable
+// for restore, never written anymore
+export interface LegacyAutoBackupData extends ExportData {
   encryptionKey: string;
   backupTimestamp: number;
 }
+
+// Current backup format: payload encrypted with the master key, master key
+// wrapped with a passphrase-derived key
+export interface EncryptedBackupFile {
+  format: 'skrive-encrypted-backup';
+  version: number;
+  backupTimestamp: number;
+  keyProtection: PassphraseWrappedKey;
+  payload: EncryptedData;
+}
+
+export type AutoBackupReadResult =
+  | { kind: 'encrypted'; file: EncryptedBackupFile }
+  | { kind: 'legacy'; data: LegacyAutoBackupData };
 
 // IndexedDB for storing directory handle
 function openDB(): Promise<IDBDatabase> {
@@ -83,6 +101,21 @@ export async function requestDirectoryAccess(): Promise<FileSystemDirectoryHandl
   } catch (error) {
     // User cancelled or permission denied - this is expected behavior
     return null;
+  }
+}
+
+// Query-only permission check: safe to call without user activation
+// (requestPermission without a user gesture is auto-denied by Chrome)
+export async function hasStoredPermission(
+  handle: FileSystemDirectoryHandle
+): Promise<boolean> {
+  try {
+    const result = await (handle as FileSystemDirectoryHandle & {
+      queryPermission: (options: { mode: string }) => Promise<string>
+    }).queryPermission({ mode: 'readwrite' });
+    return result === 'granted';
+  } catch {
+    return false;
   }
 }
 
@@ -188,7 +221,7 @@ export async function exportDataToDirectory(
   }
 }
 
-export type ExportFormat = 'native' | 'markdown' | 'rtf';
+export type ExportFormat = 'native' | 'markdown' | 'rtf' | 'html';
 
 function getExportContent(note: Note, format: ExportFormat): { content: string; extension: string; mimeType: string } {
   let content = note.content || '';
@@ -206,6 +239,10 @@ function getExportContent(note: Note, format: ExportFormat): { content: string; 
       extension = '.rtf';
       mimeType = 'application/rtf';
     }
+  } else if (note.format === 'markdown' && format === 'html') {
+    content = markdownToHtml(content);
+    extension = '.html';
+    mimeType = 'text/html';
   }
 
   return { content, extension, mimeType };
@@ -279,12 +316,41 @@ export async function clearBackupHandle(): Promise<void> {
     const tx = db.transaction('handles', 'readwrite');
     const store = tx.objectStore('handles');
     store.delete(BACKUP_HANDLE_KEY);
+    store.delete(BACKUP_KEY_PROTECTION_KEY);
     await new Promise((resolve, reject) => {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
   } catch (error) {
     console.warn('Failed to clear backup handle from IndexedDB:', error);
+  }
+}
+
+export async function storeBackupKeyProtection(protection: PassphraseWrappedKey): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(protection, BACKUP_KEY_PROTECTION_KEY);
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.warn('Failed to store backup key protection in IndexedDB:', error);
+  }
+}
+
+export async function getStoredBackupKeyProtection(): Promise<PassphraseWrappedKey | null> {
+  try {
+    const db = await openDB();
+    const request = db.transaction('handles', 'readonly').objectStore('handles').get(BACKUP_KEY_PROTECTION_KEY);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn('Failed to get backup key protection from IndexedDB:', error);
+    return null;
   }
 }
 
@@ -303,14 +369,14 @@ export async function requestBackupDirectoryAccess(): Promise<FileSystemDirector
 
 export async function writeAutoBackup(
   handle: FileSystemDirectoryHandle,
-  data: AutoBackupData
+  file: EncryptedBackupFile
 ): Promise<boolean> {
   try {
     // Skip verifyPermission to avoid prompting the user during background saves.
     // If permission was revoked, the write will throw and fail silently.
     const fileHandle = await handle.getFileHandle('skrive-auto-backup.json', { create: true });
     const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(data, null, 2));
+    await writable.write(JSON.stringify(file, null, 2));
     await writable.close();
     return true;
   } catch (error) {
@@ -321,7 +387,7 @@ export async function writeAutoBackup(
 
 export async function readAutoBackup(
   handle: FileSystemDirectoryHandle
-): Promise<AutoBackupData | null> {
+): Promise<AutoBackupReadResult | null> {
   try {
     if (!(await verifyPermission(handle))) {
       return null;
@@ -329,11 +395,22 @@ export async function readAutoBackup(
     const fileHandle = await handle.getFileHandle('skrive-auto-backup.json');
     const file = await fileHandle.getFile();
     const text = await file.text();
-    const data = JSON.parse(text) as AutoBackupData;
-    if (!data.encryptionKey || !Array.isArray(data.notes)) {
-      return null;
+    const data = JSON.parse(text) as Record<string, unknown>;
+
+    if (data.format === 'skrive-encrypted-backup') {
+      const encrypted = data as unknown as EncryptedBackupFile;
+      if (!encrypted.keyProtection?.wrappedKey || !encrypted.payload?.ciphertext) {
+        return null;
+      }
+      return { kind: 'encrypted', file: encrypted };
     }
-    return data;
+
+    // Legacy plaintext format
+    if (typeof data.encryptionKey === 'string' && Array.isArray(data.notes)) {
+      return { kind: 'legacy', data: data as unknown as LegacyAutoBackupData };
+    }
+
+    return null;
   } catch (error) {
     console.warn('Failed to read auto-backup:', error);
     return null;
