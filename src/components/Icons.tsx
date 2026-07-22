@@ -455,11 +455,11 @@ export function FolderSyncIcon({ size = 24 }: IconProps) {
   );
 }
 
-export function CloudDoneIcon({ size = 24 }: IconProps) {
+export function FolderCheckIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="m17 15-5.5 5.5L9 18" />
-      <path d="M5.516 16.07A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 3.501 7.327" />
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+      <path d="m9 13 2 2 4-4" />
     </>,
     size
   );

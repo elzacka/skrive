@@ -20,7 +20,7 @@ import {
   UploadIcon,
   ArticleIcon,
   FolderSyncIcon,
-  CloudDoneIcon
+  FolderCheckIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
 // "Skrive" in Columbia Titling, outlined to paths (the font itself is
@@ -913,7 +913,7 @@ export function Sidebar() {
                       </>
                     )}
                     <div className="backup-popup-status">
-                      <CloudDoneIcon size={14} />
+                      <FolderCheckIcon size={14} />
                       <span>{t.autoBackupActive}</span>
                     </div>
                     {lastBackupTime && (
@@ -1141,7 +1141,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2026</span>
-        <span>v2.13.1</span>
+        <span>v2.13.2</span>
       </div>
 
       {contextMenu && (
