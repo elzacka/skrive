@@ -240,6 +240,7 @@ interface AppContextValue {
   
   // Notes
   createNote: (parentId?: string | null, format?: Note['format']) => void;
+  duplicateNote: (id: string) => string | null;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   deleteNotes: (ids: string[]) => void;
@@ -590,6 +591,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SELECT_NOTE', payload: note.id });
   }, [state.lang]);
 
+  // Finder-style duplicate: same content and tags, "kopi"/"copy" suffix,
+  // the copy becomes the open note
+  const duplicateNote = useCallback((id: string): string | null => {
+    const source = state.notes.find(n => n.id === id);
+    if (!source) return null;
+    const copy: Note = {
+      ...source,
+      id: generateId(),
+      title: source.title ? `${source.title} ${state.lang === 'no' ? 'kopi' : 'copy'}` : '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    dispatch({ type: 'ADD_NOTE', payload: copy });
+    dispatch({ type: 'SELECT_NOTE', payload: copy.id });
+    return copy.id;
+  }, [state.notes, state.lang]);
+
   const updateNote = useCallback((id: string, updates: Partial<Note>) => {
     dispatch({ type: 'UPDATE_NOTE', payload: { id, updates } });
   }, []);
@@ -890,6 +908,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dismissDeleted,
     setLang,
     createNote,
+    duplicateNote,
     updateNote,
     deleteNote,
     deleteNotes,

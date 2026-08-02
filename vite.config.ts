@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icons/*.png', 'fonts/*.woff2'],
       manifest: {
+        id: '/skrive/',
         name: 'Skrive',
         short_name: 'Skrive',
         description: 'En lettvekts notatapp med offline-støtte',
@@ -53,10 +54,23 @@ export default defineConfig(({ mode }) => ({
             type: 'image/png'
           },
           {
-            src: 'icons/icon-512x512.png',
+            // Full-bleed variant: maskable icons are cropped to the OS
+            // shape, so the regular icon's transparent margin would show
+            // as a ring and its corners would be cut
+            src: 'icons/icon-maskable-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
+          }
+        ],
+        // Enables the richer install dialog in Chrome/Edge on desktop
+        screenshots: [
+          {
+            src: 'screenshots/desktop.png',
+            sizes: '2560x1600',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'Skriv og organiser notater'
           }
         ],
         categories: ['productivity', 'utilities'],
@@ -64,7 +78,10 @@ export default defineConfig(({ mode }) => ({
         dir: 'ltr'
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Screenshots are only shown in the install dialog; keep them
+        // out of the offline precache
+        globIgnores: ['**/screenshots/**']
       },
       devOptions: {
         enabled: true

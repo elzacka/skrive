@@ -1,9 +1,16 @@
+import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from '@/contexts';
-import { Sidebar, Editor, SidebarToggle, PassphraseDialog } from '@/components';
+import { Sidebar, Editor, SidebarToggle, PassphraseDialog, ScreenGate } from '@/components';
 import { CloseIcon } from '@/components/Icons';
-import { useKeyboardShortcuts } from '@/hooks';
+import { useKeyboardShortcuts, useMediaQuery } from '@/hooks';
 import { i18n } from '@/utils/i18n';
 import '@/styles/main.css';
+
+// Phones: coarse pointer plus a small viewport in either orientation
+// (landscape phones are wide but short; tablets are at least 500px tall)
+const PHONE_QUERY = '(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 500px)';
+// Any viewport too narrow for the sidebar-plus-editor layout
+const NARROW_QUERY = '(max-width: 767px)';
 
 function AppContent() {
   useKeyboardShortcuts();
@@ -58,8 +65,25 @@ function AppContent() {
 }
 
 export default function App() {
+  const phone = useMediaQuery(PHONE_QUERY);
+  const narrow = useMediaQuery(NARROW_QUERY);
+
+  // On phones the app never mounts: notes are per-device, so there is no
+  // data to reach, and mounting would create stranded first-run state.
+  // But once mounted (e.g. tablet rotating to portrait), keep the app
+  // alive under the gate overlay - a debounced save could be pending
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    if (!phone) setHasMounted(true);
+  }, [phone]);
+
+  if (phone && !hasMounted) {
+    return <ScreenGate />;
+  }
+
   return (
     <AppProvider>
+      {(phone || narrow) && <ScreenGate />}
       <AppContent />
     </AppProvider>
   );

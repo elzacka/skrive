@@ -8,6 +8,7 @@
 - Do NOT add touch event handlers
 - Do NOT consider responsive/mobile layouts
 - Minimum supported viewport: 1024px width
+- **The one exception**: `ScreenGate` (src/components/ScreenGate.tsx + App.tsx queries) replaces the app on phones (coarse pointer and small viewport in either orientation) and covers it in windows narrower than 768px, instead of rendering a degraded layout. On phones the app never mounts (notes are per-device; mounting would create stranded first-run state); once mounted it is never unmounted on viewport changes (a debounced save could be pending). Gate language comes from navigator.language (no app state available before mount)
 
 ## Tech Stack
 
@@ -133,6 +134,9 @@ src/
 - All shortcut checks use `e.code` (physical key), never `e.key`: with Shift/Alt held, `e.key` reports the shifted character and varies by layout (Norwegian Shift+8 is `(`)
 - Headings: Cmd+Opt+1/2/3/0 on Mac (Cmd+digit switches browser tabs), Ctrl+1/2/3/0 on Windows (Ctrl+Alt would collide with AltGr)
 - Cmd/Ctrl+U underline, Cmd/Ctrl+Shift+X strikethrough, Cmd/Ctrl+K link (both editors)
+- App-level combos follow Mac Opt+letter / Windows Ctrl+Shift+digit (Opt+N/Ctrl+Shift+1 new note, Opt+F/Ctrl+Shift+2 new folder, Opt+M/Ctrl+Shift+3 toggle sidebar, Opt+T/Ctrl+Shift+4 new tag): the Finder/Explorer combos (Cmd/Ctrl+Shift+N) are reserved for private windows in Chrome/Edge/Safari. Never use combos reserved at browser-chrome level (Cmd/Ctrl+N/T/W/Tab, Cmd/Ctrl+Shift+N/T/P, F5, F11, F12)
+- Shortcut label strings have ONE source: `getShortcutLabels()` in src/utils/shortcuts.ts; descriptions are i18n `*Shortcut` keys
+- The sidebar tree is keyboard-navigable (roving tabindex, ARIA tree): arrows navigate, Enter opens/toggles, F2 renames, Delete/Backspace deletes, Shift+arrows extend selection, Cmd/Ctrl+A selects all visible notes, Cmd/Ctrl+D duplicates the focused note (both scoped to tree focus - the browser's bookmark/select-all defaults are untouched elsewhere). The container keydown handler must bail when `e.target` is an INPUT (rename field sits inside the row), and derives the current row from `document.activeElement`'s `data-item-id`, not from state
 
 ## Export Formats
 

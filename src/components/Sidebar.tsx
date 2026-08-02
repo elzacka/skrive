@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
-import { isMac } from '@/utils';
+import { isMac, isFirefox, isSafari, isIpad, isPWAInstalled } from '@/utils';
+import { getShortcutLabels } from '@/utils/shortcuts';
 import type { Note, Folder } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import {
@@ -14,6 +15,7 @@ import {
   EncryptedIcon,
   DeleteIcon,
   EditIcon,
+  CopyIcon,
   ArrowForwardIcon,
   SwapVertIcon,
   DownloadIcon,
@@ -49,6 +51,9 @@ interface TreeItemProps {
   onEditingNoteNameChange: (name: string) => void;
   onSaveNoteName: () => void;
   onNoteNameKeyDown: (e: React.KeyboardEvent) => void;
+  focusId: string | null;
+  onRowFocus: (id: string) => void;
+  registerRowRef: (id: string, el: HTMLDivElement | null) => void;
 }
 
 export type NoteSortMode = 'alpha' | 'recent';
@@ -60,7 +65,7 @@ function compareNotes(a: Note, b: Note, sortMode: NoteSortMode, untitledText: st
   return (a.title || untitledText).localeCompare(b.title || untitledText, lang);
 }
 
-const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, lang }: TreeItemProps & { lang: string }) {
+const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = useMemo(
     () => folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang)),
@@ -96,9 +101,15 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
   };
 
   return (
-    <div className="tree-item">
+    <div className="tree-item" role="none">
       <div
         className={`tree-item-row ${isDragOver ? 'drag-over' : ''}`}
+        role={isEditing ? undefined : 'treeitem'}
+        aria-expanded={isEditing ? undefined : folder.expanded}
+        tabIndex={isEditing ? -1 : focusId === folder.id ? 0 : -1}
+        data-item-id={folder.id}
+        ref={(el) => registerRowRef(folder.id, el)}
+        onFocus={() => onRowFocus(folder.id)}
         onClick={() => !isEditing && onToggleFolder(folder.id)}
         onContextMenu={(e) => onContextMenu(e, 'folder', folder.id)}
         onDragOver={handleDragOver}
@@ -129,7 +140,7 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
         )}
       </div>
       {folder.expanded && hasChildren && (
-        <div className="tree-children expanded">
+        <div className="tree-children expanded" role="group">
           {childFolders.map(child => (
             <TreeFolder
               key={child.id}
@@ -154,6 +165,9 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               onEditingNoteNameChange={onEditingNoteNameChange}
               onSaveNoteName={onSaveNoteName}
               onNoteNameKeyDown={onNoteNameKeyDown}
+              focusId={focusId}
+              onRowFocus={onRowFocus}
+              registerRowRef={registerRowRef}
               lang={lang}
             />
           ))}
@@ -172,6 +186,9 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               onEditingNoteNameChange={onEditingNoteNameChange}
               onSaveNoteName={onSaveNoteName}
               onNoteNameKeyDown={onNoteNameKeyDown}
+              focusId={focusId}
+              onRowFocus={onRowFocus}
+              registerRowRef={registerRowRef}
             />
           ))}
         </div>
@@ -193,9 +210,12 @@ interface TreeNoteProps {
   onEditingNoteNameChange: (name: string) => void;
   onSaveNoteName: () => void;
   onNoteNameKeyDown: (e: React.KeyboardEvent) => void;
+  focusId: string | null;
+  onRowFocus: (id: string) => void;
+  registerRowRef: (id: string, el: HTMLDivElement | null) => void;
 }
 
-const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, onMoveNote, untitledText, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown }: TreeNoteProps) {
+const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, onMoveNote, untitledText, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef }: TreeNoteProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', note.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -220,9 +240,15 @@ const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onS
   const isEditing = editingNoteId === note.id;
 
   return (
-    <div className="tree-item">
+    <div className="tree-item" role="none">
       <div
         className={`tree-item-row ${isSelected ? 'active' : ''} ${isMultiSelected ? 'multi-selected' : ''}`}
+        role={isEditing ? undefined : 'treeitem'}
+        aria-selected={isEditing ? undefined : isSelected || isMultiSelected}
+        tabIndex={isEditing ? -1 : focusId === note.id ? 0 : -1}
+        data-item-id={note.id}
+        ref={(el) => registerRowRef(note.id, el)}
+        onFocus={() => onRowFocus(note.id)}
         onClick={(e) => !isEditing && onSelect(note.id, e)}
         onContextMenu={(e) => onContextMenu(e, 'note', note.id)}
         draggable={!isEditing}
@@ -255,6 +281,7 @@ export function Sidebar() {
   const {
     state,
     createNote,
+    duplicateNote,
     createFolder,
     deleteNote,
     deleteNotes,
@@ -307,6 +334,17 @@ export function Sidebar() {
   // Multi-selection (Cmd/Ctrl+Click toggles, Shift+Click selects a range)
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const selectionAnchorRef = useRef<string | null>(null);
+  // Roving tabindex: the tree row that currently holds keyboard focus
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+
+  const registerRowRef = (id: string, el: HTMLDivElement | null) => {
+    if (el) {
+      rowRefs.current.set(id, el);
+    } else {
+      rowRefs.current.delete(id);
+    }
+  };
 
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -334,6 +372,24 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Safari on macOS fires a click event when the secondary button (or
+  // Ctrl+click) is released, right after the contextmenu event. That ghost
+  // click reaches the sidebar's close-on-click handler and shuts the context
+  // menu again immediately. Stopping it in the capture phase keeps React from
+  // seeing it at all, so neither the menu nor the note selection reacts.
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    const mac = isMac();
+    const stopSecondaryClick = (e: MouseEvent) => {
+      if (e.button !== 0 || (mac && e.ctrlKey)) {
+        e.stopPropagation();
+      }
+    };
+    sidebar.addEventListener('click', stopSecondaryClick, true);
+    return () => sidebar.removeEventListener('click', stopSecondaryClick, true);
+  }, []);
+
   // Escape closes popups and context menus (WCAG: keyboard-dismissable)
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -350,24 +406,6 @@ export function Sidebar() {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, []);
-
-  // Delete/Backspace removes the multi-selection (undo toast covers it),
-  // but never while typing in an input or the editor
-  useEffect(() => {
-    if (multiSelected.size === 0) return;
-    const handleDeleteKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      const active = document.activeElement as HTMLElement | null;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
-        return;
-      }
-      e.preventDefault();
-      deleteNotes(Array.from(multiSelected));
-      setMultiSelected(new Set());
-    };
-    window.addEventListener('keydown', handleDeleteKey);
-    return () => window.removeEventListener('keydown', handleDeleteKey);
-  }, [multiSelected, deleteNotes]);
 
   const rootFolders = useMemo(() =>
     state.folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, state.lang)),
@@ -408,10 +446,47 @@ export function Sidebar() {
     return ids;
   }, [isSearching, searchResults, state.folders, state.lang, filteredNotes, sortMode, t.untitled, rootFolders, rootNotes]);
 
+  // Folders AND notes in render order, for arrow-key navigation. Unlike
+  // visibleNoteIds, a collapsed folder still contributes its own row
+  type TreeItemRef = { type: 'folder' | 'note'; id: string; parentId: string | null };
+  const visibleTreeItems = useMemo<TreeItemRef[]>(() => {
+    if (isSearching) return searchResults.map(n => ({ type: 'note' as const, id: n.id, parentId: n.parentId }));
+    const items: TreeItemRef[] = [];
+    const collect = (parentId: string | null) => {
+      const childFolders = state.folders
+        .filter(f => f.parentId === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name, state.lang));
+      for (const f of childFolders) {
+        items.push({ type: 'folder', id: f.id, parentId: f.parentId });
+        if (f.expanded) collect(f.id);
+      }
+      const childNotes = filteredNotes
+        .filter(n => n.parentId === parentId)
+        .sort((a, b) => compareNotes(a, b, sortMode, t.untitled, state.lang));
+      items.push(...childNotes.map(n => ({ type: 'note' as const, id: n.id, parentId: n.parentId })));
+    };
+    collect(null);
+    return items;
+  }, [isSearching, searchResults, state.folders, state.lang, filteredNotes, sortMode, t.untitled]);
+
+  // Tab lands on the open note when visible, else the first row; a stale
+  // focusedItemId (deleted row) falls back the same way
+  const defaultFocusId = useMemo(() => {
+    if (state.selectedNoteId && visibleTreeItems.some(i => i.id === state.selectedNoteId)) {
+      return state.selectedNoteId;
+    }
+    return visibleTreeItems[0]?.id ?? null;
+  }, [state.selectedNoteId, visibleTreeItems]);
+  const effectiveFocusId =
+    focusedItemId && visibleTreeItems.some(i => i.id === focusedItemId)
+      ? focusedItemId
+      : defaultFocusId;
+
   // Finder-style selection: plain click opens a note, Cmd/Ctrl+Click
   // toggles it in the selection, Shift+Click selects the range from the
   // last clicked note
   const handleSelectNote = (id: string, e: React.MouseEvent) => {
+    setFocusedItemId(id);
     if (e.shiftKey && selectionAnchorRef.current) {
       const from = visibleNoteIds.indexOf(selectionAnchorRef.current);
       const to = visibleNoteIds.indexOf(id);
@@ -535,21 +610,39 @@ export function Sidebar() {
     closeContextMenu();
   };
 
-  const handleDelete = () => {
-    if (!contextMenu) return;
-    if (contextMenu.type === 'folder') {
+  const deleteItem = (type: 'folder' | 'note', id: string): boolean => {
+    if (type === 'folder') {
       // Folder deletion is recursive and has no undo, so confirm it;
       // note deletion shows an undo toast instead
-      if (confirm(t.confirmDeleteFolder)) {
-        deleteFolder(contextMenu.id);
-      }
-    } else if (multiSelected.size > 1 && multiSelected.has(contextMenu.id)) {
+      if (!confirm(t.confirmDeleteFolder)) return false;
+      deleteFolder(id);
+    } else if (multiSelected.size > 1 && multiSelected.has(id)) {
       deleteNotes(Array.from(multiSelected));
       setMultiSelected(new Set());
     } else {
-      deleteNote(contextMenu.id);
+      deleteNote(id);
     }
+    return true;
+  };
+
+  const handleDelete = () => {
+    if (!contextMenu || contextMenu.type === 'sidebar') return;
+    deleteItem(contextMenu.type, contextMenu.id);
     closeContextMenu();
+  };
+
+  const createFolderAt = (parentId: string | null) => {
+    // A collapsed parent would hide the new folder's rename input
+    if (parentId) {
+      const parent = state.folders.find(f => f.id === parentId);
+      if (parent && !parent.expanded) {
+        updateFolder(parentId, { expanded: true });
+      }
+    }
+    const newFolderId = createFolder(parentId);
+    // Start editing the new folder name immediately
+    setEditingFolderId(newFolderId);
+    setEditingFolderName(t.newFolder);
   };
 
   const handleNewInContext = (type: 'note' | 'folder') => {
@@ -558,21 +651,28 @@ export function Sidebar() {
     if (type === 'note') {
       createNote(parentId);
     } else {
-      const newFolderId = createFolder(parentId);
-      // Start editing the new folder name immediately
-      setEditingFolderId(newFolderId);
-      setEditingFolderName(t.newFolder);
+      createFolderAt(parentId);
     }
     closeContextMenu();
   };
 
-  const handleStartEditNote = () => {
+  const handleDuplicate = () => {
     if (!contextMenu || contextMenu.type !== 'note') return;
-    const note = state.notes.find(n => n.id === contextMenu.id);
+    duplicateNote(contextMenu.id);
+    closeContextMenu();
+  };
+
+  const startEditNote = (id: string) => {
+    const note = state.notes.find(n => n.id === id);
     if (note) {
       setEditingNoteId(note.id);
       setEditingNoteName(note.title);
     }
+  };
+
+  const handleStartEditNote = () => {
+    if (!contextMenu || contextMenu.type !== 'note') return;
+    startEditNote(contextMenu.id);
     closeContextMenu();
   };
 
@@ -593,13 +693,17 @@ export function Sidebar() {
     }
   };
 
-  const handleStartEditFolder = () => {
-    if (!contextMenu || contextMenu.type !== 'folder') return;
-    const folder = state.folders.find(f => f.id === contextMenu.id);
+  const startEditFolder = (id: string) => {
+    const folder = state.folders.find(f => f.id === id);
     if (folder) {
       setEditingFolderId(folder.id);
       setEditingFolderName(folder.name);
     }
+  };
+
+  const handleStartEditFolder = () => {
+    if (!contextMenu || contextMenu.type !== 'folder') return;
+    startEditFolder(contextMenu.id);
     closeContextMenu();
   };
 
@@ -620,34 +724,195 @@ export function Sidebar() {
     }
   };
 
+  const focusRow = (id: string) => {
+    setFocusedItemId(id);
+    rowRefs.current.get(id)?.focus();
+  };
+
+  // Finder/Explorer-style keyboard navigation for the tree
+  const handleTreeKeyDown = (e: React.KeyboardEvent) => {
+    // Keys typed in a rename input must never drive tree navigation
+    if ((e.target as HTMLElement).tagName === 'INPUT') return;
+    const items = visibleTreeItems;
+    if (items.length === 0) return;
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyA') {
+      e.preventDefault();
+      setMultiSelected(new Set(items.filter(i => i.type === 'note').map(i => i.id)));
+      return;
+    }
+    // The row that actually holds DOM focus wins over remembered state
+    const activeId = (document.activeElement as HTMLElement | null)?.dataset?.itemId;
+    const index = items.findIndex(i => i.id === (activeId ?? effectiveFocusId));
+    const item = index === -1 ? null : items[index];
+    if (e.key === 'F2') {
+      if (!item) return;
+      e.preventDefault();
+      if (item.type === 'note') {
+        startEditNote(item.id);
+      } else {
+        startEditFolder(item.id);
+      }
+      return;
+    }
+    // Finder's duplicate combo; only claimed from the browser's bookmark
+    // default while a note row has focus
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyD') {
+      if (item?.type === 'note') {
+        e.preventDefault();
+        const copyId = duplicateNote(item.id);
+        if (copyId) {
+          setFocusedItemId(copyId);
+          requestAnimationFrame(() => rowRefs.current.get(copyId)?.focus());
+        }
+      }
+      return;
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        e.preventDefault();
+        if (!item) {
+          focusRow(items[0].id);
+          return;
+        }
+        const nextIndex = e.key === 'ArrowDown' ? index + 1 : index - 1;
+        if (nextIndex < 0 || nextIndex >= items.length) return;
+        const next = items[nextIndex];
+        // Shift extends the note selection; folders move focus unselected
+        if (e.shiftKey && next.type === 'note') {
+          if (!selectionAnchorRef.current || !visibleNoteIds.includes(selectionAnchorRef.current)) {
+            selectionAnchorRef.current = item.type === 'note' ? item.id : next.id;
+          }
+          const from = visibleNoteIds.indexOf(selectionAnchorRef.current);
+          const to = visibleNoteIds.indexOf(next.id);
+          if (from !== -1 && to !== -1) {
+            const [start, end] = from < to ? [from, to] : [to, from];
+            setMultiSelected(new Set(visibleNoteIds.slice(start, end + 1)));
+          }
+        }
+        focusRow(next.id);
+        return;
+      }
+      case 'Home':
+      case 'End': {
+        e.preventDefault();
+        focusRow(e.key === 'Home' ? items[0].id : items[items.length - 1].id);
+        return;
+      }
+      case 'Enter': {
+        if (!item) return;
+        e.preventDefault();
+        if (item.type === 'note') {
+          setMultiSelected(new Set());
+          selectionAnchorRef.current = item.id;
+          selectNote(item.id);
+        } else {
+          handleToggleFolder(item.id);
+        }
+        return;
+      }
+      case 'ArrowRight': {
+        if (!item || item.type !== 'folder') return;
+        e.preventDefault();
+        const folder = state.folders.find(f => f.id === item.id);
+        if (!folder) return;
+        if (!folder.expanded) {
+          updateFolder(item.id, { expanded: true });
+        } else {
+          const child = items[index + 1];
+          if (child && child.parentId === item.id) {
+            focusRow(child.id);
+          }
+        }
+        return;
+      }
+      case 'ArrowLeft': {
+        if (!item) return;
+        e.preventDefault();
+        if (item.type === 'folder') {
+          const folder = state.folders.find(f => f.id === item.id);
+          if (folder?.expanded) {
+            updateFolder(item.id, { expanded: false });
+            return;
+          }
+        }
+        if (item.parentId) {
+          focusRow(item.parentId);
+        }
+        return;
+      }
+    }
+  };
+
+  // Delete/Backspace deletes the multi-selection or the tree row that
+  // actually has DOM focus - never while typing in an input or the editor.
+  // Runs without deps: it closes over per-render values (deleteItem,
+  // visibleTreeItems), so it must re-register each render
+  useEffect(() => {
+    const handleDeleteKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+        return;
+      }
+      if (multiSelected.size > 0) {
+        e.preventDefault();
+        deleteNotes(Array.from(multiSelected));
+        setMultiSelected(new Set());
+        return;
+      }
+      // Single-item delete requires the row itself to hold focus, not just
+      // a focusedItemId remembered from earlier navigation
+      const id = active?.getAttribute('role') === 'treeitem' ? active.getAttribute('data-item-id') : null;
+      const item = id ? visibleTreeItems.find(i => i.id === id) : undefined;
+      if (!item) return;
+      e.preventDefault();
+      const idx = visibleTreeItems.indexOf(item);
+      const nextId = visibleTreeItems[idx + 1]?.id ?? visibleTreeItems[idx - 1]?.id ?? null;
+      if (deleteItem(item.type, item.id) && nextId) {
+        setFocusedItemId(nextId);
+        requestAnimationFrame(() => rowRefs.current.get(nextId)?.focus());
+      }
+    };
+    window.addEventListener('keydown', handleDeleteKey);
+    return () => window.removeEventListener('keydown', handleDeleteKey);
+  });
+
+  // New folder: Mac Opt+F, Windows Ctrl+Shift+2. The Finder/Explorer combo
+  // (Cmd/Ctrl+Shift+N) is reserved for private windows in Chrome, Edge and
+  // Safari, so this extends the app's own Opt+N / Ctrl+Shift+1 scheme.
+  // Created inside the focused folder, next to the focused note, or at root
+  useEffect(() => {
+    const macKb = isMac();
+    const handleNewFolderKey = (e: KeyboardEvent) => {
+      const modifierActive = macKb
+        ? (e.altKey && !e.metaKey && !e.shiftKey && !e.ctrlKey)
+        : (e.ctrlKey && e.shiftKey && !e.altKey);
+      if (!modifierActive) return;
+      if (macKb ? e.code !== 'KeyF' : e.code !== 'Digit2') return;
+      e.preventDefault();
+      const focused = focusedItemId ? visibleTreeItems.find(i => i.id === focusedItemId) : undefined;
+      const parentId = focused ? (focused.type === 'folder' ? focused.id : focused.parentId) : null;
+      createFolderAt(parentId);
+    };
+    window.addEventListener('keydown', handleNewFolderKey);
+    return () => window.removeEventListener('keydown', handleNewFolderKey);
+  });
+
   const getTagNoteCount = (tagId: string) => {
     return state.notes.filter(n => n.tags.includes(tagId)).length;
   };
 
   const mac = isMac();
-  const shortcuts = useMemo(() => ({
-    newNote: mac ? '\u2325N' : 'Ctrl+Shift+1',
-    search: mac ? '\u2318K' : 'Ctrl+K',
-    find: mac ? '\u2318F' : 'Ctrl+F',
-    save: mac ? '\u2318S' : 'Ctrl+S',
-    toggleSidebar: mac ? '\u2325M' : 'Ctrl+Shift+3',
-    undo: mac ? '\u2318Z' : 'Ctrl+Z',
-    redo: mac ? '\u2318\u21E7Z' : 'Ctrl+Y',
-    bold: mac ? '\u2318B' : 'Ctrl+B',
-    italic: mac ? '\u2318I' : 'Ctrl+I',
-    underline: mac ? '\u2318U' : 'Ctrl+U',
-    strikethrough: mac ? '\u2318\u21e7X' : 'Ctrl+Shift+X',
-    heading1: mac ? '\u2318\u23251' : 'Ctrl+1',
-    heading2: mac ? '\u2318\u23252' : 'Ctrl+2',
-    heading3: mac ? '\u2318\u23253' : 'Ctrl+3',
-    bodyText: mac ? '\u2318\u23250' : 'Ctrl+0',
-    bulletList: mac ? '\u2318\u21E78' : 'Ctrl+Shift+8',
-    numberedList: mac ? '\u2318\u21E77' : 'Ctrl+Shift+7',
-    inlineCode: mac ? '\u2318E' : 'Ctrl+E',
-    codeBlock: mac ? '\u2318\u21E7E' : 'Ctrl+Shift+E',
-    link: mac ? '\u2318K' : 'Ctrl+K',
-    quote: mac ? '\u2318\u21E7.' : 'Ctrl+Shift+.'
-  }), [mac]);
+  const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
+
+  // Install guidance matching what this browser actually offers; nothing
+  // when already installed, and nothing in Firefox (no install support)
+  const installHint = useMemo(() => {
+    if (isPWAInstalled() || isFirefox()) return null;
+    if (isSafari()) return isIpad() ? t.installHintSafariIpad : t.installHintSafariMac;
+    return t.installHintChromium;
+  }, [t]);
 
   return (
     <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
@@ -739,6 +1004,8 @@ export function Sidebar() {
           className="notes-tree"
           role="tree"
           aria-label={t.notes}
+          aria-multiselectable={true}
+          onKeyDown={handleTreeKeyDown}
           onContextMenu={handleSidebarContextMenu}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleRootDrop}
@@ -759,6 +1026,9 @@ export function Sidebar() {
                 onEditingNoteNameChange={setEditingNoteName}
                 onSaveNoteName={handleSaveNoteName}
                 onNoteNameKeyDown={handleNoteNameKeyDown}
+                focusId={effectiveFocusId}
+                onRowFocus={setFocusedItemId}
+                registerRowRef={registerRowRef}
               />
             ))
           ) : (
@@ -787,6 +1057,9 @@ export function Sidebar() {
                   onEditingNoteNameChange={setEditingNoteName}
                   onSaveNoteName={handleSaveNoteName}
                   onNoteNameKeyDown={handleNoteNameKeyDown}
+                  focusId={effectiveFocusId}
+                  onRowFocus={setFocusedItemId}
+                  registerRowRef={registerRowRef}
                   lang={state.lang}
                 />
               ))}
@@ -805,6 +1078,9 @@ export function Sidebar() {
                   onEditingNoteNameChange={setEditingNoteName}
                   onSaveNoteName={handleSaveNoteName}
                   onNoteNameKeyDown={handleNoteNameKeyDown}
+                  focusId={effectiveFocusId}
+                  onRowFocus={setFocusedItemId}
+                  registerRowRef={registerRowRef}
                 />
               ))}
             </>
@@ -1018,7 +1294,72 @@ export function Sidebar() {
                   <span className="shortcut-desc">{t.findShortcut}</span>
                   <span className="shortcut-key">{shortcuts.find}</span>
                 </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.newTagShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.newTag}</span>
+                </div>
               </div>
+            </div>
+
+            <div className="shortcuts-section-title">{t.shortcutsSidebar}</div>
+            <div className="shortcuts-grid">
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.navigateShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.navigate}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.openItemShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.openItem}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.renameShortcut}{mac && <sup className="footnote-mark">*</sup>}</span>
+                  <span className="shortcut-key">{shortcuts.rename}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.deleteShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.deleteItem}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.duplicateShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.duplicate}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.newFolderShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.newFolder}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.selectAllShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.selectAll}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.extendSelectionShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.extendSelection}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.multiSelectHint}</span>
+                  <span className="shortcut-key">{shortcuts.multiSelectModifier}+{t.clickLabel}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.rangeSelectHint}</span>
+                  <span className="shortcut-key">{shortcuts.rangeSelectModifier}+{t.clickLabel}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.contextMenuHint}</span>
+                  <span className="shortcut-key">{t.rightClickLabel}</span>
+                </div>
+              </div>
+              {mac && <div className="shortcuts-hint">*{t.renameF2MacHint}</div>}
             </div>
 
             <div className="shortcuts-section-title">{t.shortcutsRichtextMarkdown}</div>
@@ -1131,7 +1472,7 @@ export function Sidebar() {
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideOffline}</div>
-                <div className="guide-item-desc">{t.guideOfflineDesc}</div>
+                <div className="guide-item-desc">{t.guideOfflineDesc}{installHint && ` ${installHint}`}</div>
               </div>
             </div>
           </div>
@@ -1141,7 +1482,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2026</span>
-        <span>v2.13.2</span>
+        <span>v2.14.0</span>
       </div>
 
       {contextMenu && (
@@ -1179,6 +1520,12 @@ export function Sidebar() {
                 <EditIcon />
                 <span>{t.rename}</span>
               </button>
+              {contextMenu.type === 'note' && (
+                <button className="context-menu-item" onClick={handleDuplicate}>
+                  <CopyIcon />
+                  <span>{t.duplicate}</span>
+                </button>
+              )}
               {contextMenu.type === 'note' &&
                 state.notes.find(n => n.id === contextMenu.id)?.parentId != null && (
                 <button className="context-menu-item" onClick={handleMoveToRoot}>

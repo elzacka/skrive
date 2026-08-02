@@ -67,14 +67,3 @@ export function useKeyboardShortcuts() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [createNote, toggleSidebar, flushSave, directoryHandle, saveCurrentNote, mac]);
 }
-
-export function getShortcutLabels() {
-  const mac = isMac();
-  return {
-    newNote: mac ? 'Opt+N' : 'Ctrl+Shift+1',
-    tags: mac ? 'Opt+T' : 'Ctrl+Shift+2',
-    toggleSidebar: mac ? 'Opt+M' : 'Ctrl+Shift+3',
-    save: mac ? 'Cmd+S' : 'Ctrl+S',
-    search: mac ? '⌘K' : 'Ctrl+K'
-  };
-}

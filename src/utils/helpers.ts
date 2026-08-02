@@ -59,6 +59,20 @@ export function isFileSystemAccessSupported(): boolean {
   return 'showDirectoryPicker' in window;
 }
 
+export function isFirefox(): boolean {
+  return /firefox|fxios/i.test(navigator.userAgent);
+}
+
+export function isSafari(): boolean {
+  return /safari/i.test(navigator.userAgent) &&
+         !/chrome|chromium|crios|edg|opr|fxios/i.test(navigator.userAgent);
+}
+
+// iPadOS reports the Mac platform; touch support is the tell
+export function isIpad(): boolean {
+  return navigator.maxTouchPoints > 1 && isMac();
+}
+
 export function isPWAInstalled(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches ||
          (window.navigator as Navigator & { standalone?: boolean }).standalone === true;

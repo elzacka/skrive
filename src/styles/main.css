@@ -562,6 +562,47 @@ body {
   margin-bottom: 8px;
 }
 
+.shortcuts-hint {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.footnote-mark {
+  font-size: 8px;
+}
+
+/* Small-screen gate. This is the ONE deliberate exception to the
+   desktop-only, no-mobile-CSS rule: on phones (and windows narrower
+   than 768px) the app is replaced or covered by a full-screen notice
+   instead of rendering a degraded layout */
+.screen-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: var(--accent);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.screen-gate h1 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.screen-gate p {
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 36ch;
+  opacity: 0.92;
+}
+
 .shortcuts-section-title:first-of-type {
   margin-top: 0;
 }
@@ -584,7 +625,7 @@ body {
 }
 
 .shortcuts-popup {
-  min-width: 440px;
+  min-width: 530px;
 }
 
 .shortcut-item {

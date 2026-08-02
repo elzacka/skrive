@@ -385,6 +385,8 @@ export function Editor() {
   }, [note?.format, note?.content]);
 
   const [showTagPicker, setShowTagPicker] = useState(false);
+  // Bumped by the new-tag shortcut; focuses the input after the picker renders
+  const [tagFocusTick, setTagFocusTick] = useState(0);
   const [newTagName, setNewTagName] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showFind, setShowFind] = useState(false);
@@ -402,6 +404,13 @@ export function Editor() {
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number; below: boolean } | null>(null);
 
   const tagPickerRef = useRef<HTMLDivElement>(null);
+
+  // Focus the new-tag input after the picker has rendered (shortcut path)
+  useEffect(() => {
+    if (tagFocusTick > 0) {
+      (document.querySelector('.new-tag-input') as HTMLInputElement | null)?.focus();
+    }
+  }, [tagFocusTick]);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const richtextRef = useRef<HTMLDivElement>(null);
@@ -897,6 +906,18 @@ export function Editor() {
         e.preventDefault();
         setShowFind(true);
         setFindFocusTick(tick => tick + 1);
+        return;
+      }
+
+      // New tag: Mac Opt+T, Windows Ctrl+Shift+4 - opens the tag picker
+      // with the new-tag input focused (same scheme as new note/folder)
+      const newTagCombo = mac
+        ? (e.altKey && !e.metaKey && !e.shiftKey && !e.ctrlKey && e.code === 'KeyT')
+        : (e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'Digit4');
+      if (newTagCombo && note) {
+        e.preventDefault();
+        setShowTagPicker(true);
+        setTagFocusTick(tick => tick + 1);
         return;
       }
 
