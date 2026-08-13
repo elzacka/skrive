@@ -1,6 +1,6 @@
 {
   "name": "skrive",
-  "version": "2.14.0",
+  "version": "2.14.1",
   "type": "module",
   "description": "En lettvekts notatapp med offline-støtte og File System Access API",
   "scripts": {

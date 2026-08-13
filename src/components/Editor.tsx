@@ -554,6 +554,26 @@ export function Editor() {
       unorderedList: document.queryCommandState('insertUnorderedList'),
       orderedList: document.queryCommandState('insertOrderedList'),
     });
+
+    // Detect block type at cursor and keep the dropdown in sync.
+    // Without this, moving the cursor between blocks leaves currentBlockStyle
+    // stale, so onChange never fires when the user picks the same tag again.
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const editor = richtextRef.current;
+      let node: Node | null = selection.anchorNode;
+      while (node && node !== editor) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = (node as Element).tagName.toLowerCase();
+          if (['h1', 'h2', 'h3', 'blockquote', 'p'].includes(tag)) {
+            setCurrentBlockStyle(tag);
+            return;
+          }
+        }
+        node = node.parentNode;
+      }
+      setCurrentBlockStyle('p');
+    }
   }, []);
 
   // Open link dialog and save the current selection (richtext Range or
@@ -683,13 +703,8 @@ export function Editor() {
     // Trigger input event to save changes
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // Update active format state
+    // Update active format state (also re-reads block style from DOM)
     updateActiveFormats();
-
-    // Update block style selector if formatBlock was used
-    if (command === 'formatBlock' && value) {
-      setCurrentBlockStyle(value);
-    }
   }, [updateActiveFormats]);
 
   const handleRichtextChange = useCallback((content: string) => {

@@ -1482,7 +1482,7 @@ export function Sidebar() {
       <div className="app-footer">
         <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
         <span>2026</span>
-        <span>v2.14.0</span>
+        <span>v2.14.1</span>
       </div>
 
       {contextMenu && (
