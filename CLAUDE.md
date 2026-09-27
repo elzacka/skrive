@@ -38,6 +38,7 @@ Encrypted, offline-first note-taking PWA for desktop browsers.
 
 ## Startup
 
+- New notes go through `buildNote()` in AppContext.tsx and default to richtext.
 - New users get an empty richtext note auto-selected; returning users get the most recently updated note (no seeded welcome note).
 - `initRef` guards against double init in StrictMode; `loadedRef` blocks saves until the initial load finishes.
 
@@ -50,11 +51,13 @@ Encrypted, offline-first note-taking PWA for desktop browsers.
 - Deleting a note shows a 6 s undo toast, no confirm; folder deletion confirms because it's recursive.
 - Sidebar multi-select follows Finder conventions (Cmd/Ctrl+Click toggle, Shift+Click ranges over `visibleNoteIds`'s render order); bulk delete goes through `deleteNotes()` and shares the undo toast.
 - Moving notes out of a folder: drop on the tree background, drop on another note, or "Flytt ut av mappen" in the context menu. Drop handlers stop propagation so the background handler only fires on true background drops.
+- Escape closes dialogs, popups and context menus everywhere.
 - No custom install prompt — don't intercept `beforeinstallprompt`; the browser's own address-bar icon is the only install affordance.
 - There's no separate title field: in an unnamed note, the first line plus Enter becomes the name via `captureNoteName()` and is removed from the content. Renaming is inline via the sidebar context menu.
 
 ### contentEditable invariants
 
+- Input rules (markdown triggers, inline bold/italic, auto-links) run on `beforeinput`, never keydown, so they work on any keyboard layout.
 - `defaultParagraphSeparator` is `p`, `styleWithCSS` off, set at mount.
 - Empty notes seed `<p><br></p>` — a bare text node at the editor root breaks execCommand nesting.
 - A caret anchored on the editor root gets normalized into the block at that offset.
