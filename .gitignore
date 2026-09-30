@@ -36,3 +36,6 @@ dev-dist/
 dev_only/
 .obsidian/
 obsidian/
+
+# Claude Code local state
+.claude/

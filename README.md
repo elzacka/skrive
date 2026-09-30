@@ -30,7 +30,7 @@ Skrive er utviklet med sikkerhet og personvern som prioritet. Se [personvernerkl
 | **Backup-kryptering** | Auto-backup låses med en passordfrase du velger selv. Frasen gjøres om til en krypteringsnøkkel med anerkjente standarder (PBKDF2 og AES-GCM) |
 | **XSS-beskyttelse** | DOMPurify med streng whitelist, URL-validering |
 | **CSP** | Streng Content Security Policy uten `unsafe-inline` |
-| **Clickjacking** | `frame-ancestors: none` blokkerer iframe-embedding |
+| **Clickjacking** | Appen starter ikke hvis en annen nettside bygger den inn i en iframe |
 | **HTTPS** | Automatisk redirect til HTTPS i produksjon |
 
 ### Sikkerhetsmodell
@@ -81,7 +81,7 @@ npm run build
 
 Produksjonsfilene vil være i `dist/`-mappen.
 
-For prosjektstruktur og utviklingsinstruksjoner, se [CLAUDE.md](CLAUDE.md).
+For utviklingsinstruksjoner, se [CLAUDE.md](CLAUDE.md).
 
 ## Tastatursnarveier
 
