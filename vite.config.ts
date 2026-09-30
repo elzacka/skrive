@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'path';
+import { readFileSync } from 'fs';
+
+const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
 
 // CSP differs between dev and prod because Vite uses inline styles for HMR
 const devCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://localhost:* http://localhost:*; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
@@ -9,6 +12,9 @@ const prodCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style
 
 export default defineConfig(({ mode }) => ({
   base: '/skrive/',
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [
     react(),
     {
