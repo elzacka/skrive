@@ -4,11 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'path';
 
 // CSP differs between dev and prod because Vite uses inline styles for HMR
-const devCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://localhost:* http://localhost:*; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'self'; base-uri 'self';";
-const prodCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; form-action 'self'; base-uri 'self';";
-
-// Permissions-Policy to explicitly disable features we don't use
-const permissionsPolicy = "geolocation=(), camera=(), microphone=(), payment=(), usb=(), bluetooth=(), magnetometer=(), gyroscope=(), accelerometer=()";
+const devCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://localhost:* http://localhost:*; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
+const prodCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
 
 export default defineConfig(({ mode }) => ({
   base: '/skrive/',
@@ -18,15 +15,10 @@ export default defineConfig(({ mode }) => ({
       name: 'html-transform',
       transformIndexHtml(html) {
         const csp = mode === 'production' ? prodCSP : devCSP;
-        return html
-          .replace(
-            '<!-- CSP_PLACEHOLDER -->',
-            `<meta http-equiv="Content-Security-Policy" content="${csp}" />`
-          )
-          .replace(
-            '<!-- PERMISSIONS_POLICY_PLACEHOLDER -->',
-            `<meta http-equiv="Permissions-Policy" content="${permissionsPolicy}" />`
-          );
+        return html.replace(
+          '<!-- CSP_PLACEHOLDER -->',
+          `<meta http-equiv="Content-Security-Policy" content="${csp}" />`
+        );
       }
     },
     VitePWA({
