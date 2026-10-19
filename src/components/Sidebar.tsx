@@ -372,11 +372,8 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Safari on macOS fires a click event when the secondary button (or
-  // Ctrl+click) is released, right after the contextmenu event. That ghost
-  // click reaches the sidebar's close-on-click handler and shuts the context
-  // menu again immediately. Stopping it in the capture phase keeps React from
-  // seeing it at all, so neither the menu nor the note selection reacts.
+  // macOS Safari fires a ghost click after contextmenu (right-click or Ctrl+click)
+  // that would close the menu at once; stop it in the capture phase before React sees it.
   useEffect(() => {
     const sidebar = sidebarRef.current;
     if (!sidebar) return;
@@ -844,10 +841,8 @@ export function Sidebar() {
     }
   };
 
-  // Delete/Backspace deletes the multi-selection or the tree row that
-  // actually has DOM focus - never while typing in an input or the editor.
-  // Runs without deps: it closes over per-render values (deleteItem,
-  // visibleTreeItems), so it must re-register each render
+  // Delete/Backspace deletes the selection or the focused tree row, never while typing.
+  // No deps: it closes over per-render values (deleteItem, visibleTreeItems).
   useEffect(() => {
     const handleDeleteKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
@@ -878,10 +873,9 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleDeleteKey);
   });
 
-  // New folder: Mac Opt+F, Windows Ctrl+Shift+2. The Finder/Explorer combo
-  // (Cmd/Ctrl+Shift+N) is reserved for private windows in Chrome, Edge and
-  // Safari, so this extends the app's own Opt+N / Ctrl+Shift+1 scheme.
-  // Created inside the focused folder, next to the focused note, or at root
+  // New folder: Opt+F (Mac), Ctrl+Shift+2 (Windows). Cmd/Ctrl+Shift+N opens private
+  // windows in browsers, so this extends the app's Opt+N / Ctrl+Shift+1 scheme.
+  // Created in the focused folder, next to the focused note, or at root.
   useEffect(() => {
     const macKb = isMac();
     const handleNewFolderKey = (e: KeyboardEvent) => {
