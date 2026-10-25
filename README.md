@@ -6,7 +6,7 @@ En lettvekts notatapp med offline-støtte og kryptert lokal lagring, bygget med 
 
 - **Kryptert lagring**: Alle notater krypteres lokalt med AEGIS-256 eller XChaCha20-Poly1305 og sendes aldri til noen server
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
-- **Lite data**: Ingen cookies eller brukerkontoer. Appen teller besøk med GoatCounter og sender bare adressen til appen, se [PERSONVERN.md](PERSONVERN.md)
+- **Lite data**: Ingen cookies eller brukerkontoer, se [PERSONVERN.md](PERSONVERN.md)
 - **Automatisk navngiving**: Det første du skriver i et nytt notat blir navnet når du trykker Enter
 - **Skriveflyt**: Skriv `- `, `1. ` eller `# ` først på en linje for liste eller overskrift, marker tekst for formateringsmeny, og lim inn lenker rett på markert tekst
 - **Søk og erstatt**: Søk i notatet med treffmarkering, erstatt ett eller alle treff

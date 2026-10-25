@@ -26,7 +26,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - CSP is a `<meta>` tag injected by vite.config.ts (dev and prod variants); GitHub Pages sends no headers. Meta ignores `frame-ancestors`, so main.tsx refuses to render when framed.
 - DOMPurify (strict whitelist) and `isSafeUrl()` run on write — editor input, JSON import, backup restore — not only on render.
 - No runtime-loaded external dependencies; fonts and icons are self-hosted.
-- The only outbound request is the GoatCounter pixel, `countVisit()` in src/utils/visitCount.ts: `/skrive/` once on start, never a per-note or per-page path (notes are personal data). Its host is in prod `img-src`. The privacy pages are not counted.
+- No outbound request: notes are personal data, so the prod CSP names no external host.
 
 ## Icons
 

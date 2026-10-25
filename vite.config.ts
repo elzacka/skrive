@@ -8,7 +8,7 @@ const { version } = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
 
 // CSP differs between dev and prod because Vite uses inline styles for HMR
 const devCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ws://localhost:* http://localhost:*; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
-const prodCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob: https://elzacka.goatcounter.com; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
+const prodCSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; form-action 'self'; base-uri 'self';";
 
 export default defineConfig(({ mode }) => ({
   base: '/skrive/',

@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { countVisit } from './utils/visitCount';
 
 // Enforce HTTPS in production
 if (import.meta.env.PROD && window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
@@ -15,8 +14,6 @@ if (window.self !== window.top) {
   document.documentElement.style.display = 'none';
   throw new Error('Skrive refuses to run inside a frame');
 }
-
-countVisit(import.meta.env.BASE_URL);
 
 // Register service worker (only on HTTPS or localhost)
 if ('serviceWorker' in navigator &&

@@ -1,6 +1,6 @@
 # Personvernerklæring
 
-Sist oppdatert: 19.10.26
+Sist oppdatert: 26.10.26
 
 Den samme teksten står i appen, på
 [personvern.html](https://elzacka.github.io/skrive/personvern.html).
@@ -9,7 +9,6 @@ Den samme teksten står i appen, på
 
 Notatene dine lagres kryptert på enheten din, og Skrive sender dem aldri til
 noen server. Appen bruker ikke informasjonskapsler og har ingen brukerkontoer.
-Den teller besøk med GoatCounter, se «Besøksstatistikk».
 
 ## Hva som lagres på enheten din
 
@@ -18,17 +17,6 @@ Den teller besøk med GoatCounter, se «Besøksstatistikk».
 - Innstillinger: Språkvalg og visningsinnstillinger.
 - Auto-backup: Hvis du slår det på, lagres en kryptert kopi av notatene i en
   lokal mappe du velger. Kopien er beskyttet med en passordfrase du velger.
-
-## Besøksstatistikk
-
-Appen teller besøk med GoatCounter. Tallene viser hvor mye appen blir brukt.
-
-- Appen sender bare adressen `/skrive/` når du åpner den. Notatene dine, søk og annet innhold sendes ikke.
-- Appen lagrer ingenting på enheten din for å telle besøk.
-- GoatCounter bruker IP-adressen din og informasjon om nettleseren i opptil 8 timer for å telle deg én gang. De lagres ikke.
-- GoatCounter lagrer bare samlede tall. GoatCounter drives fra Irland og lagrer tallene hos Hetzner i Finland og Tyskland.
-- Grunnlaget er berettiget interesse (personvernforordningen artikkel 6 nr. 1 bokstav f): Å se hvor mye appen blir brukt.
-- Du kan unngå tellingen ved å blokkere `goatcounter.com`, for eksempel med en annonseblokkering.
 
 ## GitHub
 
