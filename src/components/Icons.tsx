@@ -449,18 +449,6 @@ export function CircleAlertIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function MarkdownIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <g transform="translate(12 12) scale(1.6) translate(-12.5 -12)" strokeWidth={1.25}>
-        <path d="M7 15v-6l2 2l2 -2v6" />
-        <path d="M14 13l2 2l2 -2m-2 2v-6" />
-      </g>
-    </>,
-    size
-  );
-}
-
 export function RestoreIcon({ size = 24 }: IconProps) {
   return icon(
     <>

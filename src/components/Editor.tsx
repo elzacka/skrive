@@ -33,7 +33,6 @@ import {
   LoaderCircleIcon,
   CircleAlertIcon,
   HistoryIcon,
-  MarkdownIcon,
   PlusIcon,
   DownloadIcon,
   TagIcon,
@@ -48,6 +47,9 @@ function countWordsAndChars(content: string): { words: number; chars: number } {
   const text = markdownToPlainText(content);
   return { words: text.trim() === '' ? 0 : text.trim().split(/\s+/).length, chars: text.length };
 }
+
+// "MD" reads as Markdown at a glance; no icon set has a clearer mark
+const MarkdownLabel = () => <span className="md-label" aria-hidden="true">MD</span>;
 
 export function Editor() {
   const { state, getSelectedNote, updateNote, deleteNote, addTag, toggleNoteTag, saveStatus, trackLiveEdit } = useApp();
@@ -308,9 +310,9 @@ export function Editor() {
   const isUnnamed = !note.title || DEFAULT_TITLES.includes(note.title);
   const placeholderText = isUnnamed ? t.editorPlaceholder : t.writeHere;
 
-  const formatButton = (label: string, shortcut: string | null, active: boolean | null, onClick: () => void, Icon: (props: { size?: number }) => React.ReactElement, extraClass = '') => (
+  const formatButton = (label: string, shortcut: string | null, active: boolean | null, onClick: () => void, Icon: (props: { size?: number }) => React.ReactElement) => (
     <button
-      className={`format-btn ${extraClass} ${active ? 'active' : ''}`}
+      className={`format-btn ${active ? 'active' : ''}`}
       onMouseDown={keepFocus}
       onClick={onClick}
       title={shortcut ? `${label} (${shortcut})` : label}
@@ -354,7 +356,7 @@ export function Editor() {
             {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
           </div>
           <div className="format-group">
-            {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownIcon, 'wide-icon')}
+            {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownLabel)}
           </div>
         </div>
         <div className="header-actions">
