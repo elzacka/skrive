@@ -1,4 +1,4 @@
-import type { AppState, Note, Tag, Folder, ExportData } from '@/types';
+import type { AppState, Note, TrashedNote, Tag, Folder, ExportData } from '@/types';
 import {
   encrypt,
   decrypt,
@@ -25,9 +25,15 @@ const EMERGENCY_KEY = 'skrive-emergency';
 export interface StoredState {
   lang: 'no' | 'en';
   notes: Note[];
+  trash: TrashedNote[];
   tags: Tag[];
   folders: Folder[];
 }
+
+export type PersistedState = Pick<AppState, 'lang' | 'notes' | 'trash' | 'tags' | 'folders'>;
+
+export const TRASH_DAYS = 30;
+const DAY = 24 * 60 * 60 * 1000;
 
 interface EncryptedStoredState {
   version: number;
@@ -94,6 +100,7 @@ function normalizeState(state: StoredState): StoredState {
   return {
     lang: state.lang || 'no',
     notes: state.notes || [],
+    trash: state.trash || [],
     tags: state.tags || [],
     folders: state.folders || []
   };
@@ -171,7 +178,7 @@ export async function keepPreMarkdownCopy(state: StoredState): Promise<void> {
 export async function expirePreMarkdownCopy(): Promise<void> {
   try {
     const copy = await idbGet(PRE_MARKDOWN_KEY) as { savedAt?: number } | undefined;
-    if (copy && Date.now() - (copy.savedAt ?? 0) > PRE_MARKDOWN_DAYS * 24 * 60 * 60 * 1000) {
+    if (copy && Date.now() - (copy.savedAt ?? 0) > PRE_MARKDOWN_DAYS * DAY) {
       await idbWrite(store => store.delete(PRE_MARKDOWN_KEY));
     }
   } catch (error) {
@@ -181,6 +188,109 @@ export async function expirePreMarkdownCopy(): Promise<void> {
 
 export async function deleteRecoveryCopies(ids: string[]): Promise<void> {
   await idbWrite((store) => ids.forEach(id => store.delete(id)));
+}
+
+// Note history: earlier versions of each note, encrypted under its own key
+// so a save of the whole state never rewrites them. A version is the text
+// as it was before an edit, kept at most every HISTORY_INTERVAL
+const HISTORY_PREFIX = 'note-history-';
+export const HISTORY_DAYS = 30;
+const HISTORY_INTERVAL = 10 * 60 * 1000;
+const HISTORY_MAX = 100;
+
+export interface NoteVersion {
+  savedAt: number;
+  content: string;
+}
+
+const lastVersionAt = new Map<string, number>();
+// One history write at a time, so two saves never interleave on a note
+let historyQueue: Promise<unknown> = Promise.resolve();
+function queueHistory<T>(task: () => Promise<T>): Promise<T> {
+  const run = historyQueue.then(task);
+  historyQueue = run.catch(() => undefined);
+  return run;
+}
+
+// null when stored versions exist but cannot be read: they must not be
+// overwritten
+async function readHistory(noteId: string): Promise<NoteVersion[] | null> {
+  const blob = await idbGet(HISTORY_PREFIX + noteId) as EncryptedStoredState | undefined;
+  if (!blob) return [];
+  const key = getMasterKey();
+  if (!key) return null;
+  try {
+    return JSON.parse(await decrypt(blob.encrypted, key)) as NoteVersion[];
+  } catch {
+    return null;
+  }
+}
+
+async function writeHistory(noteId: string, versions: NoteVersion[]): Promise<void> {
+  const key = getMasterKey();
+  if (!key) return;
+  if (versions.length === 0) {
+    await idbWrite(store => store.delete(HISTORY_PREFIX + noteId));
+    return;
+  }
+  const encrypted = await encrypt(JSON.stringify(versions), key);
+  await idbSet(HISTORY_PREFIX + noteId, { version: 1, encrypted });
+}
+
+const fresh = (v: NoteVersion) => Date.now() - v.savedAt < HISTORY_DAYS * DAY;
+
+// Keep content as a version of the note; force skips the interval, for a
+// restore that replaces text written since the last version
+export function recordVersion(noteId: string, content: string, force = false): Promise<void> {
+  return queueHistory(async () => {
+    const since = Date.now() - (lastVersionAt.get(noteId) ?? 0);
+    if (!content.trim() || (!force && since < HISTORY_INTERVAL)) return;
+    const versions = await readHistory(noteId);
+    if (!versions) return;
+    const last = versions[versions.length - 1];
+    if (last && !force && Date.now() - last.savedAt < HISTORY_INTERVAL) {
+      lastVersionAt.set(noteId, last.savedAt);
+      return;
+    }
+    lastVersionAt.set(noteId, Date.now());
+    if (last?.content === content) return;
+    await writeHistory(noteId, [...versions.filter(fresh), { savedAt: Date.now(), content }].slice(-HISTORY_MAX));
+  }).catch(error => console.warn('Failed to record note version:', error));
+}
+
+// Newest first
+export async function listVersions(noteId: string): Promise<NoteVersion[]> {
+  try {
+    return ((await queueHistory(() => readHistory(noteId))) ?? []).filter(fresh).reverse();
+  } catch {
+    return [];
+  }
+}
+
+export function deleteHistory(noteIds: string[]): Promise<void> {
+  return queueHistory(() => idbWrite(store => noteIds.forEach(id => store.delete(HISTORY_PREFIX + id))))
+    .catch(error => console.warn('Failed to delete note history:', error));
+}
+
+// Drop versions past HISTORY_DAYS and the history of notes that no longer
+// exist, in the trash or out of it
+export function pruneHistory(noteIds: Set<string>): Promise<void> {
+  return queueHistory(async () => {
+    for (const k of await idbKeys()) {
+      if (!k.startsWith(HISTORY_PREFIX)) continue;
+      const id = k.slice(HISTORY_PREFIX.length);
+      if (!noteIds.has(id)) {
+        await idbWrite(store => store.delete(k));
+        continue;
+      }
+      const versions = await readHistory(id);
+      if (versions && versions.some(v => !fresh(v))) await writeHistory(id, versions.filter(fresh));
+    }
+  }).catch(error => console.warn('Failed to prune note history:', error));
+}
+
+export function isTrashExpired(note: TrashedNote): boolean {
+  return Date.now() - note.deletedAt > TRASH_DAYS * DAY;
 }
 
 // IndexedDB first, then legacy localStorage; unreadable data is kept
@@ -249,11 +359,12 @@ export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
 }
 
 // Returns whether the write succeeded, for a truthful save status
-export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<boolean> {
+export async function saveToStorageEncrypted(state: PersistedState): Promise<boolean> {
   try {
     const toSave: StoredState = {
       lang: state.lang,
       notes: state.notes,
+      trash: state.trash,
       tags: state.tags,
       folders: state.folders
     };
@@ -283,13 +394,14 @@ export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'not
 }
 
 // libsodium encrypts within a microtask, so this finishes during pagehide
-export async function saveEmergencySpill(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<void> {
+export async function saveEmergencySpill(state: PersistedState): Promise<void> {
   try {
     const key = getMasterKey();
     if (!key) return;
     const encrypted = await encrypt(JSON.stringify({
       lang: state.lang,
       notes: state.notes,
+      trash: state.trash,
       tags: state.tags,
       folders: state.folders
     }), key);
@@ -300,13 +412,14 @@ export async function saveEmergencySpill(state: Pick<AppState, 'lang' | 'notes' 
   }
 }
 
-export function createExportData(state: Pick<AppState, 'notes' | 'tags' | 'folders'>): ExportData {
+export function createExportData(state: Pick<ExportData, 'notes' | 'tags' | 'folders' | 'trash'>): ExportData {
   return {
     version: VERSION,
     exportedAt: Date.now(),
     notes: state.notes,
     tags: state.tags,
-    folders: state.folders
+    folders: state.folders,
+    ...(state.trash ? { trash: state.trash } : {})
   };
 }
 
@@ -335,8 +448,10 @@ export function validateImportData(data: unknown): data is ExportData {
   if (d.tags.length > MAX_TAGS) return false;
   if (d.folders.length > MAX_FOLDERS) return false;
 
+  if (d.trash !== undefined && (!Array.isArray(d.trash) || d.notes.length + d.trash.length > MAX_NOTES)) return false;
+
   // Validate notes structure and content limits
-  for (const note of d.notes) {
+  for (const note of [...d.notes, ...(d.trash as unknown[] | undefined ?? [])]) {
     if (!note || typeof note !== 'object') return false;
     const n = note as Record<string, unknown>;
     if (typeof n.id !== 'string') return false;
@@ -345,6 +460,7 @@ export function validateImportData(data: unknown): data is ExportData {
     if (n.title.length > MAX_TITLE_LENGTH) return false;
     if (n.content.length > MAX_NOTE_CONTENT_LENGTH) return false;
   }
+  if ((d.trash as Record<string, unknown>[] | undefined)?.some(n => typeof n.deletedAt !== 'number')) return false;
 
   // Validate tags structure and limits
   for (const tag of d.tags) {

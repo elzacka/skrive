@@ -12,7 +12,8 @@ En lettvekts notatapp med offline-støtte og kryptert lokal lagring, bygget med 
 - **Skriveflyt**: Skriv `- `, `1. `, `- [ ] ` eller `# ` først på en linje for liste, sjekkliste eller overskrift, og lim inn lenker rett på markert tekst. Innlimt tekst fra nettet beholder formateringen
 - **Søk og erstatt**: Søk i notatet med treffmarkering, erstatt ett eller alle treff
 - **Auto-backup**: Automatisk, passordfrase-beskyttet backup til en lokal mappe via File System Access API (Chrome/Edge)
-- **Import/eksport**: Eksporter og importer alle notater som JSON, eller importer enkeltnotater fra .txt- og .md-filer
+- **Papirkurv og historikk**: Slettede notater ligger i papirkurven i 30 dager. Tidligere versjoner av hvert notat ligger kryptert på enheten i 30 dager og kan hentes tilbake
+- **Import/eksport**: Eksporter alle notater som Markdown-filer i samme mappestruktur (Chrome/Edge), eksporter og importer alt som JSON, eller importer enkeltnotater fra .txt- og .md-filer
 - **Eksport**: Enkeltnotater som Markdown eller HTML. Kopier-knappen gir formatert tekst i Word og e-post og Markdown ellers
 - **Etiketter og mapper**: Organiser notatene med etiketter, mapper og dra-og-slipp
 - **Multivalg**: Velg flere notater med Cmd/Ctrl+klikk eller Shift+klikk, og slett med angremulighet
@@ -41,7 +42,7 @@ Skrive baserer seg på sikkerheten i enheten din, som biometri, PIN eller passor
 2. **Streng innholdssikkerhetspolicy (CSP)**: Blokkerer XSS-angrep
 3. **Same-origin policy**: Sørger for at nøkkelen kun er tilgjengelig for Skrive
 
-Merk: Filer du eksporterer selv (enkeltnotater og JSON-backup) lagres ukrypterte, der du selv velger.
+Merk: Filer du eksporterer selv (enkeltnotater, Markdown-filer og JSON-backup) lagres ukrypterte, der du selv velger.
 
 ## Teknologier
 

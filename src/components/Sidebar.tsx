@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { isMac, isFirefox, isSafari, isIpad, isPWAInstalled } from '@/utils';
@@ -22,9 +22,12 @@ import {
   UploadIcon,
   ArticleIcon,
   FolderSyncIcon,
-  FolderCheckIcon
+  FolderCheckIcon,
+  FolderDownIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
+import { TrashDialog } from './TrashDialog';
+import { exportNotesToFolder } from '@/utils/fileSystem';
 // "Skrive" in Columbia Titling, outlined to paths (the font itself is
 // commercial and cannot be self-hosted as a webfont)
 import wordmarkUrl from '@/assets/skrive-wordmark.svg';
@@ -331,6 +334,8 @@ export function Sidebar() {
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
   const [showRenewDialog, setShowRenewDialog] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [exportResult, setExportResult] = useState<{ folder: string } | 'failed' | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<NoteSortMode>(() =>
     localStorage.getItem('skrive-sort') === 'recent' ? 'recent' : 'alpha'
@@ -356,6 +361,18 @@ export function Sidebar() {
     const next: NoteSortMode = sortMode === 'alpha' ? 'recent' : 'alpha';
     setSortMode(next);
     localStorage.setItem('skrive-sort', next);
+  };
+
+  const closeTrash = useCallback(() => setShowTrash(false), []);
+
+  const exportFiles = async () => {
+    try {
+      const folder = await exportNotesToFolder(state.notes, state.folders, t.untitled);
+      if (folder) setExportResult({ folder });
+    } catch (error) {
+      console.warn('Export to folder failed:', error);
+      setExportResult('failed');
+    }
   };
 
   // Close popups when clicking outside sidebar
@@ -854,7 +871,7 @@ export function Sidebar() {
       // The editor sits in a shadow root: document.activeElement is only its
       // host, so the real target comes from the composed path
       const target = e.composedPath()[0] as HTMLElement | undefined;
-      if (e.defaultPrevented || !target?.closest('.sidebar') ||
+      if (e.defaultPrevented || !target?.closest('.sidebar') || target.closest('[role="dialog"]') ||
           target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
@@ -1164,7 +1181,15 @@ export function Sidebar() {
         </div>
         <button
           className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowTrash(true); setShowBackupMenu(false); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
+          title={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
+          aria-label={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
+        >
+          <DeleteIcon size={16} />
+        </button>
+        <button
+          className="sidebar-footer-btn"
+          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setExportResult(null); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
           title={t.importExport}
           aria-label={t.importExport}
         >
@@ -1249,6 +1274,16 @@ export function Sidebar() {
                 <div className="backup-popup-divider" />
               </>
             )}
+            {fsAccessSupported && (
+              <button className="backup-popup-btn" onClick={exportFiles}>
+                <FolderDownIcon size={16} />
+                <span>{t.exportAsFiles}</span>
+              </button>
+            )}
+            {exportResult === 'failed' && <div className="backup-popup-error">{t.exportFilesFailed}</div>}
+            {exportResult && exportResult !== 'failed' && (
+              <div className="backup-popup-detail">{t.exportedTo} «{exportResult.folder}»</div>
+            )}
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setShowBackupMenu(false); }}>
               <DownloadIcon size={16} />
               <span>{t.exportData}</span>
@@ -1263,6 +1298,7 @@ export function Sidebar() {
             </button>
           </div>
         )}
+        {showTrash && <TrashDialog onClose={closeTrash} />}
         {showPassphraseDialog && (
           <PassphraseDialog
             mode="set"
@@ -1502,6 +1538,10 @@ export function Sidebar() {
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideAutoBackup}</div>
                 <div className="guide-item-desc">{t.guideAutoBackupDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideTrash}</div>
+                <div className="guide-item-desc">{t.guideTrashDesc}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideExport}</div>

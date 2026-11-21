@@ -1,4 +1,4 @@
-import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
+import type { Note, Folder, ExportData, FileSystemDirectoryHandle } from '@/types';
 import { escapeHtml } from './helpers';
 import { markdownToHtml } from './markdown';
 import type { EncryptedData, PassphraseWrappedKey } from './crypto';
@@ -114,6 +114,51 @@ export function downloadNote(note: Note, format: ExportFormat = 'markdown'): voi
   const { content, extension, mimeType } = getExportContent(note, format);
   const filename = `${note.title}${extension}`;
   downloadWithBlob(content, filename, mimeType);
+}
+
+// A name every file system accepts; case-insensitive file systems (macOS,
+// Windows) need the comparison in lower case
+function safeName(name: string, fallback: string, taken: Set<string>, extension = ''): string {
+  const base = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').replace(/[. ]+$/, '').trim().slice(0, 120) || fallback;
+  let candidate = base + extension;
+  for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${base} ${n}${extension}`;
+  taken.add(candidate.toLowerCase());
+  return candidate;
+}
+
+// Every note as a .md file, folders as folders, in a new dated folder inside
+// the chosen one so nothing there is overwritten. Returns the folder name,
+// or null when the user cancels
+export async function exportNotesToFolder(notes: Note[], folders: Folder[], untitled: string): Promise<string | null> {
+  let parent: FileSystemDirectoryHandle;
+  try {
+    parent = await window.showDirectoryPicker({ id: 'skrive-export', mode: 'readwrite' });
+  } catch {
+    return null;
+  }
+  const taken = new Set<string>();
+  for await (const name of parent.keys()) taken.add(name.toLowerCase());
+  const rootName = safeName(`Skrive ${fileStamp(Date.now())}`, 'Skrive', taken);
+  const root = await parent.getDirectoryHandle(rootName, { create: true });
+
+  // A note whose folder is missing goes to the top level, not missing
+  const known = new Set(folders.map(f => f.id));
+  const folderOf = (note: Note) => note.parentId !== null && known.has(note.parentId) ? note.parentId : null;
+  const writeLevel = async (dir: FileSystemDirectoryHandle, parentId: string | null) => {
+    const names = new Set<string>();
+    for (const folder of folders.filter(f => f.parentId === parentId)) {
+      const sub = await dir.getDirectoryHandle(safeName(folder.name, untitled, names), { create: true });
+      await writeLevel(sub, folder.id);
+    }
+    for (const note of notes.filter(n => folderOf(n) === parentId)) {
+      const file = await dir.getFileHandle(safeName(note.title, untitled, names, '.md'), { create: true });
+      const writable = await file.createWritable();
+      await writable.write(note.content);
+      await writable.close();
+    }
+  };
+  await writeLevel(root, null);
+  return rootName;
 }
 
 // Auto-backup handle management

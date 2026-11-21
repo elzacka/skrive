@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
-import type { AppState, Note, Tag, Folder, FileSystemDirectoryHandle } from '@/types';
+import type { AppState, Note, TrashedNote, Tag, Folder, FileSystemDirectoryHandle } from '@/types';
 import {
   loadFromStorageEncrypted,
   saveToStorageEncrypted,
@@ -13,7 +13,12 @@ import {
   readRecoveryCopies,
   deleteRecoveryCopies,
   keepPreMarkdownCopy,
-  expirePreMarkdownCopy
+  expirePreMarkdownCopy,
+  recordVersion,
+  deleteHistory,
+  pruneHistory,
+  isTrashExpired,
+  type PersistedState
 } from '@/utils/storage';
 import {
   initializeEncryption,
@@ -62,14 +67,27 @@ function mergeById<T extends { id: string }>(current: T[], incoming: T[], isNewe
   return [...byId.values()];
 }
 
-type StoredData = Pick<AppState, 'notes' | 'tags' | 'folders'>;
+type StoredData = Pick<AppState, 'notes' | 'tags' | 'folders'> & { trash?: TrashedNote[] };
 
-function mergeData(current: StoredData, incoming: StoredData): StoredData {
+// A note in use here always stays in use. An incoming note stays in the
+// trash when it was deleted here after its last edit
+function mergeData(current: StoredData, incoming: StoredData): Required<StoredData> {
+  const trash = mergeById(current.trash ?? [], incoming.trash ?? [], (a, b) => a.deletedAt > b.deletedAt);
+  const trashed = new Map(trash.map(n => [n.id, n]));
+  const currentIds = new Set(current.notes.map(n => n.id));
+  const notes = mergeById(current.notes, incoming.notes.map(toMarkdownNote), (a, b) => a.updatedAt > b.updatedAt)
+    .filter(n => currentIds.has(n.id) || !trashed.has(n.id) || n.updatedAt > trashed.get(n.id)!.deletedAt);
+  const live = new Set(notes.map(n => n.id));
   return {
-    notes: mergeById(current.notes, incoming.notes.map(toMarkdownNote), (a, b) => a.updatedAt > b.updatedAt),
+    notes,
+    trash: trash.filter(n => !live.has(n.id)),
     tags: mergeById(current.tags, incoming.tags),
     folders: mergeById(current.folders, incoming.folders)
   };
+}
+
+function toTrash(notes: Note[], deletedAt: number): TrashedNote[] {
+  return notes.map(note => ({ ...note, deletedAt }));
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -98,6 +116,10 @@ type Action =
   | { type: 'ADD_NOTE'; payload: Note }
   | { type: 'UPDATE_NOTE'; payload: { id: string; updates: Partial<Note> } }
   | { type: 'DELETE_NOTES'; payload: string[] }
+  | { type: 'DISCARD_NOTE'; payload: string }
+  | { type: 'SET_TRASH'; payload: TrashedNote[] }
+  | { type: 'RESTORE_NOTES'; payload: string[] }
+  | { type: 'PURGE_NOTES'; payload: string[] }
   | { type: 'SET_TAGS'; payload: Tag[] }
   | { type: 'ADD_TAG'; payload: Tag }
   | { type: 'UPDATE_TAG'; payload: { id: string; updates: Partial<Tag> } }
@@ -115,6 +137,7 @@ type Action =
 const initialState: AppState = {
   lang: 'no',
   notes: [],
+  trash: [],
   tags: [],
   folders: [],
   selectedNoteId: null,
@@ -149,10 +172,34 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         notes: state.notes.filter(note => !action.payload.includes(note.id)),
+        trash: [...state.trash, ...toTrash(state.notes.filter(note => action.payload.includes(note.id)), Date.now())],
         selectedNoteId: state.selectedNoteId && action.payload.includes(state.selectedNoteId)
           ? null
           : state.selectedNoteId
       };
+
+    // An untouched placeholder leaves no trace in the trash
+    case 'DISCARD_NOTE':
+      return { ...state, notes: state.notes.filter(note => note.id !== action.payload) };
+
+    case 'SET_TRASH':
+      return { ...state, trash: action.payload };
+
+    // A note whose folder is gone comes back at the top level
+    case 'RESTORE_NOTES': {
+      const restored = state.trash.filter(n => action.payload.includes(n.id)).map(({ deletedAt: _, ...note }) => ({
+        ...note,
+        parentId: state.folders.some(f => f.id === note.parentId) ? note.parentId : null
+      }));
+      return {
+        ...state,
+        notes: [...state.notes, ...restored],
+        trash: state.trash.filter(n => !action.payload.includes(n.id))
+      };
+    }
+
+    case 'PURGE_NOTES':
+      return { ...state, trash: state.trash.filter(n => !action.payload.includes(n.id)) };
     
     case 'SET_TAGS':
       return { ...state, tags: action.payload };
@@ -213,7 +260,13 @@ function reducer(state: AppState, action: Action): AppState {
       };
       
       const result = deleteRecursive(action.payload, state.folders, state.notes);
-      return { ...state, ...result };
+      const removed = state.notes.filter(n => !result.notes.includes(n));
+      return {
+        ...state,
+        ...result,
+        trash: [...state.trash, ...toTrash(removed, Date.now())],
+        selectedNoteId: removed.some(n => n.id === state.selectedNoteId) ? null : state.selectedNoteId
+      };
     }
     
     case 'SELECT_NOTE':
@@ -258,6 +311,10 @@ interface AppContextValue {
   lastDeletedNotes: Note[] | null;
   undoDelete: () => void;
   dismissDeleted: () => void;
+
+  // Trash
+  restoreFromTrash: (ids: string[]) => void;
+  purgeFromTrash: (ids: string[]) => void;
 
   // Language
   setLang: (lang: 'no' | 'en') => void;
@@ -353,10 +410,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Saving is blocked until the initial load finishes so a save can never
   // overwrite stored data the app has not read yet
   const loadedRef = useRef(false);
-  const pendingSaveRef = useRef<Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'> | null>(null);
+  const pendingSaveRef = useRef<PersistedState | null>(null);
   // What the save effect last queued; state newer than this has rendered
   // but its effect has not run yet (an edit flushed during pagehide)
-  const queuedRef = useRef<Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'> | null>(null);
+  const queuedRef = useRef<PersistedState | null>(null);
   // The editor's newest text, written on every keystroke without React:
   // an unload can come before the edit has rendered
   const liveEditRef = useRef<{ noteId: string; content: string } | null>(null);
@@ -364,6 +421,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     liveEditRef.current = { noteId, content };
   }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each note's text as last written to storage; the text before an edit
+  // becomes a version in the note's history
+  const savedContentRef = useRef(new Map<string, string>());
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Merge restored data into state and open the most recently edited note
@@ -376,13 +436,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (placeholder && placeholder.updatedAt !== placeholder.createdAt) {
       placeholderIdRef.current = null;
     } else if (placeholder) {
-      dispatch({ type: 'DELETE_NOTES', payload: [placeholder.id] });
+      dispatch({ type: 'DISCARD_NOTE', payload: placeholder.id });
     }
     const notes = data.notes.filter(n => n.id !== placeholderIdRef.current);
     dispatch({ type: 'MERGE_DATA', payload: { ...data, notes } });
     hasLocalDataRef.current = true;
-    if (data.notes.length > 0) {
-      const mostRecent = data.notes.reduce((latest, note) =>
+    // A note deleted here after the backup stays in the trash
+    const live = new Set(mergeData(stateRef.current, { ...data, notes }).notes.map(n => n.id));
+    const restored = notes.filter(n => live.has(n.id));
+    if (restored.length > 0) {
+      const mostRecent = restored.reduce((latest, note) =>
         note.updatedAt > latest.updatedAt ? note : latest
       );
       dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
@@ -443,6 +506,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_NOTES', payload: notes });
         dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
         dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
+        const expired = loadResult.state.trash.filter(isTrashExpired);
+        const trash = loadResult.state.trash.filter(n => !isTrashExpired(n));
+        dispatch({ type: 'SET_TRASH', payload: trash });
+        savedContentRef.current = new Map(notes.map(n => [n.id, n.content]));
+        if (expired.length > 0) deleteHistory(expired.map(n => n.id));
+        pruneHistory(new Set([...notes, ...trash].map(n => n.id)));
       }
       await expirePreMarkdownCopy();
       hasLocalDataRef.current = hasLocalData;
@@ -530,6 +599,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setSaveStatus('saving');
     const ok = await saveToStorageEncrypted(data);
+    if (ok) {
+      const saved = savedContentRef.current;
+      for (const note of data.notes) {
+        const before = saved.get(note.id);
+        if (before !== undefined && before !== note.content) recordVersion(note.id, before);
+      }
+      savedContentRef.current = new Map(data.notes.map(n => [n.id, n.content]));
+    }
     // A newer change may have arrived while this write was in flight
     setSaveStatus(pendingSaveRef.current ? 'unsaved' : ok ? 'saved' : 'error');
   }, []);
@@ -541,6 +618,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     pendingSaveRef.current = {
       lang: state.lang,
       notes: state.notes,
+      trash: state.trash,
       tags: state.tags,
       folders: state.folders
     };
@@ -554,23 +632,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSaveStatus('unsaved');
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(performSave, 800);
-  }, [state.lang, state.notes, state.tags, state.folders, performSave]);
+  }, [state.lang, state.notes, state.trash, state.tags, state.folders, performSave]);
 
-  // Flush pending saves when the tab is hidden or about to close.
-  // On pagehide the async IndexedDB write may not complete, so spill an
-  // encrypted copy synchronously to localStorage as well; it is read and
-  // migrated back on next startup
+  // Flush pending saves when the tab is hidden or closing. IndexedDB may not
+  // finish during pagehide, so an encrypted copy also goes to localStorage,
+  // which is synchronous; the next start reads it first
   useEffect(() => {
     const queueLatest = () => {
       const latest = stateRef.current;
       const queued = queuedRef.current;
-      if (loadedRef.current && queued && (latest.notes !== queued.notes || latest.tags !== queued.tags ||
-          latest.folders !== queued.folders || latest.lang !== queued.lang)) {
-        pendingSaveRef.current = { lang: latest.lang, notes: latest.notes, tags: latest.tags, folders: latest.folders };
+      const persisted = (): PersistedState =>
+        ({ lang: latest.lang, notes: latest.notes, trash: latest.trash, tags: latest.tags, folders: latest.folders });
+      if (loadedRef.current && queued && (latest.notes !== queued.notes || latest.trash !== queued.trash ||
+          latest.tags !== queued.tags || latest.folders !== queued.folders || latest.lang !== queued.lang)) {
+        pendingSaveRef.current = persisted();
         queuedRef.current = pendingSaveRef.current;
       }
       const live = liveEditRef.current;
-      const base = pendingSaveRef.current ?? (live ? { lang: latest.lang, notes: latest.notes, tags: latest.tags, folders: latest.folders } : null);
+      const base = pendingSaveRef.current ?? (live ? persisted() : null);
       const note = live && base?.notes.find(n => n.id === live.noteId);
       if (base && note && note.content !== live.content) {
         pendingSaveRef.current = { ...base, notes: base.notes.map(n => n.id === live.noteId ? { ...n, content: live.content, updatedAt: Date.now() } : n) };
@@ -602,7 +681,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // master key wrapped with the passphrase-derived key
   const buildEncryptedBackup = useCallback(async (
     protection: PassphraseWrappedKey,
-    data: Pick<AppState, 'notes' | 'tags' | 'folders'>
+    data: Required<StoredData>
   ): Promise<EncryptedBackupFile | null> => {
     const key = getMasterKey();
     if (!key) return null;
@@ -630,6 +709,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     backupTimerRef.current = setTimeout(async () => {
       const backupFile = await buildEncryptedBackup(backupKeyProtection, {
         notes: state.notes,
+        trash: state.trash,
         tags: state.tags,
         folders: state.folders
       });
@@ -655,7 +735,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(backupTimerRef.current);
       }
     };
-  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup]);
+  }, [state.notes, state.trash, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup]);
 
   // An older protection without a fingerprint counts as fitting: the key
   // has not changed since, or it would have been marked stale
@@ -725,9 +805,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const undoDelete = useCallback(() => {
     if (!lastDeletedNotes) return;
-    for (const note of lastDeletedNotes) {
-      dispatch({ type: 'ADD_NOTE', payload: note });
-    }
+    dispatch({ type: 'RESTORE_NOTES', payload: lastDeletedNotes.map(n => n.id) });
     dispatch({ type: 'SELECT_NOTE', payload: lastDeletedNotes[0].id });
     setLastDeletedNotes(null);
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
@@ -736,6 +814,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const dismissDeleted = useCallback(() => {
     setLastDeletedNotes(null);
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+  }, []);
+
+  const restoreFromTrash = useCallback((ids: string[]) => {
+    dispatch({ type: 'RESTORE_NOTES', payload: ids });
+    if (ids.length > 0) dispatch({ type: 'SELECT_NOTE', payload: ids[0] });
+  }, []);
+
+  // For good: the note and its history
+  const purgeFromTrash = useCallback((ids: string[]) => {
+    dispatch({ type: 'PURGE_NOTES', payload: ids });
+    deleteHistory(ids);
   }, []);
 
   const selectNote = useCallback((id: string | null) => {
@@ -819,6 +908,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Write initial backup immediately
     const backupFile = await buildEncryptedBackup(protection, {
       notes: state.notes,
+      trash: state.trash,
       tags: state.tags,
       folders: state.folders
     });
@@ -831,7 +921,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     return true;
-  }, [state.notes, state.tags, state.folders, buildEncryptedBackup]);
+  }, [state.notes, state.trash, state.tags, state.folders, buildEncryptedBackup]);
 
   const disableAutoBackup = useCallback(async () => {
     await clearBackupHandle();
@@ -848,7 +938,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const recoverWithKeys = useCallback(async (keys: Uint8Array[], base: StoredData = stateRef.current): Promise<'none' | 'saved' | 'saveFailed'> => {
     const { states, ids } = await readRecoveryCopies(keys);
     if (ids.length === 0) return 'none';
-    let merged = base;
+    let merged: Required<StoredData> = { ...base, trash: base.trash ?? [] };
     for (const recovered of states) merged = mergeData(merged, recovered);
     applyRestoredData(merged);
     const saved = await saveToStorageEncrypted({ lang: stateRef.current.lang, ...merged });
@@ -990,8 +1080,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const exportAllData = useCallback(() => {
-    const data = createExportData(state);
-    exportToJsonFile(data);
+    // Deleted notes stay out of an unencrypted file
+    exportToJsonFile(createExportData({ notes: state.notes, tags: state.tags, folders: state.folders }));
   }, [state]);
 
   const importData = useCallback(async () => {
@@ -1065,6 +1155,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lastDeletedNotes,
     undoDelete,
     dismissDeleted,
+    restoreFromTrash,
+    purgeFromTrash,
     setLang,
     createNote,
     duplicateNote,

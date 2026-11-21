@@ -12,6 +12,11 @@ export interface Note {
 
 export type NoteFormat = 'plaintext' | 'richtext' | 'markdown';
 
+// A deleted note waits in the trash until TRASH_DAYS have passed
+export interface TrashedNote extends Note {
+  deletedAt: number;
+}
+
 export interface Folder {
   id: string;
   name: string;
@@ -28,6 +33,7 @@ export interface Tag {
 export interface AppState {
   lang: 'no' | 'en';
   notes: Note[];
+  trash: TrashedNote[];
   tags: Tag[];
   folders: Folder[];
   selectedNoteId: string | null;
@@ -101,6 +107,8 @@ export interface ExportData {
   notes: Note[];
   tags: Tag[];
   folders: Folder[];
+  // Only in encrypted backups: a plain export leaves deleted notes out
+  trash?: TrashedNote[];
 }
 
 // i18n types
@@ -275,6 +283,24 @@ export interface I18nStrings {
   noteDeleted: string;
   notesDeleted: string;
   confirmDeleteFolder: string;
+  trash: string;
+  trashIntro: string;
+  trashEmpty: string;
+  deletedOn: string;
+  restoreNote: string;
+  deleteForever: string;
+  confirmDeleteForever: string;
+  emptyTrash: string;
+  confirmEmptyTrash: string;
+  history: string;
+  historyIntro: string;
+  historyEmpty: string;
+  restoreVersion: string;
+  exportAsFiles: string;
+  exportedTo: string;
+  exportFilesFailed: string;
+  guideTrash: string;
+  guideTrashDesc: string;
   find: string;
   findShortcut: string;
   findPlaceholder: string;

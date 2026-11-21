@@ -11,6 +11,8 @@ import { getShortcutLabels } from '@/utils/shortcuts';
 import { toggleInline, toggleLines, toggleCodeBlock, setHeading, insertLink, type ActiveFormats, type InlineStyle, type LineStyle } from '@/editor/commands';
 import { FindReplaceBar } from './FindReplaceBar';
 import { MarkdownEditor } from './MarkdownEditor';
+import { HistoryDialog } from './HistoryDialog';
+import { recordVersion } from '@/utils/storage';
 import {
   CopyIcon,
   UndoIcon,
@@ -29,7 +31,8 @@ import {
   CheckIcon,
   CircleIcon,
   LoaderCircleIcon,
-  CircleAlertIcon
+  CircleAlertIcon,
+  HistoryIcon
 } from './Icons';
 
 const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
@@ -58,6 +61,7 @@ export function Editor() {
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [formats, setFormats] = useState<ActiveFormats>(NO_FORMATS);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
+  const [showVersions, setShowVersions] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -85,6 +89,7 @@ export function Editor() {
   // A different note starts without the find bar and stale toolbar state
   useEffect(() => {
     setShowFind(false);
+    setShowVersions(false);
     setFormats(NO_FORMATS);
     setHistory({ canUndo: false, canRedo: false });
   }, [note?.id]);
@@ -141,6 +146,22 @@ export function Editor() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mac, showLinkDialog, showTagPicker, showExportMenu, showFind]);
+
+  const closeVersions = useCallback(() => {
+    setShowVersions(false);
+    viewRef.current?.focus();
+  }, []);
+
+  // Through the view, so Cmd/Ctrl+Z takes the restore back. The text it
+  // replaces becomes a version first, whatever the interval says
+  const restoreVersion = useCallback(async (content: string) => {
+    const view = viewRef.current;
+    const current = noteRef.current;
+    if (!view || !current) return;
+    await recordVersion(current.id, view.state.doc.toString(), true);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } });
+    closeVersions();
+  }, [closeVersions]);
 
   // Naming flow: in an unnamed note, the first line plus Enter becomes the
   // name and leaves the content, so exports hold only the content
@@ -317,6 +338,9 @@ export function Editor() {
             aria-label={t.redo}
           >
             <RedoIcon />
+          </button>
+          <button className="action-btn icon-btn" onClick={() => setShowVersions(true)} title={t.history} aria-label={t.history}>
+            <HistoryIcon />
           </button>
           <button className="action-btn icon-btn" onClick={handleCopy} title={t.copyToClipboard} aria-label={t.copy}>
             {copyFeedback ? <CheckIcon /> : <CopyIcon />}
@@ -496,6 +520,15 @@ export function Editor() {
           viewRef={viewRef}
           onClose={() => { setShowFind(false); viewRef.current?.focus(); }}
           focusTick={findFocusTick}
+        />
+      )}
+
+      {showVersions && viewRef.current && (
+        <HistoryDialog
+          noteId={note.id}
+          current={viewRef.current.state.doc.toString()}
+          onRestore={restoreVersion}
+          onClose={closeVersions}
         />
       )}
 
