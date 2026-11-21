@@ -13,12 +13,13 @@ export interface Typography {
 
 const KEY = 'skrive-typography';
 
-export const DEFAULT_TYPOGRAPHY: Typography = { font: 'recursive', size: 'normal', spacing: 'normal' };
+export const DEFAULT_TYPOGRAPHY: Typography = { font: 'duo', size: 'normal', spacing: 'normal' };
 
+// Alphabetical: the picker lists them in this order
 export const FONTS: Record<EditorFont, { name: string; stack: string }> = {
-  recursive: { name: 'Recursive', stack: "'Recursive', var(--font-mono)" },
+  duo: { name: 'iA Writer Duo', stack: "'iA Writer Duo', var(--font-mono)" },
   monaspace: { name: 'Monaspace', stack: "'Monaspace Neon', var(--font-mono)" },
-  duo: { name: 'iA Writer Duo', stack: "'iA Writer Duo', var(--font-mono)" }
+  recursive: { name: 'Recursive', stack: "'Recursive', var(--font-mono)" }
 };
 
 export const SIZES: Record<TextSize, number> = { small: 14, normal: 16, large: 18 };
