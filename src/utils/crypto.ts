@@ -154,10 +154,8 @@ async function getOrCreateWrappingKey(db: IDBDatabase): Promise<CryptoKey> {
   return key;
 }
 
-/**
- * Persist the master key: keep it in memory and store it in IndexedDB,
- * wrapped with the non-extractable device wrapping key
- */
+// Keep the master key in memory and in IndexedDB, wrapped with the
+// non-extractable device wrapping key
 async function persistMasterKey(key: Uint8Array): Promise<void> {
   const db = await openCryptoDb();
   const wrappingKey = await getOrCreateWrappingKey(db);
@@ -241,10 +239,7 @@ export async function protectionFitsKey(protection: PassphraseWrappedKey, key: U
   return protection.keyCheck === await keyFingerprint(key);
 }
 
-/**
- * Import key from URL-safe base64 string; throws if it is not a valid
- * 256-bit key
- */
+// Throws if the URL-safe base64 string is not a valid 256-bit key
 function importKeyFromBase64(base64Key: string): Uint8Array {
   const key = sodium.from_base64(base64Key, sodium.base64_variants.URLSAFE_NO_PADDING);
   if (key.length !== MASTER_KEY_BYTES) {
@@ -302,10 +297,7 @@ export async function wrapKeyWithPassphrase(
   };
 }
 
-/**
- * Unwrap a passphrase-wrapped master key; throws on wrong passphrase
- * or corrupted data
- */
+// Throws on a wrong passphrase or corrupted data
 export async function unwrapKeyWithPassphrase(
   wrapped: PassphraseWrappedKey,
   passphrase: string

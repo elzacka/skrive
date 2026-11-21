@@ -124,10 +124,9 @@ export default function App() {
   const phone = useMediaQuery(PHONE_QUERY);
   const narrow = useMediaQuery(NARROW_QUERY);
 
-  // On phones the app never mounts: notes are per-device, so there is no
-  // data to reach, and mounting would create stranded first-run state.
-  // But once mounted (e.g. tablet rotating to portrait), keep the app
-  // alive under the gate overlay - a debounced save could be pending
+  // Phones never mount the app: notes are per-device, and mounting would
+  // leave stranded first-run state. Once mounted, it stays alive under the
+  // gate, since a debounced save could be pending
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
     if (!phone) setHasMounted(true);
