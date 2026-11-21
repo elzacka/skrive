@@ -45,10 +45,19 @@ function contentAttributes(lang: 'no' | 'en', placeholder: string) {
 // pastes as plain text
 const FORMATTED_HTML = /<(h[1-6]|p|ul|ol|li|strong|b|em|i|a|blockquote|pre|table)[\s>]/i;
 
-// A note opened from a dialog (a restore from the trash) must not take
-// the keyboard from it
+// A note opened under a modal dialog waits for it to close, then takes
+// focus only if nothing else did (the trash returns it to its button)
 function focusUnlessModal(view: EditorView) {
-  if (!document.querySelector('[aria-modal="true"]')) view.focus();
+  if (!document.querySelector('[aria-modal="true"]')) {
+    view.focus();
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (document.querySelector('[aria-modal="true"]')) return;
+    observer.disconnect();
+    if (view.dom.isConnected && (!document.activeElement || document.activeElement === document.body)) view.focus();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 export function MarkdownEditor(props: MarkdownEditorProps) {
