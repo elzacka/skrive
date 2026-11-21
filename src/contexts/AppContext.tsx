@@ -327,6 +327,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // would produce a backup no passphrase can open
   const [backupKeyStale, setBackupKeyStale] = useState(false);
   const placeholderIdRef = useRef<string | null>(null);
+  // The stale marking could not be stored; hold it for this session
+  const staleUnmarkedRef = useRef(false);
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
   const [backupError, setBackupError] = useState(false);
   const [pendingRestoreState, setPendingRestoreState] = useState<{
@@ -398,7 +400,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // the next sessions know too ('stale' matches no fingerprint)
         if ((await initializeEncryption()) === 'created') {
           const protection = await getStoredBackupKeyProtection();
-          if (protection) await storeBackupKeyProtection({ ...protection, keyCheck: 'stale' });
+          if (protection && !(await storeBackupKeyProtection({ ...protection, keyCheck: 'stale' }))) {
+            staleUnmarkedRef.current = true;
+          }
         }
       } catch (error) {
         // Nothing is loaded and loadedRef stays false, so nothing is saved
@@ -619,7 +623,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const key = getMasterKey();
     if (!backupKeyProtection || !key) return;
     protectionFitsKey(backupKeyProtection, key).then(fits => {
-      setBackupKeyStale(fits === false);
+      setBackupKeyStale(fits === false || staleUnmarkedRef.current);
     });
   }, [backupKeyProtection]);
 
@@ -629,6 +633,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!key) return;
     const protection = await wrapKeyWithPassphrase(key, passphrase);
     await storeBackupKeyProtection(protection);
+    staleUnmarkedRef.current = false;
     setBackupKeyProtection(protection);
   }, []);
 

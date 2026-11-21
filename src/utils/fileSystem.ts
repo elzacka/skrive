@@ -176,7 +176,7 @@ export async function clearBackupHandle(): Promise<void> {
   }
 }
 
-export async function storeBackupKeyProtection(protection: PassphraseWrappedKey): Promise<void> {
+export async function storeBackupKeyProtection(protection: PassphraseWrappedKey): Promise<boolean> {
   try {
     const db = await openDB();
     const tx = db.transaction('handles', 'readwrite');
@@ -185,8 +185,10 @@ export async function storeBackupKeyProtection(protection: PassphraseWrappedKey)
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
     });
+    return true;
   } catch (error) {
     console.warn('Failed to store backup key protection in IndexedDB:', error);
+    return false;
   }
 }
 
