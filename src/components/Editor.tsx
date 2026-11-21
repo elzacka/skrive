@@ -22,7 +22,6 @@ import {
   TaskListIcon,
   BoldIcon,
   ItalicIcon,
-  StrikethroughIcon,
   CodeIcon,
   LinkIcon,
   CodeBlockIcon,
@@ -39,7 +38,7 @@ import {
 
 const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
 
-const NO_FORMATS: ActiveFormats = { bold: false, italic: false, strike: false, code: false, heading: 0, list: null };
+const NO_FORMATS: ActiveFormats = { bold: false, italic: false, code: false, heading: 0, list: null };
 
 function countWordsAndChars(content: string): { words: number; chars: number } {
   const text = markdownToPlainText(content);
@@ -336,7 +335,6 @@ export function Editor() {
           <div className="format-group">
             {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
             {formatButton(t.italicShortcut, shortcuts.italic, formats.italic, () => inline('italic'), ItalicIcon)}
-            {formatButton(t.strikethroughShortcut, shortcuts.strikethrough, formats.strike, () => inline('strike'), StrikethroughIcon)}
             {formatButton(t.inlineCodeShortcut, shortcuts.inlineCode, formats.code, () => inline('code'), CodeIcon)}
           </div>
           <div className="format-group">

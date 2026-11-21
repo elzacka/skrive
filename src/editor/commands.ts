@@ -17,7 +17,6 @@ const INLINE: Record<InlineStyle, { node: string; mark: string; markNode: string
 export interface ActiveFormats {
   bold: boolean;
   italic: boolean;
-  strike: boolean;
   code: boolean;
   heading: number;
   list: LineStyle | null;
@@ -44,7 +43,6 @@ export function activeFormats(state: EditorState): ActiveFormats {
   return {
     bold: !!enclosing(state, pos, 'StrongEmphasis'),
     italic: !!enclosing(state, pos, 'Emphasis'),
-    strike: !!enclosing(state, pos, 'Strikethrough'),
     code: !!enclosing(state, pos, 'InlineCode'),
     heading: heading ? heading[1].length : 0,
     list
