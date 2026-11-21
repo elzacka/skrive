@@ -196,7 +196,6 @@ async function getOrCreateWrappingKey(db: IDBDatabase): Promise<CryptoKey> {
  * wrapped with the non-extractable device wrapping key
  */
 export async function persistMasterKey(key: Uint8Array): Promise<void> {
-  masterKey = key;
   const db = await openCryptoDb();
   const wrappingKey = await getOrCreateWrappingKey(db);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -204,14 +203,19 @@ export async function persistMasterKey(key: Uint8Array): Promise<void> {
     await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, key as BufferSource)
   );
   await dbPut(db, WRAPPED_MASTER_KEY_ID, { iv, data } satisfies WrappedMasterKeyRecord);
+  // Only after the write: data saved with a key that was never stored
+  // would be unreadable on the next start
+  masterKey = key;
 }
 
+// null only when no key has ever been stored; a stored key that cannot be
+// read throws, so the caller never replaces it with a new one
 async function loadMasterKeyFromDb(): Promise<Uint8Array | null> {
   const db = await openCryptoDb();
   const record = await dbGet<WrappedMasterKeyRecord>(db, WRAPPED_MASTER_KEY_ID);
   if (!record) return null;
   const wrappingKey = await dbGet<CryptoKey>(db, WRAPPING_KEY_ID);
-  if (!wrappingKey) return null;
+  if (!wrappingKey) throw new Error('Wrapping key missing for stored master key');
   const plain = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: record.iv as BufferSource },
     wrappingKey,
@@ -220,39 +224,25 @@ async function loadMasterKeyFromDb(): Promise<Uint8Array | null> {
   return new Uint8Array(plain);
 }
 
-/**
- * Initialize encryption: load existing key, migrate a legacy localStorage
- * key, or generate a new one
- */
+// Throws when a stored key cannot be read: a new key there would make
+// every saved note unreadable
 export async function initializeEncryption(): Promise<void> {
   await initCrypto();
 
-  try {
-    const stored = await loadMasterKeyFromDb();
-    if (stored) {
-      masterKey = stored;
-      return;
-    }
-  } catch (error) {
-    console.warn('Failed to load encryption key from IndexedDB:', error);
+  const stored = await loadMasterKeyFromDb();
+  if (stored) {
+    masterKey = stored;
+    return;
   }
 
-  // Migrate legacy plaintext key from localStorage
   const legacyKey = localStorage.getItem(LEGACY_KEY_STORAGE_KEY);
   if (legacyKey) {
-    try {
-      const key = importKeyFromBase64(legacyKey);
-      await persistMasterKey(key);
-      localStorage.removeItem(LEGACY_KEY_STORAGE_KEY);
-      return;
-    } catch (error) {
-      console.warn('Stored encryption key corrupted, generating new one:', error);
-    }
+    await persistMasterKey(importKeyFromBase64(legacyKey));
+    localStorage.removeItem(LEGACY_KEY_STORAGE_KEY);
+    return;
   }
 
-  // Generate new key for new users
-  const key = await generateMasterKey();
-  await persistMasterKey(key);
+  await persistMasterKey(await generateMasterKey());
 }
 
 /**

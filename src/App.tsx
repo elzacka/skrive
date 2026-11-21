@@ -19,23 +19,64 @@ function AppContent() {
     pendingRestore,
     confirmRestore,
     cancelRestore,
-    storageLoadError,
-    dismissStorageError,
+    keyError,
+    recoveryCopies,
+    recoverCopies,
+    discardRecoveryCopies,
     lastDeletedNotes,
     undoDelete,
     dismissDeleted
   } = useApp();
   const t = i18n[state.lang];
+  const [recoveryState, setRecoveryState] = useState<'idle' | 'passphrase' | 'failed' | 'hidden'>('idle');
+
+  if (keyError) {
+    return (
+      <div className="screen-gate">
+        <h1>{t.keyErrorTitle}</h1>
+        <p>{t.keyErrorBody}</p>
+        <button onClick={() => location.reload()}>{t.reload}</button>
+      </div>
+    );
+  }
+
+  const startRecovery = async () => {
+    const result = await recoverCopies();
+    setRecoveryState(result === 'done' ? 'idle' : result === 'needPassphrase' ? 'passphrase' : 'failed');
+  };
+
+  const discardRecovery = async () => {
+    if (!confirm(t.confirmDeleteRecovery)) return;
+    await discardRecoveryCopies();
+    setRecoveryState('idle');
+  };
 
   return (
     <div className="app">
-      {storageLoadError && (
+      {recoveryCopies > 0 && recoveryState !== 'hidden' && (
         <div className="storage-banner" role="alert">
-          <span>{t.storageLoadError}</span>
-          <button className="storage-banner-close" onClick={dismissStorageError} aria-label={t.close}>
-            {t.close}
-          </button>
+          <span>{recoveryState === 'failed' ? t.recoveryFailed : t.recoveryAvailable}</span>
+          <span className="storage-banner-actions">
+            {recoveryState === 'failed' ? (
+              <button className="storage-banner-close" onClick={discardRecovery}>{t.deleteRecovery}</button>
+            ) : (
+              <button className="storage-banner-close" onClick={startRecovery}>{t.recover}</button>
+            )}
+            <button className="storage-banner-close" onClick={() => setRecoveryState('hidden')}>{t.close}</button>
+          </span>
         </div>
+      )}
+      {recoveryState === 'passphrase' && (
+        <PassphraseDialog
+          mode="enter"
+          hint={t.recoveryPassphraseHint}
+          onSubmit={async (passphrase) => {
+            const result = await recoverCopies(passphrase);
+            if (result === 'done') setRecoveryState('idle');
+            return result === 'done';
+          }}
+          onCancel={() => setRecoveryState('failed')}
+        />
       )}
       <div className="main-content">
         <Sidebar />

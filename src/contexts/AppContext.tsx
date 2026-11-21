@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
-import type { AppState, Note, Tag, Folder, ExportData, FileSystemDirectoryHandle } from '@/types';
+import type { AppState, Note, Tag, Folder, FileSystemDirectoryHandle } from '@/types';
 import {
   loadFromStorageEncrypted,
   saveToStorageEncrypted,
@@ -8,13 +8,14 @@ import {
   exportToJsonFile,
   importFromJsonFile,
   importNoteFromFile,
-  validateImportData
+  validateImportData,
+  listRecoveryCopies,
+  readRecoveryCopies,
+  deleteRecoveryCopies
 } from '@/utils/storage';
 import {
   initializeEncryption,
   getMasterKey,
-  persistMasterKey,
-  importKeyFromBase64,
   wrapKeyWithPassphrase,
   unwrapKeyWithPassphrase,
   encrypt,
@@ -33,6 +34,7 @@ import {
   clearBackupHandle,
   writeAutoBackup,
   readAutoBackup,
+  pickBackupFile,
   storeBackupKeyProtection,
   getStoredBackupKeyProtection,
   type EncryptedBackupFile,
@@ -47,6 +49,27 @@ function sanitizeNotes(notes: Note[]): Note[] {
   return notes.map(note =>
     note.format === 'richtext' ? { ...note, content: sanitizeHtml(note.content) } : note
   );
+}
+
+// Restore and import add to what is there and never remove a note: an
+// incoming note replaces a local one only when it was edited later
+function mergeById<T extends { id: string }>(current: T[], incoming: T[], isNewer?: (a: T, b: T) => boolean): T[] {
+  const byId = new Map(current.map(item => [item.id, item]));
+  for (const item of incoming) {
+    const existing = byId.get(item.id);
+    if (!existing || isNewer?.(item, existing)) byId.set(item.id, item);
+  }
+  return [...byId.values()];
+}
+
+type StoredData = Pick<AppState, 'notes' | 'tags' | 'folders'>;
+
+function mergeData(current: StoredData, incoming: StoredData): StoredData {
+  return {
+    notes: mergeById(current.notes, sanitizeNotes(incoming.notes), (a, b) => a.updatedAt > b.updatedAt),
+    tags: mergeById(current.tags, incoming.tags),
+    folders: mergeById(current.folders, incoming.folders)
+  };
 }
 
 // Helper to build a new note object
@@ -86,7 +109,7 @@ type Action =
   | { type: 'SET_TAG_FILTER'; payload: string | null }
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'TOGGLE_SIDEBAR' }
-  | { type: 'IMPORT_DATA'; payload: ExportData };
+  | { type: 'MERGE_DATA'; payload: StoredData };
 
 const initialState: AppState = {
   lang: 'no',
@@ -203,13 +226,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'TOGGLE_SIDEBAR':
       return { ...state, sidebarVisible: !state.sidebarVisible };
     
-    case 'IMPORT_DATA':
-      return {
-        ...state,
-        notes: action.payload.notes,
-        tags: action.payload.tags,
-        folders: action.payload.folders
-      };
+    case 'MERGE_DATA':
+      return { ...state, ...mergeData(state, action.payload) };
     
     default:
       return state;
@@ -226,8 +244,10 @@ interface AppContextValue {
   // Persistence
   saveStatus: SaveStatus;
   flushSave: () => void;
-  storageLoadError: boolean;
-  dismissStorageError: () => void;
+  keyError: boolean;
+  recoveryCopies: number;
+  recoverCopies: (passphrase?: string) => Promise<'done' | 'needPassphrase' | 'failed'>;
+  discardRecoveryCopies: () => Promise<void>;
   storagePersisted: boolean | null;
 
   // Delete undo
@@ -304,12 +324,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [backupError, setBackupError] = useState(false);
   const [pendingRestoreState, setPendingRestoreState] = useState<{
     file: EncryptedBackupFile;
-    handle: FileSystemDirectoryHandle;
+    handle: FileSystemDirectoryHandle | null;
     source: 'init' | 'manual';
   } | null>(null);
   const [backupPermissionNeeded, setBackupPermissionNeeded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
-  const [storageLoadError, setStorageLoadError] = useState(false);
+  const [keyError, setKeyError] = useState(false);
+  const [recoveryCopies, setRecoveryCopies] = useState(0);
+  // Whether this session's notes came from storage or a restore. Without
+  // that, arming auto-backup could overwrite a good backup with an empty state
+  const hasLocalDataRef = useRef(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const [storagePersisted, setStoragePersisted] = useState<boolean | null>(null);
   const [lastDeletedNotes, setLastDeletedNotes] = useState<Note[] | null>(null);
   const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -321,36 +347,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Apply restored/imported data to state and select the most recent note
-  const applyRestoredData = useCallback((data: { notes: Note[]; tags: Tag[]; folders: Folder[] }) => {
-    const notes = sanitizeNotes(data.notes);
-    dispatch({ type: 'SET_NOTES', payload: notes });
-    dispatch({ type: 'SET_TAGS', payload: data.tags });
-    dispatch({ type: 'SET_FOLDERS', payload: data.folders });
-    if (notes.length > 0) {
-      const mostRecent = notes.reduce((latest, note) =>
+  // Merge restored data into state and open the most recently edited note
+  const applyRestoredData = useCallback((data: StoredData) => {
+    dispatch({ type: 'MERGE_DATA', payload: data });
+    hasLocalDataRef.current = true;
+    if (data.notes.length > 0) {
+      const mostRecent = data.notes.reduce((latest, note) =>
         note.updatedAt > latest.updatedAt ? note : latest
       );
       dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
     }
   }, []);
 
-  // Restore from a legacy plaintext backup file (validated); the key is
-  // migrated into wrapped IndexedDB storage
-  const restoreLegacyBackup = useCallback(async (data: LegacyAutoBackupData): Promise<boolean> => {
-    try {
-      if (!validateImportData(data)) {
-        console.warn('Legacy backup failed validation');
-        return false;
-      }
-      const restoredKey = importKeyFromBase64(data.encryptionKey);
-      await persistMasterKey(restoredKey);
-      applyRestoredData(data);
-      return true;
-    } catch (error) {
-      console.warn('Legacy backup restore failed:', error);
+  // Legacy backups hold plaintext notes; their key is not needed
+  const restoreLegacyBackup = useCallback((data: LegacyAutoBackupData): boolean => {
+    if (!validateImportData(data)) {
+      console.warn('Legacy backup failed validation');
       return false;
     }
+    applyRestoredData(data);
+    return true;
   }, [applyRestoredData]);
 
   // Load initial state with encryption
@@ -359,8 +375,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     initRef.current = true;
 
     const initApp = async () => {
-      // Initialize encryption first
-      await initializeEncryption();
+      try {
+        await initializeEncryption();
+      } catch (error) {
+        // Nothing is loaded and loadedRef stays false, so nothing is saved
+        console.error('Encryption key could not be read:', error);
+        setKeyError(true);
+        return;
+      }
 
       // Load encrypted state
       let notes: Note[] = [];
@@ -376,11 +398,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_NOTES', payload: loadResult.state.notes });
         dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
         dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
-      } else if (loadResult.status === 'error') {
-        // Stored data exists but could not be read; a recovery copy has
-        // been preserved so continuing with a fresh state is safe
-        setStorageLoadError(true);
       }
+      hasLocalDataRef.current = hasLocalData;
+      setRecoveryCopies((await listRecoveryCopies()).length);
       loadedRef.current = true;
 
       // Try to restore backup handle and stored key protection.
@@ -399,8 +419,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!hasLocalData) {
             const result = await readAutoBackup(bkHandle);
             if (result?.kind === 'legacy') {
-              if (await restoreLegacyBackup(result.data)) {
-                notes = sanitizeNotes(result.data.notes);
+              if (restoreLegacyBackup(result.data)) {
+                notes = result.data.notes;
               }
             } else if (result?.kind === 'encrypted') {
               // Encrypted backup needs the passphrase; ask via dialog
@@ -534,7 +554,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Never write while a restore is pending: the state still holds a fresh
   // empty note and writing would destroy the backup being restored from
   useEffect(() => {
-    if (!backupHandle || !backupKeyProtection || pendingRestoreState || backupPermissionNeeded) return;
+    if (!backupHandle || !backupKeyProtection || pendingRestoreState || backupPermissionNeeded || recoveryCopies > 0) return;
 
     if (backupTimerRef.current) {
       clearTimeout(backupTimerRef.current);
@@ -554,6 +574,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setLastBackupTime(now);
         localStorage.setItem('skrive-last-backup', String(now));
         setBackupError(false);
+      } else if (!(await hasStoredPermission(backupHandle))) {
+        // Chrome revokes access when a tab sits in the background
+        setBackupPermissionNeeded(true);
       } else {
         setBackupError(true);
       }
@@ -564,7 +587,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(backupTimerRef.current);
       }
     };
-  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, buildEncryptedBackup]);
+  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, recoveryCopies, buildEncryptedBackup]);
 
   // Online status
   useEffect(() => {
@@ -769,43 +792,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const restoreFromBackup = useCallback(async () => {
     if (!isFileSystemAccessSupported()) return false;
 
-    const handle = await requestBackupDirectoryAccess();
-    if (!handle) return false;
-
-    const result = await readAutoBackup(handle);
+    const result = await pickBackupFile();
     if (!result) return false;
 
     if (result.kind === 'legacy') {
-      // Legacy plaintext backup: restore directly, but do not enable
-      // auto-backup until the user re-enables it with a passphrase
       return restoreLegacyBackup(result.data);
     }
 
-    // Encrypted backup: ask for the passphrase via dialog
-    setPendingRestoreState({ file: result.file, handle, source: 'manual' });
+    setPendingRestoreState({ file: result.file, handle: null, source: 'manual' });
     return true;
   }, [restoreLegacyBackup]);
 
+  // The backup is opened with its own key, and its notes are saved with this
+  // device's key: the master key never changes, so no stored copy goes stale
   const confirmRestore = useCallback(async (passphrase: string) => {
     if (!pendingRestoreState) return false;
     const { file, handle } = pendingRestoreState;
+    const currentKey = getMasterKey();
+    if (!currentKey) return false;
 
     try {
-      const restoredKey = await unwrapKeyWithPassphrase(file.keyProtection, passphrase);
-      const json = await decrypt(file.payload, restoredKey);
-      const data: unknown = JSON.parse(json);
+      const backupKey = await unwrapKeyWithPassphrase(file.keyProtection, passphrase);
+      const data: unknown = JSON.parse(await decrypt(file.payload, backupKey));
       if (!validateImportData(data)) {
         console.warn('Encrypted backup failed validation');
         return false;
       }
-
-      await persistMasterKey(restoredKey);
       applyRestoredData(data);
 
-      // Keep auto-backup running with the same passphrase protection
-      await storeBackupKeyProtection(file.keyProtection);
-      setBackupKeyProtection(file.keyProtection);
-      setBackupHandle(handle);
+      // At startup the restore re-arms auto-backup with the same
+      // passphrase; a manual restore keeps the current backup setup
+      if (handle) {
+        const protection = await wrapKeyWithPassphrase(currentKey, passphrase);
+        await storeBackupKeyProtection(protection);
+        setBackupKeyProtection(protection);
+        setBackupHandle(handle);
+      }
       setPendingRestoreState(null);
       return true;
     } catch {
@@ -835,8 +857,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setBackupKeyProtection(protection);
     }
     setBackupPermissionNeeded(false);
+    setBackupError(false);
+
+    // Same rule as at startup: with nothing loaded locally, offer the
+    // backup instead of overwriting it
+    if (!hasLocalDataRef.current) {
+      const result = await readAutoBackup(backupHandle);
+      if (result?.kind === 'legacy') {
+        restoreLegacyBackup(result.data);
+      } else if (result?.kind === 'encrypted') {
+        setPendingRestoreState({ file: result.file, handle: backupHandle, source: 'init' });
+      }
+    }
     return true;
-  }, [backupHandle]);
+  }, [backupHandle, restoreLegacyBackup]);
+
+  // Open recovery copies with the device key and, given the passphrase,
+  // with the key stored for auto-backup (the key before a lost one).
+  // Copies are deleted only after their notes are saved again
+  const recoverCopies = useCallback(async (passphrase?: string) => {
+    const keys: Uint8Array[] = [];
+    const currentKey = getMasterKey();
+    if (currentKey) keys.push(currentKey);
+    const protection = await getStoredBackupKeyProtection();
+    if (passphrase && protection) {
+      try {
+        keys.push(await unwrapKeyWithPassphrase(protection, passphrase));
+      } catch {
+        return 'failed' as const;
+      }
+    }
+
+    const { states, ids } = await readRecoveryCopies(keys);
+    if (ids.length > 0) {
+      let merged: StoredData = stateRef.current;
+      for (const recovered of states) merged = mergeData(merged, recovered);
+      applyRestoredData(merged);
+      const saved = await saveToStorageEncrypted({ lang: stateRef.current.lang, ...merged });
+      if (saved) await deleteRecoveryCopies(ids);
+    }
+
+    const remaining = (await listRecoveryCopies()).length;
+    setRecoveryCopies(remaining);
+    if (remaining === 0) return 'done' as const;
+    return !passphrase && protection ? 'needPassphrase' as const : 'failed' as const;
+  }, [applyRestoredData]);
+
+  const discardRecoveryCopies = useCallback(async () => {
+    await deleteRecoveryCopies(await listRecoveryCopies());
+    setRecoveryCopies(0);
+  }, []);
 
   const exportAllData = useCallback(() => {
     const data = createExportData(state);
@@ -846,7 +916,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const importData = useCallback(async () => {
     const data = await importFromJsonFile();
     if (data) {
-      dispatch({ type: 'IMPORT_DATA', payload: { ...data, notes: sanitizeNotes(data.notes) } });
+      dispatch({ type: 'MERGE_DATA', payload: data });
       return true;
     }
     return false;
@@ -900,8 +970,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isOnline,
     saveStatus,
     flushSave: performSave,
-    storageLoadError,
-    dismissStorageError: () => setStorageLoadError(false),
+    keyError,
+    recoveryCopies,
+    recoverCopies,
+    discardRecoveryCopies,
     storagePersisted,
     lastDeletedNotes,
     undoDelete,

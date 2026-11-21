@@ -5,11 +5,12 @@ import { CloseIcon } from './Icons';
 
 interface PassphraseDialogProps {
   mode: 'set' | 'enter';
+  hint?: string;
   onSubmit: (passphrase: string) => Promise<boolean>;
   onCancel: () => void;
 }
 
-export function PassphraseDialog({ mode, onSubmit, onCancel }: PassphraseDialogProps) {
+export function PassphraseDialog({ mode, hint, onSubmit, onCancel }: PassphraseDialogProps) {
   const { state } = useApp();
   const t = i18n[state.lang];
   const [passphrase, setPassphrase] = useState('');
@@ -56,7 +57,7 @@ export function PassphraseDialog({ mode, onSubmit, onCancel }: PassphraseDialogP
         </div>
         <div className="link-dialog-body">
           <p className="backup-popup-detail">
-            {mode === 'set' ? t.backupPassphraseHint : t.restorePassphraseHint}
+            {hint ?? (mode === 'set' ? t.backupPassphraseHint : t.restorePassphraseHint)}
           </p>
           <label>
             <span>{t.passphraseLabel}</span>

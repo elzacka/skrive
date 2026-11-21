@@ -308,7 +308,8 @@ export function Sidebar() {
     disableAutoBackup,
     restoreFromBackup,
     fsAccessSupported,
-    storagePersisted
+    storagePersisted,
+    recoveryCopies
   } = useApp();
 
   const t = i18n[state.lang];
@@ -1176,6 +1177,9 @@ export function Sidebar() {
                         <div className="backup-popup-error">
                           {t.backupPermissionNeeded}
                         </div>
+                        <div className="backup-popup-detail">
+                          {t.backupPermissionHint}
+                        </div>
                         <button className="backup-popup-btn" onClick={async () => { await reactivateBackup(); }}>
                           <FolderSyncIcon size={16} />
                           <span>{t.reactivateBackup}</span>
@@ -1194,6 +1198,11 @@ export function Sidebar() {
                     {backupError && (
                       <div className="backup-popup-error">
                         {t.backupFailed}
+                      </div>
+                    )}
+                    {recoveryCopies > 0 && (
+                      <div className="backup-popup-error">
+                        {t.backupPaused}
                       </div>
                     )}
                     <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setShowBackupMenu(false); }}>

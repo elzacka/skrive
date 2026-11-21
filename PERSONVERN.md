@@ -1,6 +1,6 @@
 # Personvernerklæring
 
-Sist oppdatert: 26.10.26
+Sist oppdatert: 21.11.26
 
 Den samme teksten står i appen, på
 [personvern.html](https://elzacka.github.io/skrive/personvern.html).
@@ -14,9 +14,12 @@ noen server. Appen bruker ikke informasjonskapsler og har ingen brukerkontoer.
 
 - Notater og mapper: Lagres lokalt i nettleseren din, kryptert med AEGIS-256
   eller XChaCha20-Poly1305. Krypteringsnøkkelen lages og lagres på enheten din.
+  Notater som ikke kan leses, blir liggende som en kryptert
+  gjenopprettingskopi til du gjenoppretter eller sletter den.
 - Innstillinger: Språkvalg og visningsinnstillinger.
 - Auto-backup: Hvis du slår det på, lagres en kryptert kopi av notatene i en
-  lokal mappe du velger. Kopien er beskyttet med en passordfrase du velger.
+  lokal mappe du velger, sammen med de ti forrige versjonene. Kopiene er
+  beskyttet med en passordfrase du velger.
 
 ## GitHub
 
@@ -28,7 +31,7 @@ sikkerhetshensyn når du åpner appen. Se
 
 - Eksporter alle data med Eksporter-funksjonen. Filer du eksporterer selv, er
   ukrypterte, og du velger selv hvor de lagres.
-- Slett alle data ved å tømme nettleserens lagring. Slett også backupfilen i
+- Slett alle data ved å tømme nettleserens lagring. Slett også backupfilene i
   mappen du valgte hvis du har slått på auto-backup.
 
 ## Kontakt

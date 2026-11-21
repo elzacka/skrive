@@ -16,7 +16,9 @@ const VERSION = '2.0.0';
 const DATA_DB_NAME = 'skrive-data';
 const DATA_STORE = 'state';
 const STATE_KEY = 'encrypted-state';
-const RECOVERY_KEY = 'encrypted-state-recovery';
+// Single-slot recovery key of earlier versions; read, never written
+const LEGACY_RECOVERY_KEY = 'encrypted-state-recovery';
+const RECOVERY_PREFIX = 'encrypted-state-recovery-';
 // Encrypted spill written during pagehide when a debounced save is still
 // pending: async IndexedDB writes cannot complete during unload, but
 // localStorage.setItem is synchronous (libsodium encrypt resolves in a
@@ -66,13 +68,26 @@ async function idbGet(key: string): Promise<unknown> {
   });
 }
 
-async function idbSet(key: string, value: unknown): Promise<void> {
+async function idbWrite(write: (store: IDBObjectStore) => void): Promise<void> {
   const db = await openDataDB();
   const tx = db.transaction(DATA_STORE, 'readwrite');
-  tx.objectStore(DATA_STORE).put(value, key);
+  write(tx.objectStore(DATA_STORE));
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+function idbSet(key: string, value: unknown): Promise<void> {
+  return idbWrite((store) => store.put(value, key));
+}
+
+async function idbKeys(): Promise<string[]> {
+  const db = await openDataDB();
+  const request = db.transaction(DATA_STORE, 'readonly').objectStore(DATA_STORE).getAllKeys();
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result.map(String));
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -93,8 +108,7 @@ function normalizeState(state: StoredState): StoredState {
   };
 }
 
-async function decryptStoredState(parsed: EncryptedStoredState): Promise<StoredState> {
-  const key = getMasterKey();
+async function decryptStoredState(parsed: EncryptedStoredState, key = getMasterKey()): Promise<StoredState> {
   if (!key) {
     throw new Error('No encryption key available');
   }
@@ -102,15 +116,53 @@ async function decryptStoredState(parsed: EncryptedStoredState): Promise<StoredS
   return normalizeState(JSON.parse(decrypted) as StoredState);
 }
 
-// Preserve an unreadable blob under a recovery key so a later save
-// cannot destroy it
+// Each unreadable blob gets its own key so a later failure or save can
+// never destroy an earlier copy
 async function preserveRecoveryCopy(blob: unknown): Promise<void> {
   try {
-    await idbSet(RECOVERY_KEY, blob);
-    console.warn('Unreadable stored state preserved under recovery key');
+    await idbSet(`${RECOVERY_PREFIX}${Date.now()}`, blob);
+    console.warn('Unreadable stored state preserved as recovery copy');
   } catch (error) {
     console.error('Failed to preserve recovery copy:', error);
   }
+}
+
+export async function listRecoveryCopies(): Promise<string[]> {
+  try {
+    return (await idbKeys()).filter(k => k === LEGACY_RECOVERY_KEY || k.startsWith(RECOVERY_PREFIX));
+  } catch {
+    return [];
+  }
+}
+
+// Decrypt every recovery copy that one of the keys opens; returns the
+// states and the ids of the copies they came from
+export async function readRecoveryCopies(keys: Uint8Array[]): Promise<{ states: StoredState[]; ids: string[] }> {
+  const states: StoredState[] = [];
+  const ids: string[] = [];
+  for (const id of await listRecoveryCopies()) {
+    const raw = await idbGet(id);
+    let blob: EncryptedStoredState;
+    try {
+      blob = (typeof raw === 'string' ? JSON.parse(raw) : raw) as EncryptedStoredState;
+    } catch {
+      continue;
+    }
+    for (const key of keys) {
+      try {
+        states.push(await decryptStoredState(blob, key));
+        ids.push(id);
+        break;
+      } catch {
+        // Wrong key for this copy; try the next one
+      }
+    }
+  }
+  return { states, ids };
+}
+
+export async function deleteRecoveryCopies(ids: string[]): Promise<void> {
+  await idbWrite((store) => ids.forEach(id => store.delete(id)));
 }
 
 /**

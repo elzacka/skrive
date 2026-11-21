@@ -603,6 +603,16 @@ body {
   opacity: 0.92;
 }
 
+.screen-gate button {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--accent);
+  background: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
 .shortcuts-section-title:first-of-type {
   margin-top: 0;
 }
@@ -1991,6 +2001,11 @@ body {
   font-size: 12px;
   color: #fff;
   background: var(--danger);
+}
+
+.storage-banner-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .storage-banner-close {

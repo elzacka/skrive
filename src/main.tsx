@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { InstanceGate } from './components/InstanceGate';
 
 // Enforce HTTPS in production
 if (import.meta.env.PROD && window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
@@ -25,8 +26,30 @@ if ('serviceWorker' in navigator &&
   });
 }
 
-createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!);
+const mount = () => root.render(
   <StrictMode>
     <App />
   </StrictMode>
 );
+
+// One window at a time: each saves the whole state, so a second window
+// would overwrite the first one's changes. A waiting window opens by itself
+// once the other closes
+const never = () => new Promise<void>(() => {});
+if ('locks' in navigator) {
+  navigator.locks.request('skrive-instance', { ifAvailable: true }, (lock) => {
+    if (lock) {
+      mount();
+      return never();
+    }
+    root.render(<InstanceGate />);
+    navigator.locks.request('skrive-instance', () => {
+      mount();
+      return never();
+    });
+    return undefined;
+  });
+} else {
+  mount();
+}

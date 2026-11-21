@@ -17,7 +17,10 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 - App state lives in IndexedDB (`skrive-data`/`state`), reading and migrating legacy localStorage blobs (`skrive-encrypted`, `skrive-state`) once. Saves debounce 800 ms in AppContext; `saveStatus` reflects the real write result.
 - On `pagehide` with a pending save, an encrypted copy goes to localStorage (`skrive-emergency`) synchronously, since async IndexedDB can't finish during unload; it's treated as newest on next load, then cleared.
-- If stored data exists but fails to read at startup, it's preserved under an IndexedDB recovery key with a warning banner — a save must never overwrite data the app hasn't successfully read.
+- If stored data exists but fails to read at startup, it's preserved under its own `encrypted-state-recovery-<ts>` key (never overwritten) — a save must never overwrite data the app hasn't successfully read. While any copy exists, a banner offers recovery (device key, then the auto-backup passphrase key) and auto-backup pauses.
+- The master key never changes once created: a stored key that can't be read blocks the app (`keyError`) instead of being replaced, and restores re-encrypt with the device key.
+- One window at a time (Web Locks, main.tsx): each window saves the whole state, so a second one waits behind `InstanceGate`.
+- Restore and JSON import merge by id (newer `updatedAt` wins); they never remove notes.
 - `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
 
 ## Security
@@ -37,10 +40,11 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 ## Auto-backup
 
 - File System Access API only (Chrome/Edge); Firefox/Safari show an info message instead.
-- Writes `skrive-auto-backup.json` to a user-chosen folder, 5 s after notes/tags/folders change. `writeAutoBackup()` skips `verifyPermission()` to avoid prompting during background saves.
+- Writes `skrive-auto-backup.json` to a user-chosen folder, 5 s after notes/tags/folders change. `writeAutoBackup()` skips `verifyPermission()` to avoid prompting during background saves; a failed write re-queries permission.
+- Before the first write of each session and day, the previous file is kept as `skrive-auto-backup-<date-time>.json` (10 newest). Manual restore opens a file picker, so any of them can be restored.
 - Payload is encrypted with the master key; the key itself travels wrapped with a passphrase-derived key (PBKDF2-HMAC-SHA256 with `PBKDF2_ITERATIONS` in src/utils/crypto.ts, AES-GCM) set via `PassphraseDialog`. Legacy plaintext backups are still readable for restore but never written.
-- Directory/backup permission is only queried at startup, never requested — `requestPermission` without a user gesture auto-denies. An expired permission sets `backupPermissionNeeded`; the popup offers reactivation.
-- If local data is missing but a backup handle exists: plaintext backups restore automatically; encrypted ones prompt for a passphrase first, and auto-backup disarms while that dialog is open (or after cancel) so the file isn't overwritten by fresh empty state.
+- Directory/backup permission is only queried at startup, never requested — `requestPermission` without a user gesture auto-denies. An expired permission sets `backupPermissionNeeded`; the popup offers reactivation, whose prompt lets the user allow on every visit (installed apps keep access by default).
+- If local data is missing but a backup handle exists (at startup or on reactivation): plaintext backups restore automatically; encrypted ones prompt for a passphrase first, and auto-backup disarms while that dialog is open (or after cancel) so the file isn't overwritten by fresh empty state.
 
 ## Startup
 

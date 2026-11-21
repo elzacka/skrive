@@ -5,6 +5,9 @@ import type { EncryptedData, PassphraseWrappedKey } from './crypto';
 const DIRECTORY_HANDLE_KEY = 'skrive-directory-handle';
 const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
 const BACKUP_KEY_PROTECTION_KEY = 'skrive-backup-key-protection';
+const BACKUP_FILE = 'skrive-auto-backup.json';
+const SNAPSHOT_PREFIX = 'skrive-auto-backup-';
+const SNAPSHOTS_KEPT = 10;
 
 // Legacy backup format (plaintext notes + plaintext key); still readable
 // for restore, never written anymore
@@ -367,14 +370,54 @@ export async function requestBackupDirectoryAccess(): Promise<FileSystemDirector
   }
 }
 
+// Local time, sortable: 2026-11-21-1430
+function fileStamp(time: number): string {
+  const d = new Date(time);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+// Day of the last snapshot in this session
+let snapshotDay: string | null = null;
+
+// Before the first write of each session and each day, keep the previous
+// backup as a dated copy: a bad state written at startup or a mistaken
+// bulk delete can then never destroy the only backup
+async function snapshotPreviousBackup(handle: FileSystemDirectoryHandle): Promise<void> {
+  const today = fileStamp(Date.now()).slice(0, 10);
+  if (snapshotDay === today) return;
+  let existing: File;
+  try {
+    existing = await (await handle.getFileHandle(BACKUP_FILE)).getFile();
+  } catch {
+    snapshotDay = today;
+    return;
+  }
+  const copy = await handle.getFileHandle(`${SNAPSHOT_PREFIX}${fileStamp(existing.lastModified)}.json`, { create: true });
+  const writable = await copy.createWritable();
+  await writable.write(existing);
+  await writable.close();
+  snapshotDay = today;
+
+  const snapshots: string[] = [];
+  for await (const name of handle.keys()) {
+    if (name.startsWith(SNAPSHOT_PREFIX)) snapshots.push(name);
+  }
+  snapshots.sort();
+  for (const name of snapshots.slice(0, -SNAPSHOTS_KEPT)) {
+    await handle.removeEntry(name);
+  }
+}
+
 export async function writeAutoBackup(
   handle: FileSystemDirectoryHandle,
   file: EncryptedBackupFile
 ): Promise<boolean> {
   try {
-    // Skip verifyPermission to avoid prompting the user during background saves.
-    // If permission was revoked, the write will throw and fail silently.
-    const fileHandle = await handle.getFileHandle('skrive-auto-backup.json', { create: true });
+    // No verifyPermission: a background save must never prompt. A revoked
+    // permission makes the write throw, and the caller checks for it
+    await snapshotPreviousBackup(handle);
+    const fileHandle = await handle.getFileHandle(BACKUP_FILE, { create: true });
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(file, null, 2));
     await writable.close();
@@ -385,6 +428,24 @@ export async function writeAutoBackup(
   }
 }
 
+function parseBackup(text: string): AutoBackupReadResult | null {
+  const data = JSON.parse(text) as Record<string, unknown>;
+
+  if (data.format === 'skrive-encrypted-backup') {
+    const encrypted = data as unknown as EncryptedBackupFile;
+    if (!encrypted.keyProtection?.wrappedKey || !encrypted.payload?.ciphertext) {
+      return null;
+    }
+    return { kind: 'encrypted', file: encrypted };
+  }
+
+  if (typeof data.encryptionKey === 'string' && Array.isArray(data.notes)) {
+    return { kind: 'legacy', data: data as unknown as LegacyAutoBackupData };
+  }
+
+  return null;
+}
+
 export async function readAutoBackup(
   handle: FileSystemDirectoryHandle
 ): Promise<AutoBackupReadResult | null> {
@@ -392,27 +453,23 @@ export async function readAutoBackup(
     if (!(await verifyPermission(handle))) {
       return null;
     }
-    const fileHandle = await handle.getFileHandle('skrive-auto-backup.json');
-    const file = await fileHandle.getFile();
-    const text = await file.text();
-    const data = JSON.parse(text) as Record<string, unknown>;
-
-    if (data.format === 'skrive-encrypted-backup') {
-      const encrypted = data as unknown as EncryptedBackupFile;
-      if (!encrypted.keyProtection?.wrappedKey || !encrypted.payload?.ciphertext) {
-        return null;
-      }
-      return { kind: 'encrypted', file: encrypted };
-    }
-
-    // Legacy plaintext format
-    if (typeof data.encryptionKey === 'string' && Array.isArray(data.notes)) {
-      return { kind: 'legacy', data: data as unknown as LegacyAutoBackupData };
-    }
-
-    return null;
+    const file = await (await handle.getFileHandle(BACKUP_FILE)).getFile();
+    return parseBackup(await file.text());
   } catch (error) {
     console.warn('Failed to read auto-backup:', error);
+    return null;
+  }
+}
+
+// Manual restore: the user picks the backup file or one of its dated copies
+export async function pickBackupFile(): Promise<AutoBackupReadResult | null> {
+  try {
+    const [fileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'Skrive backup', accept: { 'application/json': ['.json'] } }]
+    });
+    return parseBackup(await (await fileHandle.getFile()).text());
+  } catch (error) {
+    console.warn('Failed to read backup file:', error);
     return null;
   }
 }
