@@ -115,7 +115,6 @@ export interface ExportData {
 export interface I18nStrings {
   save: string;
   tags: string;
-  all: string;
   notes: string;
   note: string;
   folder: string;

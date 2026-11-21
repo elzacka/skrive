@@ -4,7 +4,6 @@ export const i18n: I18n = {
   no: {
     save: 'Eksporter',
     tags: 'Etiketter',
-    all: 'Alle',
     notes: 'Notater',
     note: 'Notat',
     folder: 'Mappe',
@@ -206,7 +205,6 @@ export const i18n: I18n = {
   en: {
     save: 'Export',
     tags: 'Tags',
-    all: 'All',
     notes: 'Notes',
     note: 'Note',
     folder: 'Folder',

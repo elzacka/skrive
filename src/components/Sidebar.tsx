@@ -334,7 +334,6 @@ export function Sidebar() {
   const [showRenewDialog, setShowRenewDialog] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [exportResult, setExportResult] = useState<{ folder: string } | 'failed' | null>(null);
-  const [tagsExpanded, setTagsExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<NoteSortMode>(() =>
     localStorage.getItem('skrive-sort') === 'recent' ? 'recent' : 'alpha'
   );
@@ -920,10 +919,6 @@ export function Sidebar() {
     return () => window.removeEventListener('keydown', handleNewFolderKey);
   });
 
-  const getTagNoteCount = (tagId: string) => {
-    return state.notes.filter(n => n.tags.includes(tagId)).length;
-  };
-
   const mac = isMac();
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
 
@@ -948,77 +943,61 @@ export function Sidebar() {
         />
       </div>
 
-      <div className="tags-section">
-        <button
-          className={`section-header ${tagsExpanded ? 'expanded' : ''}`}
-          onClick={() => setTagsExpanded(!tagsExpanded)}
-          aria-expanded={tagsExpanded}
-        >
-          <span className="section-expand"><ChevronRightIcon /></span>
-          <span className="section-title">{t.tags}</span>
-        </button>
-        {tagsExpanded && (
-          <div className="tags-list" role="listbox" aria-label={t.tags}>
-            <button
-              className={`tag-filter-btn ${state.selectedTagFilter === null ? 'active' : ''}`}
-              onClick={() => setTagFilter(null)}
-              role="option"
-              aria-selected={state.selectedTagFilter === null}
-            >
-              <span>{t.all}</span>
-              <span className="tag-count">{state.notes.length}</span>
-            </button>
+      {sortedTags.length > 0 && (
+        <div className="tags-section">
+          <div className="section-header">
+            <span className="section-title">{t.tags}</span>
+          </div>
+          <div className="tag-chips" role="group" aria-label={t.tags}>
             {sortedTags.map(tag => (
               editingTagId === tag.id ? (
-                <div key={tag.id} className="tag-filter-btn editing">
-                  <input
-                    type="text"
-                    className="tag-edit-input"
-                    value={editingTagName}
-                    onChange={(e) => setEditingTagName(e.target.value)}
-                    onBlur={handleSaveTagName}
-                    onKeyDown={handleTagKeyDown}
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
+                <input
+                  key={tag.id}
+                  type="text"
+                  className="tag-edit-input"
+                  value={editingTagName}
+                  onChange={(e) => setEditingTagName(e.target.value)}
+                  onBlur={handleSaveTagName}
+                  onKeyDown={handleTagKeyDown}
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
+                />
               ) : (
+                // A second click on the active tag shows all notes again
                 <button
                   key={tag.id}
-                  className={`tag-filter-btn ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
-                  onClick={() => setTagFilter(tag.id)}
+                  className={`tag-chip ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
+                  onClick={() => setTagFilter(state.selectedTagFilter === tag.id ? null : tag.id)}
                   onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
-                  role="option"
-                  aria-selected={state.selectedTagFilter === tag.id}
+                  aria-pressed={state.selectedTagFilter === tag.id}
                 >
-                  <span>{tag.name}</span>
-                  <span className="tag-count">{getTagNoteCount(tag.id)}</span>
+                  {tag.name}
                 </button>
               )
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="notes-section">
-        <div className="notes-header">
+        <div className="section-header">
           <span className="section-title">{t.notes}</span>
-          <div className="notes-header-actions">
+          <div className="section-actions">
             <button
-              className="sort-btn"
+              className="section-btn"
               onClick={toggleSortMode}
               title={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
               aria-label={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
             >
               <SortIcon size={16} />
             </button>
-            <button className="new-btn" onClick={() => createNote()} title={t.newNote} aria-label={t.newNote}>
-              <PlusIcon />
+            <button className="section-btn primary" onClick={() => createNote()} title={t.newNote} aria-label={t.newNote}>
+              <PlusIcon size={16} />
             </button>
           </div>
         </div>
         <div
-          className="notes-tree"
+          className={`notes-tree ${state.folders.length > 0 ? 'has-folders' : ''}`}
           role="tree"
           aria-label={t.notes}
           aria-multiselectable={true}
@@ -1101,6 +1080,9 @@ export function Sidebar() {
                 />
               ))}
             </>
+          )}
+          {filteredNotes.length === 0 && (isSearching || state.selectedTagFilter) && (
+            <p className="tree-empty">{t.noMatches}</p>
           )}
         </div>
       </div>
