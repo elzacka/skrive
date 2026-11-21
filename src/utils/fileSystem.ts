@@ -119,7 +119,9 @@ export function downloadNote(note: Note, format: ExportFormat = 'markdown'): voi
 // A name every file system accepts; case-insensitive file systems (macOS,
 // Windows) need the comparison in lower case
 function safeName(name: string, fallback: string, taken: Set<string>, extension = ''): string {
-  const base = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').replace(/[. ]+$/, '').trim().slice(0, 120) || fallback;
+  // Cut before trimming: a name may not end in a dot or space
+  let base = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').trim().slice(0, 120).replace(/[. ]+$/, '') || fallback;
+  if (/^(con|prn|aux|nul|com\d|lpt\d)$/i.test(base)) base += '_';
   let candidate = base + extension;
   for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${base} ${n}${extension}`;
   taken.add(candidate.toLowerCase());
@@ -146,12 +148,15 @@ export async function exportNotesToFolder(notes: Note[], folders: Folder[], unti
   const folderOf = (note: Note) => note.parentId !== null && known.has(note.parentId) ? note.parentId : null;
   const writeLevel = async (dir: FileSystemDirectoryHandle, parentId: string | null) => {
     const names = new Set<string>();
+    // A name the browser still refuses falls back to the untitled name
+    const open = <T>(name: string, extension: string, get: (n: string) => Promise<T>) =>
+      get(safeName(name, untitled, names, extension)).catch(() => get(safeName(untitled, untitled, names, extension)));
     for (const folder of folders.filter(f => f.parentId === parentId)) {
-      const sub = await dir.getDirectoryHandle(safeName(folder.name, untitled, names), { create: true });
+      const sub = await open(folder.name, '', n => dir.getDirectoryHandle(n, { create: true }));
       await writeLevel(sub, folder.id);
     }
     for (const note of notes.filter(n => folderOf(n) === parentId)) {
-      const file = await dir.getFileHandle(safeName(note.title, untitled, names, '.md'), { create: true });
+      const file = await open(note.title, '.md', n => dir.getFileHandle(n, { create: true }));
       const writable = await file.createWritable();
       await writable.write(note.content);
       await writable.close();

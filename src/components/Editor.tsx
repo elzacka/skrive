@@ -112,6 +112,8 @@ export function Editor() {
   // live in the editor. e.code, never e.key (layout-independent)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // A modal dialog owns the keyboard
+      if (document.querySelector('[aria-modal="true"]')) return;
       if (e.key === 'Escape') {
         if (showLinkDialog) {
           setShowLinkDialog(false);

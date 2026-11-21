@@ -490,6 +490,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       let lang: 'no' | 'en' = 'no';
 
       let hasLocalData = false;
+      let trash: TrashedNote[] = [];
+      let expired: TrashedNote[] = [];
       const loadResult = await loadFromStorageEncrypted();
       if (loadResult.status === 'unavailable') {
         setStartupBlocked('storage');
@@ -506,17 +508,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_NOTES', payload: notes });
         dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
         dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
-        const expired = loadResult.state.trash.filter(isTrashExpired);
-        const trash = loadResult.state.trash.filter(n => !isTrashExpired(n));
+        expired = loadResult.state.trash.filter(isTrashExpired);
+        trash = loadResult.state.trash.filter(n => !isTrashExpired(n));
         dispatch({ type: 'SET_TRASH', payload: trash });
         savedContentRef.current = new Map(notes.map(n => [n.id, n.content]));
         if (expired.length > 0) deleteHistory(expired.map(n => n.id));
-        pruneHistory(new Set([...notes, ...trash].map(n => n.id)));
       }
       await expirePreMarkdownCopy();
       hasLocalDataRef.current = hasLocalData;
-      setRecoveryCopies((await listRecoveryCopies()).length);
+      const copies = (await listRecoveryCopies()).length;
+      setRecoveryCopies(copies);
+      // A waiting recovery copy may hold notes whose history this would delete
+      if (loadResult.status === 'ok' && copies === 0) {
+        pruneHistory(new Set([...notes, ...trash].map(n => n.id)));
+      }
       loadedRef.current = true;
+      // Saving is open now: store the trash without the expired notes
+      if (expired.length > 0) dispatch({ type: 'SET_TRASH', payload: [...trash] });
 
       // Try to restore backup handle and stored key protection.
       // Only query permission here: requesting it without a user gesture

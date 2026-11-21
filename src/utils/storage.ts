@@ -194,6 +194,9 @@ export async function deleteRecoveryCopies(ids: string[]): Promise<void> {
 // so a save of the whole state never rewrites them. A version is the text
 // as it was before an edit, kept at most every HISTORY_INTERVAL
 const HISTORY_PREFIX = 'note-history-';
+// History written under a key that was later reset: kept aside, unread,
+// for HISTORY_DAYS after it was moved
+const UNREADABLE_HISTORY_PREFIX = 'unreadable-history-';
 export const HISTORY_DAYS = 30;
 const HISTORY_INTERVAL = 10 * 60 * 1000;
 const HISTORY_MAX = 100;
@@ -212,8 +215,8 @@ function queueHistory<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-// null when stored versions exist but cannot be read: they must not be
-// overwritten
+// null without a key. Versions another key wrote are moved aside, never
+// overwritten, and the note starts a new history
 async function readHistory(noteId: string): Promise<NoteVersion[] | null> {
   const blob = await idbGet(HISTORY_PREFIX + noteId) as EncryptedStoredState | undefined;
   if (!blob) return [];
@@ -222,7 +225,11 @@ async function readHistory(noteId: string): Promise<NoteVersion[] | null> {
   try {
     return JSON.parse(await decrypt(blob.encrypted, key)) as NoteVersion[];
   } catch {
-    return null;
+    await idbWrite(store => {
+      store.put({ movedAt: Date.now(), blob }, `${UNREADABLE_HISTORY_PREFIX}${noteId}-${Date.now()}`);
+      store.delete(HISTORY_PREFIX + noteId);
+    });
+    return [];
   }
 }
 
@@ -268,8 +275,10 @@ export async function listVersions(noteId: string): Promise<NoteVersion[]> {
 }
 
 export function deleteHistory(noteIds: string[]): Promise<void> {
-  return queueHistory(() => idbWrite(store => noteIds.forEach(id => store.delete(HISTORY_PREFIX + id))))
-    .catch(error => console.warn('Failed to delete note history:', error));
+  return queueHistory(async () => {
+    const aside = (await idbKeys()).filter(k => noteIds.some(id => k.startsWith(`${UNREADABLE_HISTORY_PREFIX}${id}-`)));
+    await idbWrite(store => [...noteIds.map(id => HISTORY_PREFIX + id), ...aside].forEach(k => store.delete(k)));
+  }).catch(error => console.warn('Failed to delete note history:', error));
 }
 
 // Drop versions past HISTORY_DAYS and the history of notes that no longer
@@ -277,6 +286,11 @@ export function deleteHistory(noteIds: string[]): Promise<void> {
 export function pruneHistory(noteIds: Set<string>): Promise<void> {
   return queueHistory(async () => {
     for (const k of await idbKeys()) {
+      if (k.startsWith(UNREADABLE_HISTORY_PREFIX)) {
+        const aside = await idbGet(k) as { movedAt?: number } | undefined;
+        if (Date.now() - (aside?.movedAt ?? 0) > HISTORY_DAYS * DAY) await idbWrite(store => store.delete(k));
+        continue;
+      }
       if (!k.startsWith(HISTORY_PREFIX)) continue;
       const id = k.slice(HISTORY_PREFIX.length);
       if (!noteIds.has(id)) {

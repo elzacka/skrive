@@ -45,6 +45,12 @@ function contentAttributes(lang: 'no' | 'en', placeholder: string) {
 // pastes as plain text
 const FORMATTED_HTML = /<(h[1-6]|p|ul|ol|li|strong|b|em|i|a|blockquote|pre|table)[\s>]/i;
 
+// A note opened from a dialog (a restore from the trash) must not take
+// the keyboard from it
+function focusUnlessModal(view: EditorView) {
+  if (!document.querySelector('[aria-modal="true"]')) view.focus();
+}
+
 export function MarkdownEditor(props: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const propsRef = useRef(props);
@@ -144,7 +150,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     document.fonts.load('700 14px "JetBrains Mono"').catch(() => {});
     const view = new EditorView({ state: createState(propsRef.current.content), parent: shadow, root: shadow });
     props.viewRef.current = view;
-    view.focus();
+    focusUnlessModal(view);
     return () => {
       flushPending();
       view.destroy();
@@ -160,7 +166,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     if (!view) return;
     flushPending();
     view.setState(createState(propsRef.current.content));
-    view.focus();
+    focusUnlessModal(view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.noteId]);
 

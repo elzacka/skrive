@@ -48,9 +48,9 @@ export function PassphraseDialog({ mode, hint, onSubmit, onCancel }: PassphraseD
 
   return (
     <div className="link-dialog-overlay">
-      <div className="link-dialog">
+      <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="passphrase-title">
         <div className="link-dialog-header">
-          <h3>{mode === 'set' ? t.setBackupPassphraseTitle : t.enterBackupPassphraseTitle}</h3>
+          <h3 id="passphrase-title">{mode === 'set' ? t.setBackupPassphraseTitle : t.enterBackupPassphraseTitle}</h3>
           <button className="link-dialog-close" onClick={onCancel} aria-label={t.cancel}>
             <CloseIcon size={16} />
           </button>

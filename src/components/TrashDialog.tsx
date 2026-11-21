@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { formatDate } from '@/utils/helpers';
@@ -9,6 +9,8 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
   const { state, restoreFromTrash, purgeFromTrash } = useApp();
   const t = i18n[state.lang];
   const items = [...state.trash].sort((a, b) => b.deletedAt - a.deletedAt);
+  // A row action removes the focused button; focus stays in the dialog
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -18,6 +20,12 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
 
   const purge = (ids: string[], question: string) => {
     if (confirm(question)) purgeFromTrash(ids);
+    closeRef.current?.focus();
+  };
+
+  const restore = (id: string) => {
+    restoreFromTrash([id]);
+    closeRef.current?.focus();
   };
 
   return (
@@ -25,7 +33,7 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
       <div className="link-dialog wide-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
           <h3 id="trash-title">{t.trash}</h3>
-          <button className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
+          <button ref={closeRef} className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
             <CloseIcon size={16} />
           </button>
         </div>
@@ -44,7 +52,7 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
                       {note.content && ` · ${markdownToPlainText(note.content).slice(0, 80)}`}
                     </span>
                   </div>
-                  <button className="action-btn" onClick={() => restoreFromTrash([note.id])}>{t.restoreNote}</button>
+                  <button className="action-btn" onClick={() => restore(note.id)}>{t.restoreNote}</button>
                   <button className="action-btn" onClick={() => purge([note.id], t.confirmDeleteForever)}>{t.deleteForever}</button>
                 </li>
               ))}

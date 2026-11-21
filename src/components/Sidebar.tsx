@@ -363,7 +363,11 @@ export function Sidebar() {
     localStorage.setItem('skrive-sort', next);
   };
 
-  const closeTrash = useCallback(() => setShowTrash(false), []);
+  const trashButtonRef = useRef<HTMLButtonElement>(null);
+  const closeTrash = useCallback(() => {
+    setShowTrash(false);
+    trashButtonRef.current?.focus();
+  }, []);
 
   const exportFiles = async () => {
     try {
@@ -907,7 +911,7 @@ export function Sidebar() {
       const modifierActive = macKb
         ? (e.altKey && !e.metaKey && !e.shiftKey && !e.ctrlKey)
         : (e.ctrlKey && e.shiftKey && !e.altKey);
-      if (!modifierActive) return;
+      if (!modifierActive || document.querySelector('[aria-modal="true"]')) return;
       if (macKb ? e.code !== 'KeyF' : e.code !== 'Digit2') return;
       e.preventDefault();
       const focused = focusedItemId ? visibleTreeItems.find(i => i.id === focusedItemId) : undefined;
@@ -1181,6 +1185,7 @@ export function Sidebar() {
         </div>
         <button
           className="sidebar-footer-btn"
+          ref={trashButtonRef}
           onClick={(e) => { e.stopPropagation(); setShowTrash(true); setShowBackupMenu(false); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
           title={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
           aria-label={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
@@ -1282,7 +1287,7 @@ export function Sidebar() {
             )}
             {exportResult === 'failed' && <div className="backup-popup-error">{t.exportFilesFailed}</div>}
             {exportResult && exportResult !== 'failed' && (
-              <div className="backup-popup-detail">{t.exportedTo} «{exportResult.folder}»</div>
+              <div className="backup-popup-detail">{t.exportedTo.replace('{folder}', exportResult.folder)}</div>
             )}
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setShowBackupMenu(false); }}>
               <DownloadIcon size={16} />

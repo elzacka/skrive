@@ -8,6 +8,8 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // A modal dialog owns the keyboard
+      if (document.querySelector('[aria-modal="true"]')) return;
       // Ctrl+S / Cmd+S: notes auto-save, so just flush the pending write
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyS') {
         e.preventDefault();

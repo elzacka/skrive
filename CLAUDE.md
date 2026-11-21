@@ -22,7 +22,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - One window at a time (Web Locks, main.tsx): each window saves the whole state, so a second one waits behind `InstanceGate`.
 - Restore and JSON import merge by id (newer `updatedAt` wins); they never remove notes. A note stays in the trash when it was deleted here after the incoming copy's last edit.
 - Deleted notes go to `state.trash` (`TrashedNote`, `deletedAt`) for `TRASH_DAYS`, expired at startup. Encrypted backups carry the trash; the plain JSON export leaves it out. An untouched placeholder is discarded, not trashed.
-- Note history: `recordVersion()` keeps the text as last saved before an edit, at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup, deleted with a note purged from the trash.
+- Note history: `recordVersion()` keeps the text as last saved before an edit, at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
 - `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
 
 ## Security
@@ -68,7 +68,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - Find/replace (Cmd/Ctrl+F): matches by index in the text, highlights via `setFindMatches`.
 - Cmd/Ctrl+K inserts a link in the editor and focuses search elsewhere; the global handler skips on `e.defaultPrevented` or a contentEditable `composedPath()[0]`.
 - Deleting a note shows a 6 s undo toast, no confirm; folder deletion confirms because it's recursive. Both send notes to the trash.
-- Dialogs inside the sidebar carry `role="dialog"`: the sidebar's Delete/Backspace handler skips them.
+- Modal dialogs carry `role="dialog"` and `aria-modal="true"`: global shortcuts, the sidebar's Delete/Backspace and the editor's focus-on-open skip while one is open.
 - Sidebar multi-select follows Finder conventions (Cmd/Ctrl+Click toggle, Shift+Click ranges over `visibleNoteIds`'s render order); bulk delete goes through `deleteNotes()` and shares the undo toast.
 - Moving notes out of a folder: drop on the tree background, drop on another note, or "Flytt ut av mappen" in the context menu. Drop handlers stop propagation so the background handler only fires on true background drops.
 - Escape closes dialogs, popups and context menus everywhere.
