@@ -421,9 +421,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     liveEditRef.current = { noteId, content };
   }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Each note's text as last written to storage; the text before an edit
-  // becomes a version in the note's history
-  const savedContentRef = useRef(new Map<string, string>());
+  // Each note as last written to storage; the text before an edit becomes
+  // a version in the note's history
+  const savedContentRef = useRef(new Map<string, Note>());
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Merge restored data into state and open the most recently edited note
@@ -511,7 +511,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         expired = loadResult.state.trash.filter(isTrashExpired);
         trash = loadResult.state.trash.filter(n => !isTrashExpired(n));
         dispatch({ type: 'SET_TRASH', payload: trash });
-        savedContentRef.current = new Map(notes.map(n => [n.id, n.content]));
+        savedContentRef.current = new Map(notes.map(n => [n.id, n]));
         if (expired.length > 0) deleteHistory(expired.map(n => n.id));
       }
       await expirePreMarkdownCopy();
@@ -611,9 +611,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const saved = savedContentRef.current;
       for (const note of data.notes) {
         const before = saved.get(note.id);
-        if (before !== undefined && before !== note.content) recordVersion(note.id, before);
+        if (before && before.content !== note.content) recordVersion(note.id, before.content, before.updatedAt);
       }
-      savedContentRef.current = new Map(data.notes.map(n => [n.id, n.content]));
+      savedContentRef.current = new Map(data.notes.map(n => [n.id, n]));
     }
     // A newer change may have arrived while this write was in flight
     setSaveStatus(pendingSaveRef.current ? 'unsaved' : ok ? 'saved' : 'error');

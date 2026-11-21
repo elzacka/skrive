@@ -55,7 +55,7 @@ Merk: Filer du eksporterer selv (enkeltnotater, Markdown-filer og JSON-backup) l
 | DOMPurify | 3.3 |
 | vite-plugin-pwa | 1.2 |
 
-Ikoner fra [Lucide](https://lucide.dev) (ISC-lisens), selvhostet som inline SVG.
+Ikoner fra [Tabler Icons](https://tabler.io/icons) (MIT-lisens), selvhostet som inline SVG.
 
 ## Kom i gang
 

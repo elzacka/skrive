@@ -202,6 +202,7 @@ const HISTORY_INTERVAL = 10 * 60 * 1000;
 const HISTORY_MAX = 100;
 
 export interface NoteVersion {
+  // When the text was written, not when it became a version
   savedAt: number;
   content: string;
 }
@@ -246,9 +247,9 @@ async function writeHistory(noteId: string, versions: NoteVersion[]): Promise<vo
 
 const fresh = (v: NoteVersion) => Date.now() - v.savedAt < HISTORY_DAYS * DAY;
 
-// Keep content as a version of the note; force skips the interval, for a
-// restore that replaces text written since the last version
-export function recordVersion(noteId: string, content: string, force = false): Promise<void> {
+// Keep content, written at writtenAt, as a version of the note; force skips
+// the interval, for a restore that replaces text written since the last version
+export function recordVersion(noteId: string, content: string, writtenAt: number, force = false): Promise<void> {
   return queueHistory(async () => {
     const since = Date.now() - (lastVersionAt.get(noteId) ?? 0);
     if (!content.trim() || (!force && since < HISTORY_INTERVAL)) return;
@@ -261,7 +262,7 @@ export function recordVersion(noteId: string, content: string, force = false): P
     }
     lastVersionAt.set(noteId, Date.now());
     if (last?.content === content) return;
-    await writeHistory(noteId, [...versions.filter(fresh), { savedAt: Date.now(), content }].slice(-HISTORY_MAX));
+    await writeHistory(noteId, [...versions.filter(fresh), { savedAt: writtenAt, content }].slice(-HISTORY_MAX));
   }).catch(error => console.warn('Failed to record note version:', error));
 }
 

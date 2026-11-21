@@ -18,9 +18,10 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
   const [versions, setVersions] = useState<NoteVersion[] | null>(null);
   const [selected, setSelected] = useState(0);
 
+  // A version with the same text as the note has nothing to restore
   useEffect(() => {
-    listVersions(noteId).then(setVersions);
-  }, [noteId]);
+    listVersions(noteId).then(all => setVersions(all.filter(v => v.content !== current)));
+  }, [noteId, current]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -40,13 +41,13 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
           </button>
         </div>
         <div className="link-dialog-body">
-          <p className="backup-popup-detail">{t.historyIntro}</p>
+          <p className="dialog-intro">{t.historyIntro}</p>
           {versions && versions.length === 0 && <p className="dialog-empty">{t.historyEmpty}</p>}
           {version && (
             <div className="history-view">
               <ul className="history-list">
                 {versions.map((v, i) => (
-                  <li key={v.savedAt}>
+                  <li key={`${v.savedAt}-${i}`}>
                     <button className={`history-item ${i === selected ? 'active' : ''}`} aria-pressed={i === selected} onClick={() => setSelected(i)}>
                       {formatDate(v.savedAt, state.lang)}
                     </button>
@@ -58,14 +59,14 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
           )}
         </div>
         <div className="link-dialog-actions">
-          <button className="action-btn" onClick={onClose}>{t.cancel}</button>
-          <button
-            className="action-btn save-btn"
-            onClick={() => version && onRestore(version.content)}
-            disabled={!version || version.content === current}
-          >
-            {t.restoreVersion}
-          </button>
+          {version ? (
+            <>
+              <button className="action-btn" onClick={onClose}>{t.cancel}</button>
+              <button className="action-btn save-btn" onClick={() => onRestore(version.content)}>{t.restoreVersion}</button>
+            </>
+          ) : (
+            <button className="action-btn save-btn" onClick={onClose}>{t.close}</button>
+          )}
         </div>
       </div>
     </div>

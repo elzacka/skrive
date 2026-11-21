@@ -17,20 +17,18 @@ import {
   EditIcon,
   CopyIcon,
   ArrowForwardIcon,
-  SwapVertIcon,
+  SortIcon,
+  TransferIcon,
   DownloadIcon,
   UploadIcon,
   ArticleIcon,
-  FolderSyncIcon,
+  FolderCogIcon,
   FolderCheckIcon,
   FolderDownIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
 import { TrashDialog } from './TrashDialog';
 import { exportNotesToFolder } from '@/utils/fileSystem';
-// "Skrive" in Columbia Titling, outlined to paths (the font itself is
-// commercial and cannot be self-hosted as a webfont)
-import wordmarkUrl from '@/assets/skrive-wordmark.svg';
 
 interface TreeItemProps {
   folder: Folder;
@@ -939,10 +937,6 @@ export function Sidebar() {
 
   return (
     <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
-      <div className="sidebar-header">
-        <img src={wordmarkUrl} alt="Skrive" className="sidebar-wordmark" />
-      </div>
-
       <div className="search-container">
         <input
           type="search"
@@ -1016,7 +1010,7 @@ export function Sidebar() {
               title={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
               aria-label={sortMode === 'alpha' ? t.sortByDate : t.sortByName}
             >
-              <SwapVertIcon size={16} />
+              <SortIcon size={16} />
             </button>
             <button className="new-btn" onClick={() => createNote()} title={t.newNote} aria-label={t.newNote}>
               <PlusIcon />
@@ -1198,7 +1192,7 @@ export function Sidebar() {
           title={t.importExport}
           aria-label={t.importExport}
         >
-          <SwapVertIcon />
+          <TransferIcon />
         </button>
         {showBackupMenu && (
           <div className="backup-popup show" onClick={(e) => e.stopPropagation()}>
@@ -1218,7 +1212,7 @@ export function Sidebar() {
                           {t.backupPermissionHint}
                         </div>
                         <button className="backup-popup-btn" onClick={async () => { await reactivateBackup(); }}>
-                          <FolderSyncIcon size={16} />
+                          <FolderCogIcon size={16} />
                           <span>{t.reactivateBackup}</span>
                         </button>
                       </>
@@ -1243,7 +1237,7 @@ export function Sidebar() {
                           {t.backupKeyStale}
                         </div>
                         <button className="backup-popup-btn" onClick={() => { setShowRenewDialog(true); setShowBackupMenu(false); }}>
-                          <FolderSyncIcon size={16} />
+                          <FolderCogIcon size={16} />
                           <span>{t.renewBackup}</span>
                         </button>
                       </>
@@ -1254,13 +1248,13 @@ export function Sidebar() {
                       </div>
                     )}
                     <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setShowBackupMenu(false); }}>
-                      <FolderSyncIcon size={16} />
+                      <FolderCogIcon size={16} />
                       <span>{t.disableAutoBackup}</span>
                     </button>
                   </>
                 ) : (
                   <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setShowBackupMenu(false); }}>
-                    <FolderSyncIcon size={16} />
+                    <FolderCogIcon size={16} />
                     <span>{t.enableAutoBackup}</span>
                   </button>
                 )}
@@ -1562,8 +1556,6 @@ export function Sidebar() {
       </div>
 
       <div className="app-footer">
-        <a href="https://github.com/elzacka" target="_blank" rel="noopener noreferrer" className="footer-link">elzacka</a>
-        <span>2026</span>
         <span>v{__APP_VERSION__}</span>
       </div>
 

@@ -32,7 +32,8 @@ import {
   CircleIcon,
   LoaderCircleIcon,
   CircleAlertIcon,
-  HistoryIcon
+  HistoryIcon,
+  ChevronDownIcon
 } from './Icons';
 
 const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
@@ -160,7 +161,7 @@ export function Editor() {
     const view = viewRef.current;
     const current = noteRef.current;
     if (!view || !current) return;
-    await recordVersion(current.id, view.state.doc.toString(), true);
+    await recordVersion(current.id, view.state.doc.toString(), current.updatedAt, true);
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: content } });
     closeVersions();
   }, [closeVersions]);
@@ -349,7 +350,7 @@ export function Editor() {
           </button>
           <div className="export-menu-container" ref={exportMenuRef}>
             <button
-              className="action-btn save-btn"
+              className="action-btn"
               onClick={() => setShowExportMenu(!showExportMenu)}
               aria-expanded={showExportMenu}
             >
@@ -376,7 +377,7 @@ export function Editor() {
       </div>
 
       <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
-        <div className="format-group">
+        <div className="format-group style-select-wrap">
           <select
             className="style-select"
             value={String(Math.min(formats.heading, 3))}
@@ -388,6 +389,7 @@ export function Editor() {
             <option value="2">{t.heading2}</option>
             <option value="3">{t.heading3}</option>
           </select>
+          <ChevronDownIcon size={14} />
         </div>
         <div className="format-group">
           {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
@@ -418,10 +420,10 @@ export function Editor() {
 
       {showLinkDialog && (
         <div className="link-dialog-overlay">
-          <div className="link-dialog">
+          <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-dialog-title">
             <div className="link-dialog-header">
-              <h3>{t.insertLink}</h3>
-              <button className="link-dialog-close" onClick={() => setShowLinkDialog(false)} aria-label={t.cancel}>
+              <h3 id="link-dialog-title">{t.insertLink}</h3>
+              <button className="link-dialog-close" onClick={() => setShowLinkDialog(false)} aria-label={t.close}>
                 <CloseIcon size={16} />
               </button>
             </div>

@@ -3,7 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { setFindMatches } from '@/editor/find';
-import { CloseIcon, ChevronUpIcon, ChevronDownIcon, ReplaceIcon, ReplaceAllIcon } from './Icons';
+import { CloseIcon, ChevronUpIcon, ChevronDownIcon, ReplaceIcon } from './Icons';
 
 interface FindReplaceBarProps {
   content: string;
@@ -162,7 +162,7 @@ export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindRep
             {t.replace}
           </button>
           <button className="find-bar-text-btn" onClick={replaceAll} disabled={matches.length === 0}>
-            <ReplaceAllIcon size={13} />
+            <ReplaceIcon size={13} />
             {t.replaceAll}
           </button>
         </div>

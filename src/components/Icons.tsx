@@ -1,5 +1,5 @@
-// Shared SVG icons, generated from Lucide (https://lucide.dev)
-// lucide-static v1.25.0, ISC license - self-hosted for offline use.
+// Shared SVG icons from Tabler Icons (https://tabler.io/icons)
+// @tabler/icons v3.52.0, MIT license, (c) Pawel Kuna - self-hosted for offline use.
 // Regenerate rather than hand-editing path data.
 
 import type { ReactNode } from 'react';
@@ -29,8 +29,8 @@ function icon(children: ReactNode, size: number) {
 export function PlusIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
+      <path d="M12 5l0 14" />
+      <path d="M5 12l14 0" />
     </>,
     size
   );
@@ -38,36 +38,28 @@ export function PlusIcon({ size = 24 }: IconProps) {
 
 export function ChevronRightIcon({ size = 24 }: IconProps) {
   return icon(
-    <>
-      <path d="m9 18 6-6-6-6" />
-    </>,
+    <path d="M9 6l6 6l-6 6" />,
     size
   );
 }
 
 export function ChevronLeftIcon({ size = 24 }: IconProps) {
   return icon(
-    <>
-      <path d="m15 18-6-6 6-6" />
-    </>,
+    <path d="M15 6l-6 6l6 6" />,
     size
   );
 }
 
 export function ChevronUpIcon({ size = 24 }: IconProps) {
   return icon(
-    <>
-      <path d="m18 15-6-6-6 6" />
-    </>,
+    <path d="M6 15l6 -6l6 6" />,
     size
   );
 }
 
 export function ChevronDownIcon({ size = 24 }: IconProps) {
   return icon(
-    <>
-      <path d="m6 9 6 6 6-6" />
-    </>,
+    <path d="M6 9l6 6l6 -6" />,
     size
   );
 }
@@ -75,30 +67,10 @@ export function ChevronDownIcon({ size = 24 }: IconProps) {
 export function ReplaceIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M14 4a1 1 0 0 1 1-1" />
-      <path d="M15 10a1 1 0 0 1-1-1" />
-      <path d="M21 4a1 1 0 0 0-1-1" />
-      <path d="M21 9a1 1 0 0 1-1 1" />
-      <path d="m3 7 3 3 3-3" />
-      <path d="M6 10V5a2 2 0 0 1 2-2h2" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-    </>,
-    size
-  );
-}
-
-export function ReplaceAllIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M14 14a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1" />
-      <path d="M14 4a1 1 0 0 1 1-1" />
-      <path d="M15 10a1 1 0 0 1-1-1" />
-      <path d="M19 14a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1" />
-      <path d="M21 4a1 1 0 0 0-1-1" />
-      <path d="M21 9a1 1 0 0 1-1 1" />
-      <path d="m3 7 3 3 3-3" />
-      <path d="M6 10V5a2 2 0 0 1 2-2h2" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M3 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" />
+      <path d="M15 16a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4" />
+      <path d="M21 11v-3a2 2 0 0 0 -2 -2h-6l3 3m0 -6l-3 3" />
+      <path d="M3 13v3a2 2 0 0 0 2 2h6l-3 -3m0 6l3 -3" />
     </>,
     size
   );
@@ -106,9 +78,7 @@ export function ReplaceAllIcon({ size = 14 }: IconProps) {
 
 export function FolderIcon({ size = 24 }: IconProps) {
   return icon(
-    <>
-      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-    </>,
+    <path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" />,
     size
   );
 }
@@ -116,9 +86,9 @@ export function FolderIcon({ size = 24 }: IconProps) {
 export function FolderOutputIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M2 7.5V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-1.5" />
-      <path d="M2 13h10" />
-      <path d="m5 10-3 3 3 3" />
+      <path d="M12 19h-7a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3.5" />
+      <path d="M19 22v-6" />
+      <path d="M22 19l-3 -3l-3 3" />
     </>,
     size
   );
@@ -127,11 +97,11 @@ export function FolderOutputIcon({ size = 24 }: IconProps) {
 export function NoteIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
-      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
-      <path d="M10 9H8" />
-      <path d="M16 13H8" />
-      <path d="M16 17H8" />
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" />
+      <path d="M9 9l1 0" />
+      <path d="M9 13l6 0" />
+      <path d="M9 17l6 0" />
     </>,
     size
   );
@@ -140,15 +110,14 @@ export function NoteIcon({ size = 24 }: IconProps) {
 export function KeyboardIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M10 8h.01" />
-      <path d="M12 12h.01" />
-      <path d="M14 8h.01" />
-      <path d="M16 12h.01" />
-      <path d="M18 8h.01" />
-      <path d="M6 8h.01" />
-      <path d="M7 16h10" />
-      <path d="M8 12h.01" />
-      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="M2 8a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2l0 -8" />
+      <path d="M6 10l0 .01" />
+      <path d="M10 10l0 .01" />
+      <path d="M14 10l0 .01" />
+      <path d="M18 10l0 .01" />
+      <path d="M6 14l0 .01" />
+      <path d="M18 14l0 .01" />
+      <path d="M10 14l4 .01" />
     </>,
     size
   );
@@ -157,8 +126,9 @@ export function KeyboardIcon({ size = 24 }: IconProps) {
 export function EncryptedIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-      <path d="m9 12 2 2 4-4" />
+      <path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" />
+      <path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+      <path d="M12 12l0 2.5" />
     </>,
     size
   );
@@ -167,11 +137,11 @@ export function EncryptedIcon({ size = 24 }: IconProps) {
 export function DeleteIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M4 7l16 0" />
+      <path d="M10 11l0 6" />
+      <path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
     </>,
     size
   );
@@ -180,9 +150,8 @@ export function DeleteIcon({ size = 24 }: IconProps) {
 export function HistoryIcon({ size = 16 }: IconProps) {
   return icon(
     <>
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M12 7v5l4 2" />
+      <path d="M12 8l0 4l2 2" />
+      <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
     </>,
     size
   );
@@ -191,9 +160,9 @@ export function HistoryIcon({ size = 16 }: IconProps) {
 export function FolderDownIcon({ size = 16 }: IconProps) {
   return icon(
     <>
-      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      <path d="M12 10v6" />
-      <path d="m15 13-3 3-3-3" />
+      <path d="M12 19h-7a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3.5" />
+      <path d="M19 16v6" />
+      <path d="M22 19l-3 3l-3 -3" />
     </>,
     size
   );
@@ -202,8 +171,8 @@ export function FolderDownIcon({ size = 16 }: IconProps) {
 export function CopyIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+      <path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666" />
+      <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
     </>,
     size
   );
@@ -212,8 +181,8 @@ export function CopyIcon({ size = 14 }: IconProps) {
 export function UndoIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M9 14 4 9l5-5" />
-      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+      <path d="M9 14l-4 -4l4 -4" />
+      <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
     </>,
     size
   );
@@ -222,8 +191,8 @@ export function UndoIcon({ size = 14 }: IconProps) {
 export function RedoIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="m15 14 5-5-5-5" />
-      <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+      <path d="M15 14l4 -4l-4 -4" />
+      <path d="M19 10h-11a4 4 0 1 0 0 8h1" />
     </>,
     size
   );
@@ -232,11 +201,12 @@ export function RedoIcon({ size = 14 }: IconProps) {
 export function TaskListIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M13 5h8" />
-      <path d="M13 12h8" />
-      <path d="M13 19h8" />
-      <path d="m3 17 2 2 4-4" />
-      <rect x="3" y="4" width="6" height="6" rx="1" />
+      <path d="M3.5 5.5l1.5 1.5l2.5 -2.5" />
+      <path d="M3.5 11.5l1.5 1.5l2.5 -2.5" />
+      <path d="M3.5 17.5l1.5 1.5l2.5 -2.5" />
+      <path d="M11 6l9 0" />
+      <path d="M11 12l9 0" />
+      <path d="M11 18l9 0" />
     </>,
     size
   );
@@ -245,12 +215,12 @@ export function TaskListIcon({ size = 14 }: IconProps) {
 export function BulletListIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M3 5h.01" />
-      <path d="M3 12h.01" />
-      <path d="M3 19h.01" />
-      <path d="M8 5h13" />
-      <path d="M8 12h13" />
-      <path d="M8 19h13" />
+      <path d="M9 6l11 0" />
+      <path d="M9 12l11 0" />
+      <path d="M9 18l11 0" />
+      <path d="M5 6l0 .01" />
+      <path d="M5 12l0 .01" />
+      <path d="M5 18l0 .01" />
     </>,
     size
   );
@@ -259,12 +229,11 @@ export function BulletListIcon({ size = 14 }: IconProps) {
 export function NumberedListIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M11 5h10" />
-      <path d="M11 12h10" />
-      <path d="M11 19h10" />
-      <path d="M4 4h1v5" />
-      <path d="M4 9h2" />
-      <path d="M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02" />
+      <path d="M11 6h9" />
+      <path d="M11 12h9" />
+      <path d="M12 18h8" />
+      <path d="M4 16a2 2 0 1 1 4 0c0 .591 -.5 1 -1 1.5l-3 2.5h4" />
+      <path d="M6 10v-6l-2 2" />
     </>,
     size
   );
@@ -273,7 +242,8 @@ export function NumberedListIcon({ size = 14 }: IconProps) {
 export function BoldIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" />
+      <path d="M7 5h6a3.5 3.5 0 0 1 0 7h-6l0 -7" />
+      <path d="M13 12h1a3.5 3.5 0 0 1 0 7h-7v-7" />
     </>,
     size
   );
@@ -282,9 +252,9 @@ export function BoldIcon({ size = 14 }: IconProps) {
 export function ItalicIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <line x1="19" x2="10" y1="4" y2="4" />
-      <line x1="14" x2="5" y1="20" y2="20" />
-      <line x1="15" x2="9" y1="4" y2="20" />
+      <path d="M11 5l6 0" />
+      <path d="M7 19l6 0" />
+      <path d="M14 5l-4 14" />
     </>,
     size
   );
@@ -293,9 +263,8 @@ export function ItalicIcon({ size = 14 }: IconProps) {
 export function StrikethroughIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M16 4H9a3 3 0 0 0-2.83 4" />
-      <path d="M14 12a4 4 0 0 1 0 8H6" />
-      <line x1="4" x2="20" y1="12" y2="12" />
+      <path d="M5 12l14 0" />
+      <path d="M16 6.5a4 2 0 0 0 -4 -1.5h-1a3.5 3.5 0 0 0 0 7h2a3.5 3.5 0 0 1 0 7h-1.5a4 2 0 0 1 -4 -1.5" />
     </>,
     size
   );
@@ -304,8 +273,9 @@ export function StrikethroughIcon({ size = 14 }: IconProps) {
 export function CodeIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="m16 18 6-6-6-6" />
-      <path d="m8 6-6 6 6 6" />
+      <path d="M7 8l-4 4l4 4" />
+      <path d="M17 8l4 4l-4 4" />
+      <path d="M14 4l-4 16" />
     </>,
     size
   );
@@ -314,9 +284,9 @@ export function CodeIcon({ size = 14 }: IconProps) {
 export function CodeBlockIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="m10 9-3 3 3 3" />
-      <path d="m14 15 3-3-3-3" />
-      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M14.5 4h2.5a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3h-10a3 3 0 0 1 -3 -3v-5" />
+      <path d="M6 5l-2 2l2 2" />
+      <path d="M10 9l2 -2l-2 -2" />
     </>,
     size
   );
@@ -325,8 +295,8 @@ export function CodeBlockIcon({ size = 14 }: IconProps) {
 export function QuoteIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" />
-      <path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" />
+      <path d="M10 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5" />
+      <path d="M19 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5" />
     </>,
     size
   );
@@ -335,8 +305,9 @@ export function QuoteIcon({ size = 14 }: IconProps) {
 export function LinkIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      <path d="M9 15l6 -6" />
+      <path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" />
+      <path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" />
     </>,
     size
   );
@@ -345,8 +316,8 @@ export function LinkIcon({ size = 14 }: IconProps) {
 export function EditIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-      <path d="m15 5 4 4" />
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
     </>,
     size
   );
@@ -355,9 +326,9 @@ export function EditIcon({ size = 24 }: IconProps) {
 export function DownloadIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M12 15V3" />
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="m7 10 5 5 5-5" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
+      <path d="M7 11l5 5l5 -5" />
+      <path d="M12 4l0 12" />
     </>,
     size
   );
@@ -366,9 +337,9 @@ export function DownloadIcon({ size = 24 }: IconProps) {
 export function UploadIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M12 3v12" />
-      <path d="m17 8-5-5-5 5" />
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
+      <path d="M7 9l5 -5l5 5" />
+      <path d="M12 4l0 12" />
     </>,
     size
   );
@@ -377,8 +348,9 @@ export function UploadIcon({ size = 24 }: IconProps) {
 export function ArrowForwardIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
+      <path d="M5 12l14 0" />
+      <path d="M13 18l6 -6" />
+      <path d="M13 6l6 6" />
     </>,
     size
   );
@@ -387,8 +359,8 @@ export function ArrowForwardIcon({ size = 14 }: IconProps) {
 export function CloseIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
+      <path d="M18 6l-12 12" />
+      <path d="M6 6l12 12" />
     </>,
     size
   );
@@ -396,20 +368,28 @@ export function CloseIcon({ size = 14 }: IconProps) {
 
 export function CheckIcon({ size = 14 }: IconProps) {
   return icon(
+    <path d="M5 12l5 5l10 -10" />,
+    size
+  );
+}
+
+export function SortIcon({ size = 24 }: IconProps) {
+  return icon(
     <>
-      <path d="M20 6 9 17l-5-5" />
+      <path d="M3 9l4 -4l4 4m-4 -4v14" />
+      <path d="M21 15l-4 4l-4 -4m4 4v-14" />
     </>,
     size
   );
 }
 
-export function SwapVertIcon({ size = 24 }: IconProps) {
+export function TransferIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="m21 16-4 4-4-4" />
-      <path d="M17 20V4" />
-      <path d="m3 8 4-4 4 4" />
-      <path d="M7 4v16" />
+      <path d="M17 3l0 18" />
+      <path d="M10 18l-3 3l-3 -3" />
+      <path d="M7 21l0 -18" />
+      <path d="M20 6l-3 -3l-3 3" />
     </>,
     size
   );
@@ -418,21 +398,27 @@ export function SwapVertIcon({ size = 24 }: IconProps) {
 export function ArticleIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M12 7v14" />
-      <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      <path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+      <path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+      <path d="M3 6l0 13" />
+      <path d="M12 6l0 13" />
+      <path d="M21 6l0 13" />
     </>,
     size
   );
 }
 
-export function FolderSyncIcon({ size = 24 }: IconProps) {
+export function FolderCogIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v.5" />
-      <path d="M12 10v4h4" />
-      <path d="m12 14 1.535-1.605a5 5 0 0 1 8 1.5" />
-      <path d="M22 22v-4h-4" />
-      <path d="m22 18-1.535 1.605a5 5 0 0 1-8-1.5" />
+      <path d="M12.5 19h-7.5a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3" />
+      <path d="M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+      <path d="M19.001 15.5v1.5" />
+      <path d="M19.001 21v1.5" />
+      <path d="M22.032 17.25l-1.299 .75" />
+      <path d="M17.27 20l-1.3 .75" />
+      <path d="M15.97 17.25l1.3 .75" />
+      <path d="M20.733 20l1.3 .75" />
     </>,
     size
   );
@@ -441,8 +427,8 @@ export function FolderSyncIcon({ size = 24 }: IconProps) {
 export function FolderCheckIcon({ size = 24 }: IconProps) {
   return icon(
     <>
-      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-      <path d="m9 13 2 2 4-4" />
+      <path d="M11 19h-6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v4" />
+      <path d="M15 19l2 2l4 -4" />
     </>,
     size
   );
@@ -450,18 +436,14 @@ export function FolderCheckIcon({ size = 24 }: IconProps) {
 
 export function CircleIcon({ size = 14 }: IconProps) {
   return icon(
-    <>
-      <circle cx="12" cy="12" r="10" />
-    </>,
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />,
     size
   );
 }
 
 export function LoaderCircleIcon({ size = 14 }: IconProps) {
   return icon(
-    <>
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </>,
+    <path d="M12 3a9 9 0 1 0 9 9" />,
     size
   );
 }
@@ -469,9 +451,9 @@ export function LoaderCircleIcon({ size = 14 }: IconProps) {
 export function CircleAlertIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" x2="12" y1="8" y2="12" />
-      <line x1="12" x2="12.01" y1="16" y2="16" />
+      <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
     </>,
     size
   );

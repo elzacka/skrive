@@ -38,7 +38,7 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="link-dialog-body">
-          <p className="backup-popup-detail">{t.trashIntro}</p>
+          <p className="dialog-intro">{t.trashIntro}</p>
           {items.length === 0 ? (
             <p className="dialog-empty">{t.trashEmpty}</p>
           ) : (
@@ -60,9 +60,11 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="link-dialog-actions">
-          <button className="action-btn" onClick={() => purge(items.map(n => n.id), t.confirmEmptyTrash)} disabled={items.length === 0}>
-            {t.emptyTrash}
-          </button>
+          {items.length > 0 && (
+            <button className="action-btn dialog-action-start" onClick={() => purge(items.map(n => n.id), t.confirmEmptyTrash)}>
+              {t.emptyTrash}
+            </button>
+          )}
           <button className="action-btn save-btn" onClick={onClose}>{t.close}</button>
         </div>
       </div>

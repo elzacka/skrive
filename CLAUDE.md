@@ -22,7 +22,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - One window at a time (Web Locks, main.tsx): each window saves the whole state, so a second one waits behind `InstanceGate`.
 - Restore and JSON import merge by id (newer `updatedAt` wins); they never remove notes. A note stays in the trash when it was deleted here after the incoming copy's last edit.
 - Deleted notes go to `state.trash` (`TrashedNote`, `deletedAt`) for `TRASH_DAYS`, expired at startup. Encrypted backups carry the trash; the plain JSON export leaves it out. An untouched placeholder is discarded, not trashed.
-- Note history: `recordVersion()` keeps the text as last saved before an edit, at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
+- Note history: `recordVersion()` keeps the text as last saved before an edit, stamped with when it was written, at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
 - `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
 
 ## Security
@@ -35,9 +35,9 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 ## Icons
 
-- All icons are self-hosted inline SVGs in src/components/Icons.tsx (Lucide, ISC; source version in the file header) — never load from a CDN or npm runtime package.
+- All icons are self-hosted inline SVGs in src/components/Icons.tsx (Tabler Icons outline set, MIT; source version in the file header) — never load from a CDN or npm runtime package, and never mix in another icon set.
 - Icons are stroke-based (`fill="none"`, `stroke="currentColor"`); color them via CSS `stroke`, not `fill` — a `fill` rule overrides `fill="none"` and turns them into solid blobs.
-- To add one, copy the inner SVG elements from Lucide's source into a new export following the existing `icon()` helper.
+- To add one, copy the inner SVG elements (minus the `stroke="none"` bounding-box path) from Tabler's `icons/outline/<name>.svg` into a new export following the existing `icon()` helper.
 
 ## Auto-backup
 
