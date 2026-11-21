@@ -173,9 +173,12 @@ async function persistMasterKey(key: Uint8Array): Promise<void> {
 export async function setAsideUnreadableKey(): Promise<void> {
   const db = await openCryptoDb();
   const record = await dbGet<WrappedMasterKeyRecord>(db, WRAPPED_MASTER_KEY_ID);
+  const wrappingKey = await dbGet<CryptoKey>(db, WRAPPING_KEY_ID).catch(() => null);
+  const stamp = Date.now();
   const tx = db.transaction(CRYPTO_STORE, 'readwrite');
   const store = tx.objectStore(CRYPTO_STORE);
-  if (record) store.put(record, `${WRAPPED_MASTER_KEY_ID}-${Date.now()}`);
+  if (record) store.put(record, `${WRAPPED_MASTER_KEY_ID}-${stamp}`);
+  if (wrappingKey) store.put(wrappingKey, `${WRAPPING_KEY_ID}-${stamp}`);
   store.delete(WRAPPED_MASTER_KEY_ID);
   store.delete(WRAPPING_KEY_ID);
   await new Promise<void>((resolve, reject) => {

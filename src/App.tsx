@@ -21,6 +21,7 @@ function AppContent() {
     confirmRestore,
     cancelRestore,
     startupBlocked,
+    keyResetRecoverable,
     resetUnreadableKey,
     recoveryCopies,
     recoverCopies,
@@ -34,7 +35,8 @@ function AppContent() {
 
   if (startupBlocked) {
     const resetKey = async () => {
-      if (confirm(t.confirmKeyReset)) await resetUnreadableKey();
+      if (!confirm(keyResetRecoverable ? t.confirmKeyReset : t.confirmKeyResetUnrecoverable)) return;
+      if (!(await resetUnreadableKey())) alert(t.keyResetFailed);
     };
     return (
       <div className="screen-gate">

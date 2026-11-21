@@ -276,6 +276,8 @@ export interface I18nStrings {
   storageErrorBody: string;
   keyReset: string;
   confirmKeyReset: string;
+  confirmKeyResetUnrecoverable: string;
+  keyResetFailed: string;
   instanceGateTitle: string;
   instanceGateBody: string;
   backupPermissionHint: string;

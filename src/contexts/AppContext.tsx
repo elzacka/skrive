@@ -250,7 +250,9 @@ interface AppContextValue {
   saveStatus: SaveStatus;
   flushSave: () => void;
   startupBlocked: 'key' | 'storage' | null;
-  resetUnreadableKey: () => Promise<void>;
+  // Whether a key reset leaves the old notes reachable via the passphrase
+  keyResetRecoverable: boolean;
+  resetUnreadableKey: () => Promise<boolean>;
   recoveryCopies: number;
   recoverCopies: (passphrase?: string) => Promise<RecoveryResult>;
   discardRecoveryCopies: () => Promise<void>;
@@ -338,6 +340,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [backupPermissionNeeded, setBackupPermissionNeeded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [startupBlocked, setStartupBlocked] = useState<'key' | 'storage' | null>(null);
+  const [keyResetRecoverable, setKeyResetRecoverable] = useState(false);
   const [recoveryCopies, setRecoveryCopies] = useState(0);
   // Whether this session's notes came from storage or a restore. Without
   // that, arming auto-backup could overwrite a good backup with an empty state
@@ -388,6 +391,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         // Nothing is loaded and loadedRef stays false, so nothing is saved
         console.error('Encryption key could not be read:', error);
+        setKeyResetRecoverable((await getStoredBackupKeyProtection()) !== null);
         setStartupBlocked('key');
         return;
       }
@@ -805,10 +809,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Merge every recovery copy one of the keys opens; a copy is deleted
   // only after its notes are saved again
-  const recoverWithKeys = useCallback(async (keys: Uint8Array[]): Promise<'none' | 'saved' | 'saveFailed'> => {
+  const recoverWithKeys = useCallback(async (keys: Uint8Array[], base: StoredData = stateRef.current): Promise<'none' | 'saved' | 'saveFailed'> => {
     const { states, ids } = await readRecoveryCopies(keys);
     if (ids.length === 0) return 'none';
-    let merged: StoredData = stateRef.current;
+    let merged = base;
     for (const recovered of states) merged = mergeData(merged, recovered);
     applyRestoredData(merged);
     const saved = await saveToStorageEncrypted({ lang: stateRef.current.lang, ...merged });
@@ -848,12 +852,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       applyRestoredData(data);
       // The backup key may be the key a lost one replaced: open waiting
-      // recovery copies with it before the backup protection is rewrapped
-      await recoverWithKeys([currentKey, backupKey]);
+      // recovery copies with it, and rewrap only once they are saved
+      const recovered = await recoverWithKeys([currentKey, backupKey], mergeData(stateRef.current, data));
 
       // At startup the restore re-arms auto-backup with the same
       // passphrase; a manual restore keeps the current backup setup
-      if (handle) {
+      if (handle && recovered !== 'saveFailed') {
         const protection = await wrapKeyWithPassphrase(currentKey, passphrase);
         await storeBackupKeyProtection(protection);
         setBackupKeyProtection(protection);
@@ -994,9 +998,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saveStatus,
     flushSave: performSave,
     startupBlocked,
+    keyResetRecoverable,
     resetUnreadableKey: async () => {
-      await setAsideUnreadableKey();
+      try {
+        await setAsideUnreadableKey();
+      } catch (error) {
+        console.error('Key reset failed:', error);
+        return false;
+      }
       location.reload();
+      return true;
     },
     recoveryCopies,
     recoverCopies,
