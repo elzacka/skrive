@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from '@/contexts';
+import type { RecoveryResult } from '@/contexts/AppContext';
 import { Sidebar, Editor, SidebarToggle, PassphraseDialog, ScreenGate } from '@/components';
 import { CloseIcon } from '@/components/Icons';
 import { useKeyboardShortcuts, useMediaQuery } from '@/hooks';
@@ -19,7 +20,8 @@ function AppContent() {
     pendingRestore,
     confirmRestore,
     cancelRestore,
-    keyError,
+    startupBlocked,
+    resetUnreadableKey,
     recoveryCopies,
     recoverCopies,
     discardRecoveryCopies,
@@ -28,22 +30,32 @@ function AppContent() {
     dismissDeleted
   } = useApp();
   const t = i18n[state.lang];
-  const [recoveryState, setRecoveryState] = useState<'idle' | 'passphrase' | 'failed' | 'hidden'>('idle');
+  const [recoveryState, setRecoveryState] = useState<'idle' | 'passphrase' | 'failed' | 'saveFailed' | 'hidden'>('idle');
 
-  if (keyError) {
+  if (startupBlocked) {
+    const resetKey = async () => {
+      if (confirm(t.confirmKeyReset)) await resetUnreadableKey();
+    };
     return (
       <div className="screen-gate">
-        <h1>{t.keyErrorTitle}</h1>
-        <p>{t.keyErrorBody}</p>
-        <button onClick={() => location.reload()}>{t.reload}</button>
+        <h1>{startupBlocked === 'key' ? t.keyErrorTitle : t.storageErrorTitle}</h1>
+        <p>{startupBlocked === 'key' ? t.keyErrorBody : t.storageErrorBody}</p>
+        <div className="screen-gate-actions">
+          <button onClick={() => location.reload()}>{t.reload}</button>
+          {startupBlocked === 'key' && <button onClick={resetKey}>{t.keyReset}</button>}
+        </div>
       </div>
     );
   }
 
-  const startRecovery = async () => {
-    const result = await recoverCopies();
-    setRecoveryState(result === 'done' ? 'idle' : result === 'needPassphrase' ? 'passphrase' : 'failed');
+  const showResult = (result: RecoveryResult) => {
+    setRecoveryState(result === 'done' ? 'idle'
+      : result === 'needPassphrase' ? 'passphrase'
+      : result === 'saveFailed' ? 'saveFailed'
+      : 'failed');
   };
+
+  const startRecovery = async () => showResult(await recoverCopies());
 
   const discardRecovery = async () => {
     if (!confirm(t.confirmDeleteRecovery)) return;
@@ -55,7 +67,7 @@ function AppContent() {
     <div className="app">
       {recoveryCopies > 0 && recoveryState !== 'hidden' && (
         <div className="storage-banner" role="alert">
-          <span>{recoveryState === 'failed' ? t.recoveryFailed : t.recoveryAvailable}</span>
+          <span>{recoveryState === 'failed' ? t.recoveryFailed : recoveryState === 'saveFailed' ? t.saveError : t.recoveryAvailable}</span>
           <span className="storage-banner-actions">
             {recoveryState === 'failed' ? (
               <button className="storage-banner-close" onClick={discardRecovery}>{t.deleteRecovery}</button>
@@ -72,8 +84,9 @@ function AppContent() {
           hint={t.recoveryPassphraseHint}
           onSubmit={async (passphrase) => {
             const result = await recoverCopies(passphrase);
-            if (result === 'done') setRecoveryState('idle');
-            return result === 'done';
+            if (result === 'wrongPassphrase') return false;
+            showResult(result);
+            return true;
           }}
           onCancel={() => setRecoveryState('failed')}
         />

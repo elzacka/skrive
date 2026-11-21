@@ -208,6 +208,22 @@ export async function persistMasterKey(key: Uint8Array): Promise<void> {
   masterKey = key;
 }
 
+// Last resort for a key that can never be read: the record is kept under
+// a dated id, never deleted, and a new key is created on the next start
+export async function setAsideUnreadableKey(): Promise<void> {
+  const db = await openCryptoDb();
+  const record = await dbGet<WrappedMasterKeyRecord>(db, WRAPPED_MASTER_KEY_ID);
+  const tx = db.transaction(CRYPTO_STORE, 'readwrite');
+  const store = tx.objectStore(CRYPTO_STORE);
+  if (record) store.put(record, `${WRAPPED_MASTER_KEY_ID}-${Date.now()}`);
+  store.delete(WRAPPED_MASTER_KEY_ID);
+  store.delete(WRAPPING_KEY_ID);
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // null only when no key has ever been stored; a stored key that cannot be
 // read throws, so the caller never replaces it with a new one
 async function loadMasterKeyFromDb(): Promise<Uint8Array | null> {

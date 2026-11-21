@@ -43,7 +43,9 @@ interface EncryptedStoredState {
 export type StorageLoadResult =
   | { status: 'ok'; state: StoredState }
   | { status: 'empty' }
-  | { status: 'error' };
+  | { status: 'error' }
+  // Storage itself could not be read: nothing may be saved this session
+  | { status: 'unavailable' };
 
 function openDataDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -120,7 +122,7 @@ async function decryptStoredState(parsed: EncryptedStoredState, key = getMasterK
 // never destroy an earlier copy
 async function preserveRecoveryCopy(blob: unknown): Promise<void> {
   try {
-    await idbSet(`${RECOVERY_PREFIX}${Date.now()}`, blob);
+    await idbSet(`${RECOVERY_PREFIX}${Date.now()}-${crypto.randomUUID()}`, blob);
     console.warn('Unreadable stored state preserved as recovery copy');
   } catch (error) {
     console.error('Failed to preserve recovery copy:', error);
@@ -190,7 +192,8 @@ export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
   try {
     idbBlob = await idbGet(STATE_KEY);
   } catch (error) {
-    console.warn('IndexedDB unavailable:', error);
+    console.error('IndexedDB unavailable:', error);
+    return { status: 'unavailable' };
   }
   if (idbBlob) {
     try {

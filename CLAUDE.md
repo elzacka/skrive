@@ -17,8 +17,8 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 - App state lives in IndexedDB (`skrive-data`/`state`), reading and migrating legacy localStorage blobs (`skrive-encrypted`, `skrive-state`) once. Saves debounce 800 ms in AppContext; `saveStatus` reflects the real write result.
 - On `pagehide` with a pending save, an encrypted copy goes to localStorage (`skrive-emergency`) synchronously, since async IndexedDB can't finish during unload; it's treated as newest on next load, then cleared.
-- If stored data exists but fails to read at startup, it's preserved under its own `encrypted-state-recovery-<ts>` key (never overwritten) — a save must never overwrite data the app hasn't successfully read. While any copy exists, a banner offers recovery (device key, then the auto-backup passphrase key) and auto-backup pauses.
-- The master key never changes once created: a stored key that can't be read blocks the app (`keyError`) instead of being replaced, and restores re-encrypt with the device key.
+- If stored data exists but fails to read at startup, it's preserved under its own `encrypted-state-recovery-<ts>` key (never overwritten) — a save must never overwrite data the app hasn't successfully read. While any copy exists, a banner offers recovery (device key, then the auto-backup passphrase key) and auto-backup pauses. A backup restore also tries its key on waiting copies.
+- The master key never changes once created: a stored key that can't be read blocks the app (`startupBlocked`) instead of being replaced, and restores re-encrypt with the device key. The only way to a new key is the confirmed reset on that screen, which keeps the old record under a dated id. An IndexedDB read error at startup blocks the same way.
 - One window at a time (Web Locks, main.tsx): each window saves the whole state, so a second one waits behind `InstanceGate`.
 - Restore and JSON import merge by id (newer `updatedAt` wins); they never remove notes.
 - `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
