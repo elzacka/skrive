@@ -1,6 +1,5 @@
 import type { AppState, Note, Tag, Folder, ExportData } from '@/types';
 import {
-  initializeEncryption,
   encrypt,
   decrypt,
   getMasterKey,
@@ -19,10 +18,8 @@ const STATE_KEY = 'encrypted-state';
 // Single-slot recovery key of earlier versions; read, never written
 const LEGACY_RECOVERY_KEY = 'encrypted-state-recovery';
 const RECOVERY_PREFIX = 'encrypted-state-recovery-';
-// Encrypted spill written during pagehide when a debounced save is still
-// pending: async IndexedDB writes cannot complete during unload, but
-// localStorage.setItem is synchronous (libsodium encrypt resolves in a
-// microtask). Read and migrated to IndexedDB on next startup.
+// Written on pagehide: IndexedDB cannot finish during unload, but
+// localStorage.setItem is synchronous. Read first on the next start
 const EMERGENCY_KEY = 'skrive-emergency';
 
 export interface StoredState {
@@ -91,14 +88,6 @@ async function idbKeys(): Promise<string[]> {
     request.onsuccess = () => resolve(request.result.map(String));
     request.onerror = () => reject(request.error);
   });
-}
-
-/**
- * Initialize encryption on app startup
- * Loads existing key from storage or generates a new one
- */
-export async function initializeStorage(): Promise<void> {
-  await initializeEncryption();
 }
 
 function normalizeState(state: StoredState): StoredState {
@@ -194,10 +183,7 @@ export async function deleteRecoveryCopies(ids: string[]): Promise<void> {
   await idbWrite((store) => ids.forEach(id => store.delete(id)));
 }
 
-/**
- * Load state: IndexedDB first, then legacy localStorage (encrypted, then
- * plaintext) for migration. Unreadable data is preserved, never discarded.
- */
+// IndexedDB first, then legacy localStorage; unreadable data is kept
 export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
   // 0. Emergency spill from a previous unload. Only exists if the last
   // session ended with unsaved changes, so it is always newest
@@ -262,10 +248,7 @@ export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
   return { status: 'empty' };
 }
 
-/**
- * Save state encrypted to IndexedDB. Returns whether the write succeeded
- * so the UI can show a truthful save status.
- */
+// Returns whether the write succeeded, for a truthful save status
 export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<boolean> {
   try {
     const toSave: StoredState = {
@@ -299,10 +282,7 @@ export async function saveToStorageEncrypted(state: Pick<AppState, 'lang' | 'not
   }
 }
 
-/**
- * Emergency save during pagehide: encrypt (microtask-fast with libsodium)
- * and write synchronously to localStorage
- */
+// libsodium encrypts within a microtask, so this finishes during pagehide
 export async function saveEmergencySpill(state: Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'>): Promise<void> {
   try {
     const key = getMasterKey();
