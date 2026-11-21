@@ -308,6 +308,10 @@ export function isTrashExpired(note: TrashedNote): boolean {
   return Date.now() - note.deletedAt > TRASH_DAYS * DAY;
 }
 
+export function trashDaysLeft(note: TrashedNote): number {
+  return Math.max(1, Math.ceil((TRASH_DAYS * DAY - (Date.now() - note.deletedAt)) / DAY));
+}
+
 // IndexedDB first, then legacy localStorage; unreadable data is kept
 export async function loadFromStorageEncrypted(): Promise<StorageLoadResult> {
   // 0. Emergency spill from a previous unload. Only exists if the last

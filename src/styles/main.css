@@ -104,11 +104,14 @@ body {
   left: var(--sidebar-width);
   top: 50%;
   transform: translateY(-50%);
-  width: 24px;
-  height: 48px;
-  background: var(--accent);
-  border: none;
-  border-radius: 0 4px 4px 0;
+  width: 14px;
+  height: 40px;
+  padding: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -118,13 +121,13 @@ body {
 }
 
 .sidebar-toggle svg {
-  width: 14px;
-  height: 14px;
-  color: #fff;
+  width: 12px;
+  height: 12px;
 }
 
 .sidebar-toggle:hover {
-  background: var(--accent-hover);
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
 .sidebar.hidden ~ .sidebar-toggle {
@@ -426,8 +429,9 @@ body {
 .sidebar-footer-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   padding: 8px 12px;
+  border-top: 1px solid var(--border-light);
   position: relative;
 }
 
@@ -436,14 +440,14 @@ body {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
   padding: 4px 8px;
   color: var(--text-muted);
   font-size: 11px;
-  height: 26px;
-  min-width: 26px;
+  height: 30px;
+  min-width: 30px;
 }
 
 .sidebar-footer-btn svg {
@@ -734,13 +738,10 @@ body {
 }
 
 /* App Footer */
-.app-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 12px;
-  font-size: 9px;
+.guide-version {
+  margin-top: 16px;
+  font-size: 11px;
   color: var(--text-muted);
-  border-top: 1px solid var(--border-light);
 }
 
 /* Backup Popup */
@@ -842,7 +843,6 @@ body {
   background: var(--bg-primary);
   position: relative;
   min-width: 0;
-  margin-left: 24px; /* Space for sidebar toggle chevron */
 }
 
 .editor-header {
@@ -908,14 +908,11 @@ body {
   border-bottom: 1px solid var(--border-light);
 }
 
-/* Link Dialog */
+/* Dialogs: title, content, the one action. No rules between them */
 .link-dialog-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -924,9 +921,9 @@ body {
 
 .link-dialog {
   background: var(--bg-primary);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  width: 400px;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  width: 440px;
   max-width: 90vw;
 }
 
@@ -934,13 +931,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-light);
+  padding: 16px 16px 0 20px;
 }
 
 .link-dialog-header h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -948,13 +944,13 @@ body {
 .link-dialog-close {
   background: none;
   border: none;
-  padding: 4px;
+  padding: 6px;
   cursor: pointer;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .link-dialog-close:hover {
@@ -963,7 +959,7 @@ body {
 }
 
 .link-dialog-body {
-  padding: 16px;
+  padding: 12px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -983,7 +979,7 @@ body {
 .link-dialog-body input {
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 13px;
   font-family: var(--font-mono);
   background: var(--bg-secondary);
@@ -998,17 +994,18 @@ body {
 .link-dialog-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-light);
+  padding: 0 20px 20px;
 }
 
 .link-dialog-actions .action-btn {
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 12px;
+  border-radius: 6px;
 }
 
-/* A destructive action stands apart from the ones that close the dialog */
+/* A destructive action stands apart from the confirming one */
 .link-dialog-actions .dialog-action-start {
   margin-right: auto;
 }
@@ -1029,11 +1026,72 @@ body {
 }
 
 .dialog-empty {
-  margin: 0;
-  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px 8px;
   text-align: center;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.dialog-empty svg {
+  color: var(--text-muted);
+  stroke-width: 1.5;
+  margin-bottom: 6px;
+}
+
+.dialog-empty-hint {
+  max-width: 340px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Quiet text button for secondary or destructive actions */
+.text-btn {
+  padding: 6px 8px;
+  margin-left: -8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.text-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.text-btn.danger:hover {
+  color: var(--danger);
+}
+
+/* Icon-only action on a list row */
+.row-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.row-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.row-icon-btn.danger:hover {
+  color: var(--danger);
 }
 
 .trash-list,
@@ -1046,14 +1104,19 @@ body {
 
 .trash-list {
   max-height: 50vh;
+  margin: 0 -8px;
 }
 
 .trash-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-light);
+  gap: 2px;
+  padding: 6px 4px 6px 8px;
+  border-radius: 6px;
+}
+
+.trash-item:hover {
+  background: var(--bg-tertiary);
 }
 
 .trash-item-text {
@@ -1067,60 +1130,59 @@ body {
 .trash-item-title {
   font-size: 13px;
   color: var(--text-primary);
-}
-
-.trash-item-meta {
-  font-size: 12px;
-  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.trash-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .history-view {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   height: 50vh;
 }
 
 .history-list {
-  width: 180px;
+  width: 170px;
   flex-shrink: 0;
 }
 
 .history-item {
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 10px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: none;
   text-align: left;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .history-item:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .history-item.active {
-  background: var(--bg-hover);
+  background: var(--bg-active);
   color: var(--text-primary);
-  font-weight: 600;
 }
 
 .history-preview {
   flex: 1;
   margin: 0;
-  padding: 12px;
+  padding: 14px 16px;
   overflow: auto;
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  background: var(--bg-secondary);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--text-primary);
@@ -1289,10 +1351,10 @@ body {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  width: 240px;
+  width: 220px;
   background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(10, 82, 13, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   border: 1px solid var(--border);
   z-index: 100;
   overflow: hidden;
@@ -1303,21 +1365,13 @@ body {
   display: block;
 }
 
-.tag-picker-section {
-  padding: 12px;
-}
-
-.tag-picker-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.tag-picker-divider {
-  height: 1px;
-  background: var(--border-light);
+.tag-picker-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .tag-picker-item {
@@ -1326,10 +1380,10 @@ body {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 8px;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
@@ -1341,36 +1395,38 @@ body {
 }
 
 .check-mark {
+  display: flex;
   color: var(--accent);
-  font-weight: 600;
+}
+
+.tag-add-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
 }
 
 .new-tag-input {
-  width: 100%;
-  padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border: none;
-  border-radius: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
   color: var(--text-primary);
   font-size: 12px;
   outline: none;
-  margin-bottom: 8px;
 }
 
-.add-tag-btn {
-  width: 100%;
-  padding: 6px;
-  background: var(--accent);
-  border: none;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
+.new-tag-input:focus {
+  border-color: var(--border);
 }
 
-.add-tag-btn:hover {
-  background: var(--accent-hover);
+.row-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: none;
+  color: var(--text-muted);
 }
 
 /* Current Tags */
@@ -1395,12 +1451,6 @@ body {
   flex: 1;
   display: flex;
   min-height: 0;
-}
-
-.tag-picker-empty {
-  padding: 6px 8px;
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .editor-container {
@@ -1531,14 +1581,17 @@ body {
   outline-offset: 2px;
 }
 
+/* Fields show focus with their border instead */
 .search-input:focus-visible,
-.title-input:focus-visible,
-.style-select:focus-visible,
-.new-tag-input:focus-visible,
-.lang-option:focus-visible,
-.action-btn:focus-visible,
-.format-btn:focus-visible {
+.new-tag-input:focus-visible {
   outline: none;
+}
+
+.action-btn:focus-visible,
+.format-btn:focus-visible,
+.style-select:focus-visible,
+.lang-option:focus-visible {
+  outline-offset: 1px;
 }
 
 /* Selection */

@@ -83,7 +83,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 ## Versioning (differs from global)
 
-- The version lives in package.json; the Sidebar footer reads it via `__APP_VERSION__` (vite.config.ts `define`). Bump before any push that changes code, not for docs-only changes.
+- The version lives in package.json; the guide popup ("Bruke appen") shows it via `__APP_VERSION__` (vite.config.ts `define`). Bump before any push that changes code, not for docs-only changes.
 - Privacy files (personvern.html, privacy.html) version separately.
 
 ## i18n

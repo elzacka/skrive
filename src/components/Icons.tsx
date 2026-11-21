@@ -459,3 +459,36 @@ export function MarkdownIcon({ size = 14 }: IconProps) {
     size
   );
 }
+
+export function RestoreIcon({ size = 24 }: IconProps) {
+  return icon(
+    <>
+      <path d="M3.06 13a9 9 0 1 0 .49 -4.087" />
+      <path d="M3 4.001v5h5" />
+      <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    </>,
+    size
+  );
+}
+
+export function TrashXIcon({ size = 24 }: IconProps) {
+  return icon(
+    <>
+      <path d="M4 7h16" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+      <path d="M10 12l4 4m0 -4l-4 4" />
+    </>,
+    size
+  );
+}
+
+export function TagIcon({ size = 24 }: IconProps) {
+  return icon(
+    <>
+      <path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+      <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" />
+    </>,
+    size
+  );
+}

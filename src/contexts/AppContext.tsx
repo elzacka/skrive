@@ -168,15 +168,19 @@ function reducer(state: AppState, action: Action): AppState {
         )
       };
     
-    case 'DELETE_NOTES':
+    case 'DELETE_NOTES': {
+      const notes = state.notes.filter(note => !action.payload.includes(note.id));
+      // Like startup: the most recently edited note, not an empty editor
+      const next = notes.reduce<Note | null>((a, b) => (!a || b.updatedAt > a.updatedAt ? b : a), null);
       return {
         ...state,
-        notes: state.notes.filter(note => !action.payload.includes(note.id)),
+        notes,
         trash: [...state.trash, ...toTrash(state.notes.filter(note => action.payload.includes(note.id)), Date.now())],
         selectedNoteId: state.selectedNoteId && action.payload.includes(state.selectedNoteId)
-          ? null
+          ? next?.id ?? null
           : state.selectedNoteId
       };
+    }
 
     // An untouched placeholder leaves no trace in the trash
     case 'DISCARD_NOTE':

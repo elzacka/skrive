@@ -4,7 +4,7 @@ export function generateId(): string {
 
 export function formatDate(timestamp: number, lang: 'no' | 'en'): string {
   const locale = lang === 'no' ? 'nb-NO' : 'en-US';
-  return new Date(timestamp).toLocaleString(locale);
+  return new Date(timestamp).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
 }
 
 export function escapeHtml(text: string): string {

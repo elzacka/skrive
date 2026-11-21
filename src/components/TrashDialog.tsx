@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
-import { formatDate } from '@/utils/helpers';
+import { trashDaysLeft } from '@/utils/storage';
 import { markdownToPlainText } from '@/utils/markdown';
-import { CloseIcon } from './Icons';
+import { CloseIcon, DeleteIcon, RestoreIcon, TrashXIcon } from './Icons';
 
 export function TrashDialog({ onClose }: { onClose: () => void }) {
   const { state, restoreFromTrash, purgeFromTrash } = useApp();
@@ -30,7 +30,7 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="link-dialog-overlay" onClick={onClose}>
-      <div className="link-dialog wide-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
+      <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
           <h3 id="trash-title">{t.trash}</h3>
           <button ref={closeRef} className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
@@ -38,35 +38,44 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div className="link-dialog-body">
-          <p className="dialog-intro">{t.trashIntro}</p>
           {items.length === 0 ? (
-            <p className="dialog-empty">{t.trashEmpty}</p>
+            <div className="dialog-empty">
+              <DeleteIcon size={28} />
+              <p>{t.trashEmpty}</p>
+              <p className="dialog-empty-hint">{t.trashIntro}</p>
+            </div>
           ) : (
             <ul className="trash-list">
-              {items.map(note => (
-                <li key={note.id} className="trash-item">
-                  <div className="trash-item-text">
-                    <span className="trash-item-title">{note.title || t.untitled}</span>
-                    <span className="trash-item-meta">
-                      {t.deletedOn} {formatDate(note.deletedAt, state.lang)}
-                      {note.content && ` · ${markdownToPlainText(note.content).slice(0, 80)}`}
-                    </span>
-                  </div>
-                  <button className="action-btn" onClick={() => restore(note.id)}>{t.restoreNote}</button>
-                  <button className="action-btn" onClick={() => purge([note.id], t.confirmDeleteForever)}>{t.deleteForever}</button>
-                </li>
-              ))}
+              {items.map(note => {
+                const days = trashDaysLeft(note);
+                const name = note.title || markdownToPlainText(note.content).slice(0, 60) || t.untitled;
+                return (
+                  <li key={note.id} className="trash-item">
+                    <div className="trash-item-text">
+                      <span className="trash-item-title">{name}</span>
+                      <span className="trash-item-meta">
+                        {days === 1 ? t.trashOneDayLeft : t.trashDaysLeft.replace('{n}', String(days))}
+                      </span>
+                    </div>
+                    <button className="row-icon-btn" onClick={() => restore(note.id)} title={t.restoreNote} aria-label={`${t.restoreNote}: ${name}`}>
+                      <RestoreIcon size={16} />
+                    </button>
+                    <button className="row-icon-btn danger" onClick={() => purge([note.id], t.confirmDeleteForever)} title={t.deleteForever} aria-label={`${t.deleteForever}: ${name}`}>
+                      <TrashXIcon size={16} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
-        <div className="link-dialog-actions">
-          {items.length > 0 && (
-            <button className="action-btn dialog-action-start" onClick={() => purge(items.map(n => n.id), t.confirmEmptyTrash)}>
+        {items.length > 0 && (
+          <div className="link-dialog-actions">
+            <button className="text-btn danger dialog-action-start" onClick={() => purge(items.map(n => n.id), t.confirmEmptyTrash)}>
               {t.emptyTrash}
             </button>
-          )}
-          <button className="action-btn save-btn" onClick={onClose}>{t.close}</button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -36,12 +36,14 @@
   border-radius: 4px;
 }
 
-.cm-content {
+/* CodeMirror's base theme sets these at the same specificity and loads
+   later, so they need one class more */
+.cm-editor .cm-scroller .cm-content {
   padding: 16px;
   caret-color: var(--text-primary);
 }
 
-.cm-line {
+.cm-editor .cm-content .cm-line {
   padding: 0;
 }
 

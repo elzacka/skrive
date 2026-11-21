@@ -3,7 +3,7 @@ import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { formatDate } from '@/utils/helpers';
 import { listVersions, type NoteVersion } from '@/utils/storage';
-import { CloseIcon } from './Icons';
+import { CloseIcon, HistoryIcon } from './Icons';
 
 interface HistoryDialogProps {
   noteId: string;
@@ -33,7 +33,7 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
 
   return (
     <div className="link-dialog-overlay" onClick={onClose}>
-      <div className="link-dialog wide-dialog" role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={(e) => e.stopPropagation()}>
+      <div className={`link-dialog ${version ? 'wide-dialog' : ''}`} role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
           <h3 id="history-title">{t.history}</h3>
           <button className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
@@ -41,8 +41,13 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
           </button>
         </div>
         <div className="link-dialog-body">
-          <p className="dialog-intro">{t.historyIntro}</p>
-          {versions && versions.length === 0 && <p className="dialog-empty">{t.historyEmpty}</p>}
+          {versions && versions.length === 0 && (
+            <div className="dialog-empty">
+              <HistoryIcon size={28} />
+              <p>{t.historyEmpty}</p>
+              <p className="dialog-empty-hint">{t.historyIntro}</p>
+            </div>
+          )}
           {version && (
             <div className="history-view">
               <ul className="history-list">
@@ -58,16 +63,11 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
             </div>
           )}
         </div>
-        <div className="link-dialog-actions">
-          {version ? (
-            <>
-              <button className="action-btn" onClick={onClose}>{t.cancel}</button>
-              <button className="action-btn save-btn" onClick={() => onRestore(version.content)}>{t.restoreVersion}</button>
-            </>
-          ) : (
-            <button className="action-btn save-btn" onClick={onClose}>{t.close}</button>
-          )}
-        </div>
+        {version && (
+          <div className="link-dialog-actions">
+            <button className="action-btn save-btn" onClick={() => onRestore(version.content)}>{t.restoreVersion}</button>
+          </div>
+        )}
       </div>
     </div>
   );

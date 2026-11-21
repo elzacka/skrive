@@ -1551,13 +1551,11 @@ export function Sidebar() {
                 <div className="guide-item-desc">{t.guideOfflineDesc}{installHint && ` ${installHint}`}</div>
               </div>
             </div>
+            <p className="guide-version">Skrive {__APP_VERSION__}</p>
           </div>
         )}
       </div>
 
-      <div className="app-footer">
-        <span>v{__APP_VERSION__}</span>
-      </div>
 
       {contextMenu && (
         <div
@@ -1567,13 +1565,13 @@ export function Sidebar() {
         >
           {contextMenu.type === 'sidebar' ? (
             <>
-              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
-                <FolderIcon />
-                <span>{t.newFolder}</span>
-              </button>
               <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
                 <NoteIcon />
                 <span>{t.newNote}</span>
+              </button>
+              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
+                <FolderIcon />
+                <span>{t.newFolder}</span>
               </button>
             </>
           ) : (

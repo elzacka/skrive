@@ -199,7 +199,6 @@ export interface I18nStrings {
   saving: string;
   unsaved: string;
   saved: string;
-  noTagsYet: string;
   hideSidebar: string;
   showSidebar: string;
   click: string;
@@ -286,7 +285,8 @@ export interface I18nStrings {
   trash: string;
   trashIntro: string;
   trashEmpty: string;
-  deletedOn: string;
+  trashDaysLeft: string;
+  trashOneDayLeft: string;
   restoreNote: string;
   deleteForever: string;
   confirmDeleteForever: string;

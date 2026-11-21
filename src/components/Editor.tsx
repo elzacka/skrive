@@ -33,7 +33,11 @@ import {
   CircleAlertIcon,
   HistoryIcon,
   ChevronDownIcon,
-  MarkdownIcon
+  MarkdownIcon,
+  PlusIcon,
+  DownloadIcon,
+  TagIcon,
+  DeleteIcon
 } from './Icons';
 
 const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
@@ -113,13 +117,16 @@ export function Editor() {
   // live in the editor. e.code, never e.key (layout-independent)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // The link dialog is this component's own modal
+      if (e.key === 'Escape' && showLinkDialog) {
+        setShowLinkDialog(false);
+        viewRef.current?.focus();
+        return;
+      }
       // A modal dialog owns the keyboard
       if (document.querySelector('[aria-modal="true"]')) return;
       if (e.key === 'Escape') {
-        if (showLinkDialog) {
-          setShowLinkDialog(false);
-          viewRef.current?.focus();
-        } else if (showTagPicker) {
+        if (showTagPicker) {
           setShowTagPicker(false);
         } else if (showExportMenu) {
           setShowExportMenu(false);
@@ -384,11 +391,13 @@ export function Editor() {
           </button>
           <div className="export-menu-container" ref={exportMenuRef}>
             <button
-              className="action-btn"
+              className="action-btn icon-btn"
               onClick={() => setShowExportMenu(!showExportMenu)}
               aria-expanded={showExportMenu}
+              title={t.save}
+              aria-label={t.save}
             >
-              {t.save}
+              <DownloadIcon size={14} />
             </button>
             {showExportMenu && (
               <div className="export-menu">
@@ -399,53 +408,50 @@ export function Editor() {
           </div>
           <div className="export-menu-container" ref={tagPickerRef}>
             <button
-              className="action-btn"
+              className="action-btn icon-btn"
               onClick={() => setShowTagPicker(!showTagPicker)}
               aria-expanded={showTagPicker}
+              title={t.assignTags}
+              aria-label={t.assignTags}
             >
-              {t.assignTags}
+              <TagIcon size={14} />
             </button>
             {showTagPicker && (
               <div className="tag-picker show">
-                <div className="tag-picker-section">
-                  <div className="tag-picker-title">{t.assignTags}</div>
+                {state.tags.length > 0 && (
                   <div className="tag-picker-list">
-                    {state.tags.length === 0 ? (
-                      <div className="tag-picker-empty">{t.noTagsYet}</div>
-                    ) : (
-                      [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
-                        <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)}>
-                          <span>{tag.name}</span>
-                          {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={12} /></span>}
-                        </button>
-                      ))
-                    )}
+                    {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
+                      <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)} aria-pressed={note.tags.includes(tag.id)}>
+                        <span>{tag.name}</span>
+                        {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={14} /></span>}
+                      </button>
+                    ))}
                   </div>
-                </div>
-                <div className="tag-picker-divider" />
-                <div className="tag-picker-section">
+                )}
+                <div className="tag-add-row">
                   <input
                     type="text"
                     className="new-tag-input"
                     placeholder={t.newTagPlaceholder}
+                    aria-label={t.newTagPlaceholder}
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
                     dir="ltr"
+                    autoFocus={state.tags.length === 0}
                   />
-                  <button className="add-tag-btn" onClick={handleAddTag}>
-                    {t.addTag}
+                  <button className="row-icon-btn" onClick={handleAddTag} disabled={!newTagName.trim()} title={t.addTag} aria-label={t.addTag}>
+                    <PlusIcon size={16} />
                   </button>
                 </div>
               </div>
             )}
           </div>
-          <button className="action-btn" onClick={() => deleteNote(note.id)}>
-            {t.delete}
+          <button className="action-btn icon-btn" onClick={() => deleteNote(note.id)} title={t.delete} aria-label={t.delete}>
+            <DeleteIcon size={14} />
           </button>
         </div>
       </div>
-
 
       {showLinkDialog && (
         <div className="link-dialog-overlay">
