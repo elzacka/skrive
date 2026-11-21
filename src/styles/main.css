@@ -571,10 +571,8 @@ body {
   font-size: 8px;
 }
 
-/* Small-screen gate. This is the ONE deliberate exception to the
-   desktop-only, no-mobile-CSS rule: on phones (and windows narrower
-   than 768px) the app is replaced or covered by a full-screen notice
-   instead of rendering a degraded layout */
+/* The one exception to the desktop-only rule: phones and windows under
+   768px get a full-screen notice instead of a degraded layout */
 .screen-gate {
   position: fixed;
   inset: 0;
