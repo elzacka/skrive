@@ -1342,10 +1342,6 @@ body {
   outline: none;
 }
 
-.style-select:focus {
-  border-color: var(--accent);
-}
-
 /* Tag Picker */
 .tag-picker {
   position: absolute;
@@ -1587,11 +1583,18 @@ body {
   outline: none;
 }
 
+/* Bordered controls: the border itself becomes the ring, so focus shows
+   as one line, not border plus outline */
 .action-btn:focus-visible,
 .format-btn:focus-visible,
-.style-select:focus-visible,
+.style-select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .lang-option:focus-visible {
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 
 /* Selection */
