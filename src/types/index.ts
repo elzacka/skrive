@@ -152,6 +152,15 @@ export interface I18nStrings {
   linkShortcut: string;
   quoteShortcut: string;
   showMarkdown: string;
+  textSettings: string;
+  fontLabel: string;
+  textSize: string;
+  lineSpacing: string;
+  sizeSmall: string;
+  sizeLarge: string;
+  normalOption: string;
+  spacingTight: string;
+  spacingAiry: string;
   textStyle: string;
   taskListShortcut: string;
   optional: string;

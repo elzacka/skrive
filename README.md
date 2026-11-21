@@ -57,6 +57,8 @@ Merk: Filer du eksporterer selv (enkeltnotater, Markdown-filer og JSON-backup) l
 
 Ikoner fra [Tabler Icons](https://tabler.io/icons) (MIT-lisens), selvhostet som inline SVG.
 
+Fonter (SIL OFL 1.1, selvhostet, lisensene ligger i `public/fonts`): [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) i grensesnittet, og [Recursive](https://github.com/arrowtype/recursive), [Monaspace Neon](https://github.com/githubnext/monaspace) og [iA Writer Duo](https://github.com/iaolo/iA-Fonts) å velge mellom i editoren.
+
 ## Kom i gang
 
 ### Forutsetninger

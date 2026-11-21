@@ -13,6 +13,8 @@ import { FindReplaceBar } from './FindReplaceBar';
 import { MarkdownEditor } from './MarkdownEditor';
 import { HistoryDialog } from './HistoryDialog';
 import { StyleMenu } from './StyleMenu';
+import { TypographyMenu } from './TypographyMenu';
+import { FONTS, SIZES, SPACINGS, loadTypography, saveTypography, type Typography } from '@/utils/typography';
 import { recordVersion } from '@/utils/storage';
 import {
   CopyIcon,
@@ -63,6 +65,7 @@ export function Editor() {
   const [tagFocusTick, setTagFocusTick] = useState(0);
   const [newTagName, setNewTagName] = useState('');
   const [source, setSource] = useState(false);
+  const [typography, setTypography] = useState<Typography>(loadTypography);
   const [showFind, setShowFind] = useState(false);
   const [findFocusTick, setFindFocusTick] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState(false);
@@ -225,6 +228,21 @@ export function Editor() {
 
   const toggleSource = useCallback(() => setSource(on => !on), []);
 
+  const changeTypography = useCallback((next: Typography) => {
+    setTypography(next);
+    saveTypography(next);
+  }, []);
+
+  // Glyph widths change with the font, size and Recursive's mono axis;
+  // CodeMirror measures again once the font is in and the glide is over
+  useEffect(() => {
+    let cancelled = false;
+    const remeasure = () => { if (!cancelled) viewRef.current?.requestMeasure(); };
+    document.fonts.load(`${SIZES[typography.size]}px ${FONTS[typography.font].stack.split(',')[0]}`).then(remeasure, remeasure);
+    const timer = setTimeout(remeasure, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [typography, source]);
+
   const confirmLink = () => {
     const view = viewRef.current;
     const url = /^[a-z][a-z0-9+.-]*:/i.test(linkUrl) ? linkUrl : `https://${linkUrl}`;
@@ -270,7 +288,7 @@ export function Editor() {
   // Arrow keys move focus within a toolbar (WAI-ARIA toolbar pattern)
   const handleToolbarKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.format-group > button, .style-menu > button'));
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.format-group > button, .style-menu > button, .type-menu > button'));
     const index = items.indexOf(document.activeElement as HTMLElement);
     if (index === -1) return;
     e.preventDefault();
@@ -357,6 +375,7 @@ export function Editor() {
           </div>
           <div className="format-group">
             {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownLabel)}
+            <TypographyMenu t={t} value={typography} onChange={changeTypography} />
           </div>
         </div>
         <div className="header-actions">
@@ -538,7 +557,15 @@ export function Editor() {
         />
       )}
 
-      <div className="editor-container">
+      <div
+        className="editor-container"
+        data-lens={source ? 'source' : 'formatted'}
+        style={{
+          '--editor-font': FONTS[typography.font].stack,
+          '--editor-size': `${SIZES[typography.size]}px`,
+          '--editor-line': SPACINGS[typography.spacing]
+        } as React.CSSProperties}
+      >
         <MarkdownEditor
           noteId={note.id}
           content={note.content}

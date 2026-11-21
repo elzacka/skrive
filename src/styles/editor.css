@@ -11,9 +11,19 @@
   flex: 1;
   height: 100%;
   color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.7;
+  font-family: var(--editor-font, var(--font-mono));
+  font-size: var(--editor-size, 16px);
+  line-height: var(--editor-line, 1.7);
+  /* Recursive glides between proportional and mono with the lens; other
+     fonts have no MONO axis and ignore it */
+  font-variation-settings: "MONO" var(--editor-mono, 0);
+  transition: font-variation-settings 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-editor {
+    transition: none;
+  }
 }
 
 .cm-editor.cm-focused {
@@ -59,9 +69,9 @@
 
 /* Formatted lens */
 
-.cm-md-h1 { font-size: 24px; font-weight: 700; line-height: 1.4; }
-.cm-md-h2 { font-size: 20px; font-weight: 700; line-height: 1.4; }
-.cm-md-h3 { font-size: 16px; font-weight: 700; }
+.cm-md-h1 { font-size: 1.6em; font-weight: 700; line-height: 1.4; }
+.cm-md-h2 { font-size: 1.35em; font-weight: 700; line-height: 1.4; }
+.cm-md-h3 { font-size: 1.15em; font-weight: 700; }
 .cm-md-h4, .cm-md-h5, .cm-md-h6 { font-weight: 700; }
 
 .cm-md-strong { font-weight: 700; }
