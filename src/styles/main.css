@@ -881,13 +881,13 @@ body {
 
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: 0;
   align-items: center;
   margin-left: auto;
 }
 
 /* Same height as the formatting buttons beside them */
-.header-actions .action-btn {
+.editor-header .action-btn {
   height: 28px;
   min-width: 28px;
 }
@@ -1299,7 +1299,8 @@ body {
 
 .format-group {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   padding-right: 8px;
   margin-right: 8px;
   border-right: 1px solid var(--border-light);
@@ -1337,12 +1338,12 @@ body {
 /* Toolbar icons rest in the muted tone (still 4.5:1 on white) so the text
    stays the loudest thing on screen; hover darkens, active turns green */
 .format-btn,
-.header-actions .icon-btn {
+.editor-header .icon-btn {
   color: var(--text-muted);
 }
 
 .format-btn:hover,
-.header-actions .icon-btn:hover:not(:disabled) {
+.editor-header .icon-btn:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
@@ -1351,7 +1352,7 @@ body {
 }
 
 .format-btn svg,
-.header-actions .icon-btn svg {
+.editor-header .icon-btn svg {
   width: 18px;
   height: 18px;
   stroke: currentColor;

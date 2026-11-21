@@ -346,6 +346,26 @@ export function Editor() {
       <div className="editor-header">
         <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
           <div className="format-group">
+            <button
+              className="action-btn icon-btn"
+              onClick={() => run(undo)}
+              disabled={!history.canUndo}
+              title={`${t.undo} (${shortcuts.undo})`}
+              aria-label={t.undo}
+            >
+              <UndoIcon />
+            </button>
+            <button
+              className="action-btn icon-btn"
+              onClick={() => run(redo)}
+              disabled={!history.canRedo}
+              title={`${t.redo} (${shortcuts.redo})`}
+              aria-label={t.redo}
+            >
+              <RedoIcon />
+            </button>
+          </div>
+          <div className="format-group">
             <StyleMenu
               label={t.textStyle}
               value={Math.min(formats.heading, 3)}
@@ -357,11 +377,15 @@ export function Editor() {
                 { label: t.heading3, shortcut: shortcuts.heading3 }
               ]}
             />
+            <TypographyMenu t={t} value={typography} onChange={changeTypography} />
           </div>
           <div className="format-group">
             {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
             {formatButton(t.italicShortcut, shortcuts.italic, formats.italic, () => inline('italic'), ItalicIcon)}
             {formatButton(t.inlineCodeShortcut, shortcuts.inlineCode, formats.code, () => inline('code'), CodeIcon)}
+          </div>
+          <div className="format-group">
+            {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
           </div>
           <div className="format-group">
             {formatButton(t.bulletListShortcut, shortcuts.bulletList, formats.list === 'bullet', () => lines('bullet'), BulletListIcon)}
@@ -371,105 +395,89 @@ export function Editor() {
             {formatButton(t.codeBlockShortcut, shortcuts.codeBlock, null, () => run(toggleCodeBlock), CodeBlockIcon)}
           </div>
           <div className="format-group">
-            {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
-          </div>
-          <div className="format-group">
             {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownLabel)}
-            <TypographyMenu t={t} value={typography} onChange={changeTypography} />
           </div>
         </div>
         <div className="header-actions">
-          <span className={`save-status ${saveStatus}`} title={saveStatusText} aria-live="polite">
-            {saveStatus === 'unsaved' && <CircleIcon size={9} />}
-            {saveStatus === 'saving' && <LoaderCircleIcon size={12} />}
-            {saveStatus === 'saved' && <CheckIcon size={13} />}
-            {saveStatus === 'error' && <CircleAlertIcon size={13} />}
-          </span>
-          <button
-            className="action-btn icon-btn"
-            onClick={() => run(undo)}
-            disabled={!history.canUndo}
-            title={`${t.undo} (${shortcuts.undo})`}
-            aria-label={t.undo}
-          >
-            <UndoIcon />
-          </button>
-          <button
-            className="action-btn icon-btn"
-            onClick={() => run(redo)}
-            disabled={!history.canRedo}
-            title={`${t.redo} (${shortcuts.redo})`}
-            aria-label={t.redo}
-          >
-            <RedoIcon />
-          </button>
-          <button className="action-btn icon-btn" onClick={() => setShowVersions(true)} title={t.history} aria-label={t.history}>
-            <HistoryIcon />
-          </button>
-          <button className="action-btn icon-btn" onClick={handleCopy} title={t.copyToClipboard} aria-label={t.copy}>
-            {copyFeedback ? <CheckIcon /> : <CopyIcon />}
-          </button>
-          <div className="export-menu-container" ref={exportMenuRef}>
-            <button
-              className="action-btn icon-btn"
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              aria-expanded={showExportMenu}
-              title={t.save}
-              aria-label={t.save}
-            >
-              <DownloadIcon size={14} />
+          <div className="format-group">
+            <span className={`save-status ${saveStatus}`} title={saveStatusText} aria-live="polite">
+              {saveStatus === 'unsaved' && <CircleIcon size={9} />}
+              {saveStatus === 'saving' && <LoaderCircleIcon size={12} />}
+              {saveStatus === 'saved' && <CheckIcon size={13} />}
+              {saveStatus === 'error' && <CircleAlertIcon size={13} />}
+            </span>
+            <button className="action-btn icon-btn" onClick={() => setShowVersions(true)} title={t.history} aria-label={t.history}>
+              <HistoryIcon />
             </button>
-            {showExportMenu && (
-              <div className="export-menu">
-                <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
-                <button onClick={() => handleExport('html')}>{t.exportAsHtml}</button>
-              </div>
-            )}
           </div>
-          <div className="export-menu-container" ref={tagPickerRef}>
-            <button
-              className="action-btn icon-btn"
-              onClick={() => setShowTagPicker(!showTagPicker)}
-              aria-expanded={showTagPicker}
-              title={t.assignTags}
-              aria-label={t.assignTags}
-            >
-              <TagIcon size={14} />
-            </button>
-            {showTagPicker && (
-              <div className="tag-picker show">
-                {state.tags.length > 0 && (
-                  <div className="tag-picker-list">
-                    {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
-                      <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)} aria-pressed={note.tags.includes(tag.id)}>
-                        <span>{tag.name}</span>
-                        {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={14} /></span>}
-                      </button>
-                    ))}
+          <div className="format-group">
+            <div className="export-menu-container" ref={tagPickerRef}>
+              <button
+                className="action-btn icon-btn"
+                onClick={() => setShowTagPicker(!showTagPicker)}
+                aria-expanded={showTagPicker}
+                title={t.assignTags}
+                aria-label={t.assignTags}
+              >
+                <TagIcon size={14} />
+              </button>
+              {showTagPicker && (
+                <div className="tag-picker show">
+                  {state.tags.length > 0 && (
+                    <div className="tag-picker-list">
+                      {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
+                        <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)} aria-pressed={note.tags.includes(tag.id)}>
+                          <span>{tag.name}</span>
+                          {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={14} /></span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="tag-add-row">
+                    <input
+                      type="text"
+                      className="new-tag-input"
+                      placeholder={t.newTagPlaceholder}
+                      aria-label={t.newTagPlaceholder}
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
+                      dir="ltr"
+                      autoFocus={state.tags.length === 0}
+                    />
+                    <button className="row-icon-btn" onClick={handleAddTag} disabled={!newTagName.trim()} title={t.addTag} aria-label={t.addTag}>
+                      <PlusIcon size={16} />
+                    </button>
                   </div>
-                )}
-                <div className="tag-add-row">
-                  <input
-                    type="text"
-                    className="new-tag-input"
-                    placeholder={t.newTagPlaceholder}
-                    aria-label={t.newTagPlaceholder}
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
-                    dir="ltr"
-                    autoFocus={state.tags.length === 0}
-                  />
-                  <button className="row-icon-btn" onClick={handleAddTag} disabled={!newTagName.trim()} title={t.addTag} aria-label={t.addTag}>
-                    <PlusIcon size={16} />
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <button className="action-btn icon-btn" onClick={handleCopy} title={t.copyToClipboard} aria-label={t.copy}>
+              {copyFeedback ? <CheckIcon /> : <CopyIcon />}
+            </button>
+            <div className="export-menu-container" ref={exportMenuRef}>
+              <button
+                className="action-btn icon-btn"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                aria-expanded={showExportMenu}
+                title={t.save}
+                aria-label={t.save}
+              >
+                <DownloadIcon size={14} />
+              </button>
+              {showExportMenu && (
+                <div className="export-menu">
+                  <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
+                  <button onClick={() => handleExport('html')}>{t.exportAsHtml}</button>
+                </div>
+              )}
+            </div>
           </div>
-          <button className="action-btn icon-btn" onClick={() => deleteNote(note.id)} title={t.delete} aria-label={t.delete}>
-            <DeleteIcon size={14} />
-          </button>
+          <div className="format-group">
+            <button className="action-btn icon-btn" onClick={() => deleteNote(note.id)} title={t.delete} aria-label={t.delete}>
+              <DeleteIcon size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
