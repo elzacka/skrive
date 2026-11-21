@@ -304,6 +304,8 @@ export function Sidebar() {
     backupError,
     backupPermissionNeeded,
     reactivateBackup,
+    backupKeyStale,
+    renewBackupProtection,
     enableAutoBackup,
     disableAutoBackup,
     restoreFromBackup,
@@ -328,6 +330,7 @@ export function Sidebar() {
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
+  const [showRenewDialog, setShowRenewDialog] = useState(false);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [sortMode, setSortMode] = useState<NoteSortMode>(() =>
     localStorage.getItem('skrive-sort') === 'recent' ? 'recent' : 'alpha'
@@ -1200,6 +1203,17 @@ export function Sidebar() {
                         {t.backupFailed}
                       </div>
                     )}
+                    {backupKeyStale && (
+                      <>
+                        <div className="backup-popup-error">
+                          {t.backupKeyStale}
+                        </div>
+                        <button className="backup-popup-btn" onClick={() => { setShowRenewDialog(true); setShowBackupMenu(false); }}>
+                          <FolderSyncIcon size={16} />
+                          <span>{t.renewBackup}</span>
+                        </button>
+                      </>
+                    )}
                     {recoveryCopies > 0 && (
                       <div className="backup-popup-error">
                         {t.backupPaused}
@@ -1254,6 +1268,18 @@ export function Sidebar() {
               return ok;
             }}
             onCancel={() => setShowPassphraseDialog(false)}
+          />
+        )}
+        {showRenewDialog && (
+          <PassphraseDialog
+            mode="enter"
+            hint={t.renewBackupHint}
+            onSubmit={async (passphrase) => {
+              const ok = await renewBackupProtection(passphrase);
+              if (ok) setShowRenewDialog(false);
+              return ok;
+            }}
+            onCancel={() => setShowRenewDialog(false)}
           />
         )}
         {showShortcuts && (

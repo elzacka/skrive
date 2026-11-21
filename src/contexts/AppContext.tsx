@@ -17,6 +17,7 @@ import {
   initializeEncryption,
   getMasterKey,
   setAsideUnreadableKey,
+  protectionFitsKey,
   wrapKeyWithPassphrase,
   unwrapKeyWithPassphrase,
   encrypt,
@@ -298,6 +299,8 @@ interface AppContextValue {
   backupError: boolean;
   backupPermissionNeeded: boolean;
   reactivateBackup: () => Promise<boolean>;
+  backupKeyStale: boolean;
+  renewBackupProtection: (passphrase: string) => Promise<boolean>;
   enableAutoBackup: (passphrase: string) => Promise<boolean>;
   disableAutoBackup: () => Promise<void>;
   restoreFromBackup: () => Promise<boolean>;
@@ -319,6 +322,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [backupHandle, setBackupHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [backupKeyProtection, setBackupKeyProtection] = useState<PassphraseWrappedKey | null>(null);
+  // The stored protection wraps another key than the device key; writing
+  // would produce a backup no passphrase can open
+  const [backupKeyStale, setBackupKeyStale] = useState(false);
+  const keyCreatedRef = useRef(false);
+  const placeholderIdRef = useRef<string | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
   const [backupError, setBackupError] = useState(false);
   const [pendingRestoreState, setPendingRestoreState] = useState<{
@@ -349,7 +357,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Merge restored data into state and open the most recently edited note
   const applyRestoredData = useCallback((data: StoredData) => {
-    dispatch({ type: 'MERGE_DATA', payload: data });
+    // The empty note made at startup has no place among restored notes,
+    // unless the user has written in it
+    const placeholder = stateRef.current.notes.find(n => n.id === placeholderIdRef.current);
+    if (placeholder && placeholder.content.replace(/<[^>]*>/g, '').trim() !== '') {
+      placeholderIdRef.current = null;
+    } else if (placeholder) {
+      dispatch({ type: 'DELETE_NOTES', payload: [placeholder.id] });
+    }
+    const notes = data.notes.filter(n => n.id !== placeholderIdRef.current);
+    dispatch({ type: 'MERGE_DATA', payload: { ...data, notes } });
     hasLocalDataRef.current = true;
     if (data.notes.length > 0) {
       const mostRecent = data.notes.reduce((latest, note) =>
@@ -376,7 +393,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const initApp = async () => {
       try {
-        await initializeEncryption();
+        keyCreatedRef.current = (await initializeEncryption()) === 'created';
       } catch (error) {
         // Nothing is loaded and loadedRef stays false, so nothing is saved
         console.error('Encryption key could not be read:', error);
@@ -457,6 +474,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
       } else {
         const note = buildNote(lang, 'richtext');
+        placeholderIdRef.current = note.id;
         dispatch({ type: 'ADD_NOTE', payload: note });
         dispatch({ type: 'SELECT_NOTE', payload: note.id });
       }
@@ -553,7 +571,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Never write while a restore is pending: the state still holds a fresh
   // empty note and writing would destroy the backup being restored from
   useEffect(() => {
-    if (!backupHandle || !backupKeyProtection || pendingRestoreState || backupPermissionNeeded || recoveryCopies > 0) return;
+    if (!backupHandle || !backupKeyProtection || pendingRestoreState || backupPermissionNeeded || backupKeyStale || recoveryCopies > 0) return;
 
     if (backupTimerRef.current) {
       clearTimeout(backupTimerRef.current);
@@ -587,7 +605,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(backupTimerRef.current);
       }
     };
-  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, recoveryCopies, buildEncryptedBackup]);
+  }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup]);
+
+  // A protection fits unless its fingerprint differs, or the device key
+  // was just created while a protection from an earlier key exists
+  useEffect(() => {
+    const key = getMasterKey();
+    if (!backupKeyProtection || !key) return;
+    protectionFitsKey(backupKeyProtection, key).then(fits => {
+      setBackupKeyStale(fits === false || (fits === null && keyCreatedRef.current));
+    });
+  }, [backupKeyProtection]);
+
+  // Store a protection for the device key under the given passphrase
+  const protectDeviceKey = useCallback(async (passphrase: string) => {
+    const key = getMasterKey();
+    if (!key) return;
+    const protection = await wrapKeyWithPassphrase(key, passphrase);
+    await storeBackupKeyProtection(protection);
+    keyCreatedRef.current = false;
+    setBackupKeyProtection(protection);
+  }, []);
 
   // Actions
   const setLang = useCallback((lang: 'no' | 'en') => {
@@ -806,9 +844,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // At startup the restore re-arms auto-backup with the same
       // passphrase; a manual restore keeps the current backup setup
       if (handle && recovered !== 'saveFailed') {
-        const protection = await wrapKeyWithPassphrase(currentKey, passphrase);
-        await storeBackupKeyProtection(protection);
-        setBackupKeyProtection(protection);
+        await protectDeviceKey(passphrase);
         setBackupHandle(handle);
       }
       setPendingRestoreState(null);
@@ -817,7 +853,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Wrong passphrase or corrupted backup; keep the dialog open
       return false;
     }
-  }, [pendingRestoreState, applyRestoredData, recoverWithKeys]);
+  }, [pendingRestoreState, applyRestoredData, recoverWithKeys, protectDeviceKey]);
 
   const cancelRestore = useCallback(() => {
     // If the restore was triggered at startup (no local data), cancelling
@@ -874,9 +910,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     if (await recoverWithKeys(keys) === 'saveFailed') return 'saveFailed';
+    // The protection wrapped an older key: wrap the device key instead,
+    // or every later backup would be unreadable
+    if (passphrase && protection) await protectDeviceKey(passphrase);
     if ((await listRecoveryCopies()).length === 0) return 'done';
     return !passphrase && protection ? 'needPassphrase' : 'failed';
-  }, [recoverWithKeys]);
+  }, [recoverWithKeys, protectDeviceKey]);
+
+  // The passphrase must open the old protection: that proves it is the
+  // user's and lets waiting copies open before the old key is let go
+  const renewBackupProtection = useCallback(async (passphrase: string) => {
+    const protection = backupKeyProtection ?? await getStoredBackupKeyProtection();
+    const currentKey = getMasterKey();
+    if (!protection || !currentKey) return false;
+    let oldKey: Uint8Array;
+    try {
+      oldKey = await unwrapKeyWithPassphrase(protection, passphrase);
+    } catch {
+      return false;
+    }
+    if (await recoverWithKeys([currentKey, oldKey]) === 'saveFailed') return false;
+    await protectDeviceKey(passphrase);
+    return true;
+  }, [backupKeyProtection, recoverWithKeys, protectDeviceKey]);
 
   const discardRecoveryCopies = useCallback(async () => {
     await deleteRecoveryCopies(await listRecoveryCopies());
@@ -985,6 +1041,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     backupError,
     backupPermissionNeeded,
     reactivateBackup,
+    backupKeyStale,
+    renewBackupProtection,
     enableAutoBackup,
     disableAutoBackup,
     restoreFromBackup,

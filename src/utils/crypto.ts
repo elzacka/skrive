@@ -49,6 +49,9 @@ export interface PassphraseWrappedKey {
   salt: string;       // base64
   iv: string;         // base64
   wrappedKey: string; // base64
+  // Fingerprint of the wrapped key, absent in older protections: shows
+  // without the passphrase whether the protection still fits the device key
+  keyCheck?: string;
 }
 
 const PBKDF2_ITERATIONS = 600000;
@@ -205,23 +208,37 @@ async function loadMasterKeyFromDb(): Promise<Uint8Array | null> {
 
 // Throws when a stored key cannot be read: a new key there would make
 // every saved note unreadable
-export async function initializeEncryption(): Promise<void> {
+export async function initializeEncryption(): Promise<'loaded' | 'created'> {
   await initCrypto();
 
   const stored = await loadMasterKeyFromDb();
   if (stored) {
     masterKey = stored;
-    return;
+    return 'loaded';
   }
 
   const legacyKey = localStorage.getItem(LEGACY_KEY_STORAGE_KEY);
   if (legacyKey) {
     await persistMasterKey(importKeyFromBase64(legacyKey));
     localStorage.removeItem(LEGACY_KEY_STORAGE_KEY);
-    return;
+    return 'loaded';
   }
 
   await persistMasterKey(await generateMasterKey());
+  return 'created';
+}
+
+// SHA-256 of a random 256-bit key reveals nothing usable about it
+async function keyFingerprint(key: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', key as BufferSource));
+  return sodium.to_base64(digest, sodium.base64_variants.URLSAFE_NO_PADDING);
+}
+
+// null when an older protection has no fingerprint
+export async function protectionFitsKey(protection: PassphraseWrappedKey, key: Uint8Array): Promise<boolean | null> {
+  if (!protection.keyCheck) return null;
+  await initCrypto();
+  return protection.keyCheck === await keyFingerprint(key);
 }
 
 /**
@@ -276,6 +293,7 @@ export async function wrapKeyWithPassphrase(
   const b64 = (bytes: Uint8Array) =>
     sodium.to_base64(bytes, sodium.base64_variants.URLSAFE_NO_PADDING);
   return {
+    keyCheck: await keyFingerprint(key),
     kdf: 'PBKDF2-SHA256',
     iterations: PBKDF2_ITERATIONS,
     salt: b64(salt),

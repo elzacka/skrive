@@ -272,6 +272,9 @@ export interface I18nStrings {
   storageNotPersistent: string;
   backupPermissionNeeded: string;
   reactivateBackup: string;
+  backupKeyStale: string;
+  renewBackup: string;
+  renewBackupHint: string;
   noteDeleted: string;
   notesDeleted: string;
   confirmDeleteFolder: string;
