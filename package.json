@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "dompurify": "^3.4.12",
-    "libsodium-wrappers": "^0.7.15",
+    "libsodium-wrappers": "0.7.15",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
