@@ -139,6 +139,9 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(editorCss);
     shadow.adoptedStyleSheets = [sheet];
+    // Text inside the shadow root does not make the page load its font
+    // faces; without this, bold falls back to another typeface
+    document.fonts.load('700 14px "JetBrains Mono"').catch(() => {});
     const view = new EditorView({ state: createState(propsRef.current.content), parent: shadow, root: shadow });
     props.viewRef.current = view;
     view.focus();

@@ -130,8 +130,9 @@ function build(view: EditorView, source: boolean): DecorationSet {
           }
           case 'TaskMarker': {
             const checked = /x/i.test(state.doc.sliceString(node.from, node.to));
-            const lineEnd = lineAt(node.from).to;
-            if (checked && lineEnd > node.to) ranges.push(mark('cm-md-done').range(node.to, lineEnd));
+            const l = lineAt(node.from);
+            const textStart = node.to + (/^\s*/.exec(state.doc.sliceString(node.to, l.to))?.[0].length ?? 0);
+            if (checked && l.to > textStart) ranges.push(mark('cm-md-done').range(textStart, l.to));
             if (!touches(node.from, node.to)) {
               ranges.push(Decoration.replace({ widget: new CheckboxWidget(checked, node.from) }).range(node.from, node.to));
             }
