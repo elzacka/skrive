@@ -12,6 +12,7 @@ import { toggleInline, toggleLines, toggleCodeBlock, setHeading, insertLink, typ
 import { FindReplaceBar } from './FindReplaceBar';
 import { MarkdownEditor } from './MarkdownEditor';
 import { HistoryDialog } from './HistoryDialog';
+import { StyleMenu } from './StyleMenu';
 import { recordVersion } from '@/utils/storage';
 import {
   CopyIcon,
@@ -32,7 +33,6 @@ import {
   LoaderCircleIcon,
   CircleAlertIcon,
   HistoryIcon,
-  ChevronDownIcon,
   MarkdownIcon,
   PlusIcon,
   DownloadIcon,
@@ -268,7 +268,7 @@ export function Editor() {
   // Arrow keys move focus within a toolbar (WAI-ARIA toolbar pattern)
   const handleToolbarKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button, select'));
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.format-group > button, .style-menu > button'));
     const index = items.indexOf(document.activeElement as HTMLElement);
     if (index === -1) return;
     e.preventDefault();
@@ -308,9 +308,9 @@ export function Editor() {
   const isUnnamed = !note.title || DEFAULT_TITLES.includes(note.title);
   const placeholderText = isUnnamed ? t.editorPlaceholder : t.writeHere;
 
-  const formatButton = (label: string, shortcut: string | null, active: boolean | null, onClick: () => void, Icon: (props: { size?: number }) => React.ReactElement) => (
+  const formatButton = (label: string, shortcut: string | null, active: boolean | null, onClick: () => void, Icon: (props: { size?: number }) => React.ReactElement, extraClass = '') => (
     <button
-      className={`format-btn ${active ? 'active' : ''}`}
+      className={`format-btn ${extraClass} ${active ? 'active' : ''}`}
       onMouseDown={keepFocus}
       onClick={onClick}
       title={shortcut ? `${label} (${shortcut})` : label}
@@ -325,19 +325,18 @@ export function Editor() {
     <div className="editor-panel">
       <div className="editor-header">
         <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
-          <div className="format-group style-select-wrap">
-            <select
-              className="style-select"
-              value={String(Math.min(formats.heading, 3))}
-              onChange={(e) => run(view => setHeading(view, Number(e.target.value)))}
-              aria-label={t.textStyle}
-            >
-              <option value="0">{t.bodyText}</option>
-              <option value="1">{t.heading1}</option>
-              <option value="2">{t.heading2}</option>
-              <option value="3">{t.heading3}</option>
-            </select>
-            <ChevronDownIcon size={14} />
+          <div className="format-group">
+            <StyleMenu
+              label={t.textStyle}
+              value={Math.min(formats.heading, 3)}
+              onSelect={(level) => run(view => setHeading(view, level))}
+              options={[
+                { label: t.bodyText, shortcut: shortcuts.bodyText },
+                { label: t.heading1, shortcut: shortcuts.heading1 },
+                { label: t.heading2, shortcut: shortcuts.heading2 },
+                { label: t.heading3, shortcut: shortcuts.heading3 }
+              ]}
+            />
           </div>
           <div className="format-group">
             {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
@@ -355,7 +354,7 @@ export function Editor() {
             {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
           </div>
           <div className="format-group">
-            {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownIcon)}
+            {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownIcon, 'wide-icon')}
           </div>
         </div>
         <div className="header-actions">

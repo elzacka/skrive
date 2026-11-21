@@ -1310,36 +1310,98 @@ body {
   border-color: var(--accent);
 }
 
-.format-btn svg {
-  width: 14px;
-  height: 14px;
+.format-btn svg,
+.header-actions .icon-btn svg {
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
   fill: none;
 }
 
-.style-select-wrap {
-  position: relative;
-  align-items: center;
+/* The Markdown glyph is a wide, short box: it needs more width to read */
+.format-btn.wide-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
-.style-select-wrap svg {
-  position: absolute;
-  right: 16px;
-  pointer-events: none;
-  color: var(--text-muted);
+.style-menu {
+  position: relative;
 }
 
 .style-select {
-  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 132px;
   height: 28px;
-  padding: 4px 28px 4px 8px;
+  padding: 0 8px 0 10px;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: 11px;
   background: var(--bg-primary);
   cursor: pointer;
+}
+
+.style-select svg {
+  color: var(--text-muted);
+}
+
+.style-select:hover {
+  background: var(--bg-hover);
+}
+
+.style-menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.style-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.style-menu-item:hover,
+.style-menu-item:focus-visible {
+  background: var(--bg-hover);
   outline: none;
+}
+
+.style-menu-item[aria-selected="true"] {
+  background: var(--bg-active);
+}
+
+/* Each style previews its own weight and size */
+.style-menu-item.level-1 { font-size: 15px; font-weight: 700; }
+.style-menu-item.level-2 { font-size: 13px; font-weight: 700; }
+.style-menu-item.level-3 { font-size: 12px; font-weight: 700; }
+
+.style-menu-item kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 /* Tag Picker */
