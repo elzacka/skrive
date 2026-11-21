@@ -221,7 +221,6 @@ export interface I18nStrings {
   insert: string;
   cancel: string;
   guide: string;
-  guideWelcome: string;
   guideIntro: string;
   guideFormats: string;
   guideFormatsDesc: string;
@@ -229,14 +228,10 @@ export interface I18nStrings {
   guideOrganizeDesc: string;
   guideNaming: string;
   guideNamingDesc: string;
-  guideQuickWrite: string;
-  guideQuickWriteDesc: string;
   guideAutoBackup: string;
   guideAutoBackupDesc: string;
   guideExport: string;
   guideExportDesc: string;
-  guideOffline: string;
-  guideOfflineDesc: string;
   installHintChromium: string;
   installHintSafariMac: string;
   installHintSafariIpad: string;
@@ -309,6 +304,9 @@ export interface I18nStrings {
   exportFilesFailed: string;
   guideTrash: string;
   guideTrashDesc: string;
+  guideTypography: string;
+  guideTypographyDesc: string;
+  guideInstall: string;
   find: string;
   findShortcut: string;
   findPlaceholder: string;

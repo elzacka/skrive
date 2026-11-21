@@ -1497,28 +1497,24 @@ export function Sidebar() {
         )}
         {showGuide && (
           <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
-            <div className="shortcuts-title">{t.guideWelcome}</div>
+            <div className="shortcuts-title">{t.guide}</div>
             <p className="guide-intro">{t.guideIntro}</p>
             <div className="guide-grid">
-              <div className="guide-item">
-                <div className="guide-item-title">{t.guideFormats}</div>
-                <div className="guide-item-desc">{t.guideFormatsDesc}</div>
-              </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideNaming}</div>
                 <div className="guide-item-desc">{t.guideNamingDesc}</div>
               </div>
               <div className="guide-item">
-                <div className="guide-item-title">{t.guideQuickWrite}</div>
-                <div className="guide-item-desc">{t.guideQuickWriteDesc}</div>
+                <div className="guide-item-title">{t.guideFormats}</div>
+                <div className="guide-item-desc">{t.guideFormatsDesc}</div>
+              </div>
+              <div className="guide-item">
+                <div className="guide-item-title">{t.guideTypography}</div>
+                <div className="guide-item-desc">{t.guideTypographyDesc}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideOrganize}</div>
                 <div className="guide-item-desc">{t.guideOrganizeDesc}</div>
-              </div>
-              <div className="guide-item">
-                <div className="guide-item-title">{t.guideAutoBackup}</div>
-                <div className="guide-item-desc">{t.guideAutoBackupDesc}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideTrash}</div>
@@ -1529,9 +1525,15 @@ export function Sidebar() {
                 <div className="guide-item-desc">{t.guideExportDesc}</div>
               </div>
               <div className="guide-item">
-                <div className="guide-item-title">{t.guideOffline}</div>
-                <div className="guide-item-desc">{t.guideOfflineDesc}{installHint && ` ${installHint}`}</div>
+                <div className="guide-item-title">{t.guideAutoBackup}</div>
+                <div className="guide-item-desc">{t.guideAutoBackupDesc}</div>
               </div>
+              {installHint && (
+                <div className="guide-item">
+                  <div className="guide-item-title">{t.guideInstall}</div>
+                  <div className="guide-item-desc">{installHint}</div>
+                </div>
+              )}
             </div>
             <p className="guide-version">Skrive {__APP_VERSION__}</p>
           </div>
