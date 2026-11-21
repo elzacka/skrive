@@ -80,6 +80,7 @@ function buildNote(
   format: Note['format'],
   parentId: string | null = null
 ): Note {
+  const now = Date.now();
   return {
     id: generateId(),
     title: lang === 'no' ? 'Notat' : 'Note',
@@ -87,8 +88,8 @@ function buildNote(
     format,
     tags: [],
     parentId,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
+    createdAt: now,
+    updatedAt: now
   };
 }
 
@@ -325,7 +326,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // The stored protection wraps another key than the device key; writing
   // would produce a backup no passphrase can open
   const [backupKeyStale, setBackupKeyStale] = useState(false);
-  const keyCreatedRef = useRef(false);
   const placeholderIdRef = useRef<string | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
   const [backupError, setBackupError] = useState(false);
@@ -360,7 +360,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // The empty note made at startup has no place among restored notes,
     // unless the user has written in it
     const placeholder = stateRef.current.notes.find(n => n.id === placeholderIdRef.current);
-    if (placeholder && placeholder.content.replace(/<[^>]*>/g, '').trim() !== '') {
+    // Every edit, rename, tag or move bumps updatedAt
+    if (placeholder && placeholder.updatedAt !== placeholder.createdAt) {
       placeholderIdRef.current = null;
     } else if (placeholder) {
       dispatch({ type: 'DELETE_NOTES', payload: [placeholder.id] });
@@ -393,7 +394,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const initApp = async () => {
       try {
-        keyCreatedRef.current = (await initializeEncryption()) === 'created';
+        // A protection from before a new key can never fit it; mark it so
+        // the next sessions know too ('stale' matches no fingerprint)
+        if ((await initializeEncryption()) === 'created') {
+          const protection = await getStoredBackupKeyProtection();
+          if (protection) await storeBackupKeyProtection({ ...protection, keyCheck: 'stale' });
+        }
       } catch (error) {
         // Nothing is loaded and loadedRef stays false, so nothing is saved
         console.error('Encryption key could not be read:', error);
@@ -607,13 +613,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup]);
 
-  // A protection fits unless its fingerprint differs, or the device key
-  // was just created while a protection from an earlier key exists
+  // An older protection without a fingerprint counts as fitting: the key
+  // has not changed since, or it would have been marked stale
   useEffect(() => {
     const key = getMasterKey();
     if (!backupKeyProtection || !key) return;
     protectionFitsKey(backupKeyProtection, key).then(fits => {
-      setBackupKeyStale(fits === false || (fits === null && keyCreatedRef.current));
+      setBackupKeyStale(fits === false);
     });
   }, [backupKeyProtection]);
 
@@ -623,7 +629,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!key) return;
     const protection = await wrapKeyWithPassphrase(key, passphrase);
     await storeBackupKeyProtection(protection);
-    keyCreatedRef.current = false;
     setBackupKeyProtection(protection);
   }, []);
 
