@@ -10,7 +10,8 @@ export const findHighlights = StateField.define<DecorationSet>({
     for (const effect of tr.effects) {
       if (effect.is(setFindMatches)) {
         const { ranges, current } = effect.value;
-        decorations = Decoration.set(ranges.filter(r => r.to > r.from).map((r, i) =>
+        // Offsets come from React state, which can trail the document
+        decorations = Decoration.set(ranges.filter(r => r.to > r.from && r.to <= tr.state.doc.length).map((r, i) =>
           Decoration.mark({ class: i === current ? 'cm-find-current' : 'cm-find-match' }).range(r.from, r.to)), true);
       }
     }

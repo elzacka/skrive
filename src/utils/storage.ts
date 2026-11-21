@@ -163,17 +163,30 @@ export async function readRecoveryCopies(keys: Uint8Array[]): Promise<{ states: 
   return { states, ids };
 }
 
-// The state as stored before notes became Markdown, kept once in case a
-// conversion loses something; never shown, never overwritten
+// The notes as loaded before they became Markdown, kept once in case a
+// conversion loses something, and deleted after PRE_MARKDOWN_DAYS
 const PRE_MARKDOWN_KEY = 'encrypted-state-pre-markdown';
+const PRE_MARKDOWN_DAYS = 30;
 
-export async function keepPreMarkdownCopy(): Promise<void> {
+export async function keepPreMarkdownCopy(state: StoredState): Promise<void> {
   try {
-    if (await idbGet(PRE_MARKDOWN_KEY)) return;
-    const current = await idbGet(STATE_KEY);
-    if (current) await idbSet(PRE_MARKDOWN_KEY, current);
+    const key = getMasterKey();
+    if (!key || await idbGet(PRE_MARKDOWN_KEY)) return;
+    const encrypted = await encrypt(JSON.stringify(state), key);
+    await idbSet(PRE_MARKDOWN_KEY, { savedAt: Date.now(), state: { version: 1, encrypted } });
   } catch (error) {
     console.warn('Failed to keep pre-Markdown copy:', error);
+  }
+}
+
+export async function expirePreMarkdownCopy(): Promise<void> {
+  try {
+    const copy = await idbGet(PRE_MARKDOWN_KEY) as { savedAt?: number } | undefined;
+    if (copy && Date.now() - (copy.savedAt ?? 0) > PRE_MARKDOWN_DAYS * 24 * 60 * 60 * 1000) {
+      await idbWrite(store => store.delete(PRE_MARKDOWN_KEY));
+    }
+  } catch (error) {
+    console.warn('Failed to expire pre-Markdown copy:', error);
   }
 }
 

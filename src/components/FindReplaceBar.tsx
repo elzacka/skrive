@@ -27,17 +27,18 @@ export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindRep
     findInputRef.current?.select();
   }, [focusTick]);
 
-  // Case-insensitive offsets in the Markdown text
+  // Case-insensitive offsets, from the editor's document: React's content
+  // can trail it, and stale offsets would fall outside the text
   const matches = useMemo(() => {
     if (!query) return [];
-    const haystack = content.toLowerCase();
+    const haystack = (viewRef.current?.state.doc.toString() ?? content).toLowerCase();
     const needle = query.toLowerCase();
     const result: number[] = [];
     for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) {
       result.push(i);
     }
     return result;
-  }, [content, query]);
+  }, [content, query, viewRef]);
 
   const index = Math.min(current, Math.max(0, matches.length - 1));
 
@@ -68,16 +69,19 @@ export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindRep
   const replaceCurrent = () => {
     const view = viewRef.current;
     const from = matches[index];
-    if (!view || from === undefined) return;
+    if (!view || from === undefined || !isMatch(view, from)) return;
     view.dispatch({ changes: { from, to: from + query.length, insert: replacement } });
   };
 
   const replaceAll = () => {
     const view = viewRef.current;
     if (!view || matches.length === 0) return;
-    view.dispatch({ changes: matches.map(from => ({ from, to: from + query.length, insert: replacement })) });
+    view.dispatch({ changes: matches.filter(from => isMatch(view, from)).map(from => ({ from, to: from + query.length, insert: replacement })) });
     setCurrent(0);
   };
+
+  const isMatch = (view: EditorView, from: number) =>
+    view.state.sliceDoc(from, from + query.length).toLowerCase() === query.toLowerCase();
 
   const handleKeyDown = (onEnter: (shift: boolean) => void) => (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {

@@ -845,13 +845,17 @@ export function Sidebar() {
     }
   };
 
-  // Delete/Backspace deletes the selection or the focused tree row, never while typing.
+  // Delete/Backspace deletes the selection or the focused tree row, only
+  // with focus in the sidebar and never while typing.
   // No deps: it closes over per-render values (deleteItem, visibleTreeItems).
   useEffect(() => {
     const handleDeleteKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      const active = document.activeElement as HTMLElement | null;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      // The editor sits in a shadow root: document.activeElement is only its
+      // host, so the real target comes from the composed path
+      const target = e.composedPath()[0] as HTMLElement | undefined;
+      if (e.defaultPrevented || !target?.closest('.sidebar') ||
+          target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
       if (multiSelected.size > 0) {
@@ -862,7 +866,7 @@ export function Sidebar() {
       }
       // Single-item delete requires the row itself to hold focus, not just
       // a focusedItemId remembered from earlier navigation
-      const id = active?.getAttribute('role') === 'treeitem' ? active.getAttribute('data-item-id') : null;
+      const id = target.getAttribute('role') === 'treeitem' ? target.getAttribute('data-item-id') : null;
       const item = id ? visibleTreeItems.find(i => i.id === id) : undefined;
       if (!item) return;
       e.preventDefault();

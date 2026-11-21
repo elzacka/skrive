@@ -73,7 +73,9 @@ function render(node: SyntaxNode, src: string): string {
       const marks = node.getChildren('CodeMark');
       const from = marks[0]?.to ?? node.from;
       const to = marks[1]?.from ?? node.to;
-      return `<code>${escapeHtml(src.slice(from, to))}</code>`;
+      // CommonMark drops one space on each side when both are there
+      const code = src.slice(from, to).replace(/^ (.*[^ ].*) $/s, '$1');
+      return `<code>${escapeHtml(code)}</code>`;
     }
     case 'Link': {
       const marks = node.getChildren('LinkMark');
@@ -163,7 +165,12 @@ function inlineMarkdown(node: Node): string {
     case 'strong': case 'b': return wrap('**');
     case 'em': case 'i': return wrap('*');
     case 's': case 'del': case 'strike': return wrap('~~');
-    case 'code': return '`' + (el.textContent ?? '').replace(/`/g, '\\`') + '`';
+    case 'code': {
+      // Backslashes do not escape inside code; a longer backtick run does
+      const code = el.textContent ?? '';
+      const fence = '`'.repeat(Math.max(0, ...(code.match(/`+/g) ?? []).map(run => run.length)) + 1);
+      return fence.length > 1 || /^`|`$/.test(code) ? `${fence} ${code} ${fence}` : `${fence}${code}${fence}`;
+    }
     case 'br': return '\n';
     case 'a': {
       const href = el.getAttribute('href') ?? '';
@@ -188,29 +195,50 @@ function blockMarkdown(el: Element, listDepth = 0): string[] {
 
   for (const child of Array.from(el.childNodes)) {
     const tag = child.nodeType === Node.ELEMENT_NODE ? (child as Element).tagName.toLowerCase() : '';
+    const c = child as HTMLElement;
+    // An inline wrapper around blocks (Google Docs wraps a whole copy in
+    // <b>) is read as the blocks it holds
     if (!BLOCK_TAGS.has(tag)) {
-      inlineRun += inlineMarkdown(child);
+      if (tag && c.querySelector(Array.from(BLOCK_TAGS).join(','))) {
+        flush();
+        out.push(...blockMarkdown(c, listDepth));
+      } else {
+        inlineRun += inlineMarkdown(child);
+      }
       continue;
     }
     flush();
-    const c = child as HTMLElement;
     const heading = /^h(\d)$/.exec(tag);
     if (heading) {
       out.push(`${'#'.repeat(Number(heading[1]))} ${inlineMarkdown(c).replace(/\n/g, ' ').trim()}`);
     } else if (tag === 'ul' || tag === 'ol') {
       const start = Number(c.getAttribute('start')) || 1;
-      const items = Array.from(c.children).filter(li => li.tagName.toLowerCase() === 'li');
+      // A list directly inside a list (common in pasted HTML) belongs to
+      // the item before it
+      const items: { marker: string; lines: string[] }[] = [];
+      for (const item of Array.from(c.children)) {
+        const itemTag = item.tagName.toLowerCase();
+        if (itemTag === 'li') {
+          const marker = tag === 'ol' ? `${start + items.length}. ` : '- ';
+          items.push({ marker, lines: blockMarkdown(item, listDepth + 1).join('\n').split('\n') });
+        } else if (itemTag === 'ul' || itemTag === 'ol') {
+          const wrapper = document.createElement('div');
+          wrapper.appendChild(item.cloneNode(true));
+          const nested = blockMarkdown(wrapper, listDepth + 1).join('\n').split('\n');
+          if (items.length) items[items.length - 1].lines.push(...nested);
+          else items.push({ marker: '- ', lines: nested });
+        }
+      }
       // Continuation and nested lists line up with the item text, which
       // starts after the marker ("2. " is three wide, "- " two)
-      out.push(items.map((li, i) => {
-        const marker = tag === 'ol' ? `${start + i}. ` : '- ';
-        const [first = '', ...rest] = blockMarkdown(li, listDepth + 1).join('\n').split('\n');
-        return [marker + first, ...rest.map(l => (l ? ' '.repeat(marker.length) + l : l))].join('\n');
-      }).join('\n'));
+      out.push(items.map(({ marker, lines: [first = '', ...rest] }) =>
+        [marker + first, ...rest.map(l => (l ? ' '.repeat(marker.length) + l : l))].join('\n')).join('\n'));
     } else if (tag === 'blockquote') {
       out.push(blockMarkdown(c, listDepth).join('\n\n').split('\n').map(l => (l ? `> ${l}` : '>')).join('\n'));
     } else if (tag === 'pre') {
-      out.push('```\n' + (c.textContent ?? '').replace(/\n$/, '') + '\n```');
+      const code = (c.textContent ?? '').replace(/\n$/, '');
+      const fence = '`'.repeat(Math.max(3, ...(code.match(/^`{3,}/gm) ?? []).map(run => run.length + 1)));
+      out.push(`${fence}\n${code}\n${fence}`);
     } else if (tag === 'hr') {
       out.push('---');
     } else if (tag === 'table') {

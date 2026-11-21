@@ -132,7 +132,13 @@ export function toggleCodeBlock(view: EditorView): boolean {
   const block = enclosing(state, state.selection.main.head, 'FencedCode');
   if (block) {
     const first = state.doc.lineAt(block.from);
-    const last = state.doc.lineAt(block.to);
+    const closing = block.lastChild?.name === 'CodeMark' && block.lastChild.from > first.to ? block.lastChild : null;
+    // An unclosed block has no fence to remove at its end, only its code
+    if (!closing) {
+      view.dispatch({ changes: { from: first.from, to: Math.min(first.to + 1, state.doc.length) } });
+      return true;
+    }
+    const last = state.doc.lineAt(closing.from);
     if (last.number - first.number < 2) {
       view.dispatch({ changes: { from: first.from, to: last.to } });
       return true;

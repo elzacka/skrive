@@ -55,7 +55,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 ## Editor
 
-- One format: notes are Markdown text (`format: 'markdown'`). Older `richtext`/`plaintext` notes, backups and imports convert once via `toMarkdownNote()` (AppContext); the stored state before the first conversion is kept once under `encrypted-state-pre-markdown`.
+- One format: notes are Markdown text (`format: 'markdown'`). Older `richtext`/`plaintext` notes, backups and imports convert once via `toMarkdownNote()` (AppContext); the loaded state before the first conversion is kept once, encrypted, under `encrypted-state-pre-markdown` and deleted after 30 days.
 - CodeMirror 6 (src/components/MarkdownEditor.tsx, src/editor/) in a shadow root: CodeMirror injects styles, and only `adoptedStyleSheets` there pass the prod CSP. Editor CSS is src/styles/editor.css, loaded `?inline`.
 - Two lenses on the same text: `markdownLens(false)` hides marks unless the selection touches them; `markdownLens(true)` shows them dimmed. Toggle: Cmd/Ctrl+. or "Vis Markdown".
 - Import only `markdownLanguage` and named commands from `@codemirror/lang-markdown`: `markdown()` bundles HTML, CSS and JavaScript support (about 70 kB gzip).

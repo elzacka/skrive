@@ -12,7 +12,8 @@ import {
   listRecoveryCopies,
   readRecoveryCopies,
   deleteRecoveryCopies,
-  keepPreMarkdownCopy
+  keepPreMarkdownCopy,
+  expirePreMarkdownCopy
 } from '@/utils/storage';
 import {
   initializeEncryption,
@@ -436,13 +437,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lang = loadResult.state.lang;
         notes = loadResult.state.notes.map(toMarkdownNote);
         if (notes.some((note, i) => note !== loadResult.state.notes[i])) {
-          await keepPreMarkdownCopy();
+          await keepPreMarkdownCopy(loadResult.state);
         }
         dispatch({ type: 'SET_LANG', payload: loadResult.state.lang });
         dispatch({ type: 'SET_NOTES', payload: notes });
         dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
         dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
       }
+      await expirePreMarkdownCopy();
       hasLocalDataRef.current = hasLocalData;
       setRecoveryCopies((await listRecoveryCopies()).length);
       loadedRef.current = true;
@@ -543,6 +545,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       folders: state.folders
     };
     queuedRef.current = pendingSaveRef.current;
+    // Once state holds the editor's text, the live copy has done its job; a
+    // stale one would undo a later import on unload
+    const live = liveEditRef.current;
+    if (live && state.notes.find(n => n.id === live.noteId)?.content === live.content) {
+      liveEditRef.current = null;
+    }
     setSaveStatus('unsaved');
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(performSave, 800);
