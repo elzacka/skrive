@@ -15,14 +15,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Ctrl+K / Cmd+K to focus search.
-      // Skip when the rich text editor claims the key (there Cmd+K inserts
-      // a link). Two guards because listener order is not guaranteed and
-      // React flushes discrete-event state synchronously: if the editor's
-      // handler ran first it has called preventDefault; if this handler
-      // runs first the editor still has focus
+      // Ctrl+K / Cmd+K focuses search, except in the editor, where it
+      // inserts a link. The editor sits in a shadow root, so its content is
+      // found through the event's composed path, not document.activeElement
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyK') {
-        if (e.defaultPrevented || (document.activeElement as HTMLElement | null)?.isContentEditable) {
+        if (e.defaultPrevented || (e.composedPath()[0] as HTMLElement | undefined)?.isContentEditable) {
           return;
         }
         e.preventDefault();

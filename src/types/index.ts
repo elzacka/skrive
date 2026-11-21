@@ -34,6 +34,9 @@ export interface AppState {
   selectedTagFilter: string | null;
   searchQuery: string;
   sidebarVisible: boolean;
+  // Bumped when notes change outside the editor (restore, import), so the
+  // open editor takes the new content; never stored
+  mergeRevision: number;
 }
 
 // File System Access API types
@@ -130,7 +133,6 @@ export interface I18nStrings {
   redoShortcut: string;
   boldShortcut: string;
   italicShortcut: string;
-  underlineShortcut: string;
   strikethroughShortcut: string;
   heading1Shortcut: string;
   heading2Shortcut: string;
@@ -142,9 +144,11 @@ export interface I18nStrings {
   codeBlockShortcut: string;
   linkShortcut: string;
   quoteShortcut: string;
+  showMarkdown: string;
+  textStyle: string;
+  taskListShortcut: string;
+  optional: string;
   shortcutsFunctions: string;
-  shortcutsRichtextMarkdown: string;
-  shortcutsMarkdown: string;
   shortcutsSidebar: string;
   navigateShortcut: string;
   openItemShortcut: string;
@@ -166,10 +170,6 @@ export interface I18nStrings {
   screenGateTouchBody: string;
   screenGateWindowBody: string;
   formatting: string;
-  format: string;
-  plaintext: string;
-  richtext: string;
-  markdown: string;
   bodyText: string;
   heading1: string;
   heading2: string;
@@ -188,7 +188,6 @@ export interface I18nStrings {
   redo: string;
   copy: string;
   copyToClipboard: string;
-  preview: string;
   saving: string;
   unsaved: string;
   saved: string;
@@ -199,10 +198,8 @@ export interface I18nStrings {
   orPress: string;
   words: string;
   characters: string;
-  copyAsMarkdown: string;
   exportAsMarkdown: string;
   exportAsHtml: string;
-  exportAsRtf: string;
   insertLink: string;
   linkUrl: string;
   linkText: string;

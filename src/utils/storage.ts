@@ -163,6 +163,20 @@ export async function readRecoveryCopies(keys: Uint8Array[]): Promise<{ states: 
   return { states, ids };
 }
 
+// The state as stored before notes became Markdown, kept once in case a
+// conversion loses something; never shown, never overwritten
+const PRE_MARKDOWN_KEY = 'encrypted-state-pre-markdown';
+
+export async function keepPreMarkdownCopy(): Promise<void> {
+  try {
+    if (await idbGet(PRE_MARKDOWN_KEY)) return;
+    const current = await idbGet(STATE_KEY);
+    if (current) await idbSet(PRE_MARKDOWN_KEY, current);
+  } catch (error) {
+    console.warn('Failed to keep pre-Markdown copy:', error);
+  }
+}
+
 export async function deleteRecoveryCopies(ids: string[]): Promise<void> {
   await idbWrite((store) => ids.forEach(id => store.delete(id)));
 }
@@ -379,7 +393,6 @@ const MAX_NOTE_FILE_SIZE = 1 * 1024 * 1024;
 export interface ImportedNote {
   title: string;
   content: string;
-  format: 'plaintext' | 'markdown';
 }
 
 export async function importNoteFromFile(): Promise<ImportedNote | null> {
@@ -405,9 +418,8 @@ export async function importNoteFromFile(): Promise<ImportedNote | null> {
         const content = await file.text();
         const filename = file.name;
         const title = filename.replace(/\.(txt|md)$/i, '');
-        const format = filename.toLowerCase().endsWith('.md') ? 'markdown' : 'plaintext';
 
-        resolve({ title, content, format });
+        resolve({ title, content });
       } catch (error) {
         console.warn('Failed to read note file:', error);
         resolve(null);

@@ -11,7 +11,8 @@ import {
   validateImportData,
   listRecoveryCopies,
   readRecoveryCopies,
-  deleteRecoveryCopies
+  deleteRecoveryCopies,
+  keepPreMarkdownCopy
 } from '@/utils/storage';
 import {
   initializeEncryption,
@@ -39,14 +40,14 @@ import {
   type LegacyAutoBackupData
 } from '@/utils/fileSystem';
 import { generateId, isFileSystemAccessSupported } from '@/utils/helpers';
-import { sanitizeHtml } from '@/utils/sanitize';
+import { htmlToMarkdown } from '@/utils/markdown';
 
-// Sanitize richtext content on any path where notes enter from outside
-// (import, backup restore) so stored content is always clean
-function sanitizeNotes(notes: Note[]): Note[] {
-  return notes.map(note =>
-    note.format === 'richtext' ? { ...note, content: sanitizeHtml(note.content) } : note
-  );
+// Notes are Markdown. HTML notes from older versions, backups and imports
+// convert once (htmlToMarkdown sanitizes first); plain text already is
+// Markdown text
+function toMarkdownNote(note: Note): Note {
+  if (note.format === 'markdown') return note;
+  return { ...note, format: 'markdown', content: note.format === 'richtext' ? htmlToMarkdown(note.content) : note.content };
 }
 
 // Restore and import add to what is there and never remove a note: an
@@ -64,7 +65,7 @@ type StoredData = Pick<AppState, 'notes' | 'tags' | 'folders'>;
 
 function mergeData(current: StoredData, incoming: StoredData): StoredData {
   return {
-    notes: mergeById(current.notes, sanitizeNotes(incoming.notes), (a, b) => a.updatedAt > b.updatedAt),
+    notes: mergeById(current.notes, incoming.notes.map(toMarkdownNote), (a, b) => a.updatedAt > b.updatedAt),
     tags: mergeById(current.tags, incoming.tags),
     folders: mergeById(current.folders, incoming.folders)
   };
@@ -75,17 +76,13 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 // Helper to build a new note object
-function buildNote(
-  lang: 'no' | 'en',
-  format: Note['format'],
-  parentId: string | null = null
-): Note {
+function buildNote(lang: 'no' | 'en', parentId: string | null = null): Note {
   const now = Date.now();
   return {
     id: generateId(),
     title: lang === 'no' ? 'Notat' : 'Note',
     content: '',
-    format,
+    format: 'markdown',
     tags: [],
     parentId,
     createdAt: now,
@@ -122,7 +119,8 @@ const initialState: AppState = {
   selectedNoteId: null,
   selectedTagFilter: null,
   searchQuery: '',
-  sidebarVisible: true
+  sidebarVisible: true,
+  mergeRevision: 0
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -230,7 +228,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, sidebarVisible: !state.sidebarVisible };
     
     case 'MERGE_DATA':
-      return { ...state, ...mergeData(state, action.payload) };
+      return { ...state, ...mergeData(state, action.payload), mergeRevision: state.mergeRevision + 1 };
     
     default:
       return state;
@@ -245,6 +243,7 @@ interface AppContextValue {
   // Persistence
   saveStatus: SaveStatus;
   flushSave: () => void;
+  trackLiveEdit: (content: string, noteId: string) => void;
   startupBlocked: 'key' | 'storage' | null;
   // Whether a key reset leaves the old notes reachable via the passphrase
   keyResetRecoverable: boolean;
@@ -263,7 +262,7 @@ interface AppContextValue {
   setLang: (lang: 'no' | 'en') => void;
   
   // Notes
-  createNote: (parentId?: string | null, format?: Note['format']) => void;
+  createNote: (parentId?: string | null) => void;
   duplicateNote: (id: string) => string | null;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
@@ -354,11 +353,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // overwrite stored data the app has not read yet
   const loadedRef = useRef(false);
   const pendingSaveRef = useRef<Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'> | null>(null);
+  // What the save effect last queued; state newer than this has rendered
+  // but its effect has not run yet (an edit flushed during pagehide)
+  const queuedRef = useRef<Pick<AppState, 'lang' | 'notes' | 'tags' | 'folders'> | null>(null);
+  // The editor's newest text, written on every keystroke without React:
+  // an unload can come before the edit has rendered
+  const liveEditRef = useRef<{ noteId: string; content: string } | null>(null);
+  const trackLiveEdit = useCallback((content: string, noteId: string) => {
+    liveEditRef.current = { noteId, content };
+  }, []);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Merge restored data into state and open the most recently edited note
   const applyRestoredData = useCallback((data: StoredData) => {
+    liveEditRef.current = null;
     // The empty note made at startup has no place among restored notes,
     // unless the user has written in it
     const placeholder = stateRef.current.notes.find(n => n.id === placeholderIdRef.current);
@@ -425,9 +434,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (loadResult.status === 'ok') {
         hasLocalData = true;
         lang = loadResult.state.lang;
-        notes = loadResult.state.notes;
+        notes = loadResult.state.notes.map(toMarkdownNote);
+        if (notes.some((note, i) => note !== loadResult.state.notes[i])) {
+          await keepPreMarkdownCopy();
+        }
         dispatch({ type: 'SET_LANG', payload: loadResult.state.lang });
-        dispatch({ type: 'SET_NOTES', payload: loadResult.state.notes });
+        dispatch({ type: 'SET_NOTES', payload: notes });
         dispatch({ type: 'SET_TAGS', payload: loadResult.state.tags });
         dispatch({ type: 'SET_FOLDERS', payload: loadResult.state.folders });
       }
@@ -483,7 +495,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         dispatch({ type: 'SELECT_NOTE', payload: mostRecent.id });
       } else {
-        const note = buildNote(lang, 'richtext');
+        const note = buildNote(lang);
         placeholderIdRef.current = note.id;
         dispatch({ type: 'ADD_NOTE', payload: note });
         dispatch({ type: 'SELECT_NOTE', payload: note.id });
@@ -530,6 +542,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       tags: state.tags,
       folders: state.folders
     };
+    queuedRef.current = pendingSaveRef.current;
     setSaveStatus('unsaved');
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(performSave, 800);
@@ -540,11 +553,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // encrypted copy synchronously to localStorage as well; it is read and
   // migrated back on next startup
   useEffect(() => {
+    const queueLatest = () => {
+      const latest = stateRef.current;
+      const queued = queuedRef.current;
+      if (loadedRef.current && queued && (latest.notes !== queued.notes || latest.tags !== queued.tags ||
+          latest.folders !== queued.folders || latest.lang !== queued.lang)) {
+        pendingSaveRef.current = { lang: latest.lang, notes: latest.notes, tags: latest.tags, folders: latest.folders };
+        queuedRef.current = pendingSaveRef.current;
+      }
+      const live = liveEditRef.current;
+      const base = pendingSaveRef.current ?? (live ? { lang: latest.lang, notes: latest.notes, tags: latest.tags, folders: latest.folders } : null);
+      const note = live && base?.notes.find(n => n.id === live.noteId);
+      if (base && note && note.content !== live.content) {
+        pendingSaveRef.current = { ...base, notes: base.notes.map(n => n.id === live.noteId ? { ...n, content: live.content, updatedAt: Date.now() } : n) };
+      }
+      return pendingSaveRef.current;
+    };
     const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') performSave();
+      if (document.visibilityState === 'hidden') {
+        queueLatest();
+        performSave();
+      }
     };
     const handlePageHide = () => {
-      const data = pendingSaveRef.current;
+      const data = queueLatest();
       if (data) {
         saveEmergencySpill(data);
         performSave();
@@ -642,8 +674,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_LANG', payload: lang });
   }, []);
 
-  const createNote = useCallback((parentId: string | null = null, format: Note['format'] = 'richtext') => {
-    const note = buildNote(state.lang, format, parentId);
+  const createNote = useCallback((parentId: string | null = null) => {
+    const note = buildNote(state.lang, parentId);
     dispatch({ type: 'ADD_NOTE', payload: note });
     dispatch({ type: 'SELECT_NOTE', payload: note.id });
   }, [state.lang]);
@@ -970,7 +1002,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: generateId(),
         title: imported.title,
         content: imported.content,
-        format: imported.format,
+        format: 'markdown',
         tags: [],
         parentId: null,
         createdAt: Date.now(),
@@ -994,12 +1026,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (state.searchQuery) {
         const q = state.searchQuery.toLowerCase();
-        // Match against visible text, not markup: richtext content is HTML
-        const text = note.format === 'richtext'
-          ? note.content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ')
-          : note.content;
         return note.title.toLowerCase().includes(q) ||
-               text.toLowerCase().includes(q);
+               note.content.toLowerCase().includes(q);
       }
       return true;
     });
@@ -1009,6 +1037,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     saveStatus,
     flushSave: performSave,
+    trackLiveEdit,
     startupBlocked,
     keyResetRecoverable,
     resetUnreadableKey: async () => {

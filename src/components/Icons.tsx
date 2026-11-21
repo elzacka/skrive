@@ -207,11 +207,14 @@ export function RedoIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function PreviewIcon({ size = 14 }: IconProps) {
+export function TaskListIcon({ size = 14 }: IconProps) {
   return icon(
     <>
-      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-      <circle cx="12" cy="12" r="3" />
+      <path d="M13 5h8" />
+      <path d="M13 12h8" />
+      <path d="M13 19h8" />
+      <path d="m3 17 2 2 4-4" />
+      <rect x="3" y="4" width="6" height="6" rx="1" />
     </>,
     size
   );
@@ -245,17 +248,6 @@ export function NumberedListIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function HeadingIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M6 12h12" />
-      <path d="M6 20V4" />
-      <path d="M18 20V4" />
-    </>,
-    size
-  );
-}
-
 export function BoldIcon({ size = 14 }: IconProps) {
   return icon(
     <>
@@ -271,16 +263,6 @@ export function ItalicIcon({ size = 14 }: IconProps) {
       <line x1="19" x2="10" y1="4" y2="4" />
       <line x1="14" x2="5" y1="20" y2="20" />
       <line x1="15" x2="9" y1="4" y2="20" />
-    </>,
-    size
-  );
-}
-
-export function UnderlineIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M6 4v6a6 6 0 0 0 12 0V4" />
-      <line x1="4" x2="20" y1="20" y2="20" />
     </>,
     size
   );
@@ -348,17 +330,6 @@ export function EditIcon({ size = 24 }: IconProps) {
   );
 }
 
-export function OpenInNewIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M15 3h6v6" />
-      <path d="M10 14 21 3" />
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    </>,
-    size
-  );
-}
-
 export function DownloadIcon({ size = 24 }: IconProps) {
   return icon(
     <>
@@ -386,16 +357,6 @@ export function ArrowForwardIcon({ size = 14 }: IconProps) {
     <>
       <path d="M5 12h14" />
       <path d="m12 5 7 7-7 7" />
-    </>,
-    size
-  );
-}
-
-export function ArrowBackIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="m12 19-7-7 7-7" />
-      <path d="M19 12H5" />
     </>,
     size
   );

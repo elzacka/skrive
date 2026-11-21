@@ -1,5 +1,6 @@
 import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
-import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf, markdownToHtml } from './helpers';
+import { escapeHtml } from './helpers';
+import { markdownToHtml } from './markdown';
 import type { EncryptedData, PassphraseWrappedKey } from './crypto';
 
 const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
@@ -84,31 +85,19 @@ export async function verifyPermission(
   return false;
 }
 
-export type ExportFormat = 'native' | 'markdown' | 'rtf' | 'html';
+export type ExportFormat = 'markdown' | 'html';
 
 function getExportContent(note: Note, format: ExportFormat): { content: string; extension: string; mimeType: string } {
-  let content = note.content || '';
-  let extension = getExtensionFromFormat(note.format);
-  let mimeType = getMimeTypeFromFormat(note.format);
-
-  // Convert richtext to other formats if requested
-  if (note.format === 'richtext') {
-    if (format === 'markdown') {
-      content = htmlToMarkdown(content);
-      extension = '.md';
-      mimeType = 'text/markdown';
-    } else if (format === 'rtf') {
-      content = htmlToRtf(content);
-      extension = '.rtf';
-      mimeType = 'application/rtf';
-    }
-  } else if (note.format === 'markdown' && format === 'html') {
-    content = markdownToHtml(content);
-    extension = '.html';
-    mimeType = 'text/html';
+  if (format === 'html') {
+    const body = markdownToHtml(note.content || '');
+    const title = escapeHtml(note.title);
+    return {
+      content: `<!doctype html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>${title}</title>\n</head>\n<body>\n${body}\n</body>\n</html>\n`,
+      extension: '.html',
+      mimeType: 'text/html'
+    };
   }
-
-  return { content, extension, mimeType };
+  return { content: note.content || '', extension: '.md', mimeType: 'text/markdown' };
 }
 
 function downloadWithBlob(content: string, filename: string, mimeType: string): void {
@@ -121,7 +110,7 @@ function downloadWithBlob(content: string, filename: string, mimeType: string): 
   URL.revokeObjectURL(url);
 }
 
-export function downloadNote(note: Note, format: ExportFormat = 'native'): void {
+export function downloadNote(note: Note, format: ExportFormat = 'markdown'): void {
   const { content, extension, mimeType } = getExportContent(note, format);
   const filename = `${note.title}${extension}`;
   downloadWithBlob(content, filename, mimeType);

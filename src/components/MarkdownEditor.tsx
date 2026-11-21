@@ -1,0 +1,228 @@
+import { useEffect, useRef } from 'react';
+import { EditorState, Compartment, Annotation, Prec } from '@codemirror/state';
+import { EditorView, keymap, placeholder as placeholderExt } from '@codemirror/view';
+import { history, undo, redo, undoDepth, redoDepth, standardKeymap } from '@codemirror/commands';
+// Only these parts: markdown() would bundle HTML, CSS and JavaScript support
+import { markdownLanguage, deleteMarkupBackward } from '@codemirror/lang-markdown';
+import { markdownLens } from '@/editor/livePreview';
+import { findHighlights } from '@/editor/find';
+import { activeFormats, toggleInline, toggleLines, toggleCodeBlock, setHeading, linkAt, newlineInMarkdown, type ActiveFormats } from '@/editor/commands';
+import { htmlToMarkdown } from '@/utils/markdown';
+import { isSafeUrl } from '@/utils/sanitize';
+import { isMac } from '@/utils/helpers';
+import editorCss from '@/styles/editor.css?inline';
+
+// A change that came from outside the editor (find/replace, naming,
+// restore); it must not be reported back as user input
+const External = Annotation.define<boolean>();
+
+export interface MarkdownEditorProps {
+  noteId: string;
+  content: string;
+  // Changes when content was replaced outside the editor
+  revision: number;
+  source: boolean;
+  placeholder: string;
+  lang: 'no' | 'en';
+  onChange: (content: string, noteId: string) => void;
+  // Synchronous, on every change: the app's unload spill reads it
+  onLiveChange: (content: string, noteId: string) => void;
+  onEnter: () => boolean;
+  onUpdate: (info: { formats: ActiveFormats; canUndo: boolean; canRedo: boolean }) => void;
+  onLinkRequest: () => void;
+  onToggleSource: () => void;
+  viewRef: React.MutableRefObject<EditorView | null>;
+}
+
+function contentAttributes(lang: 'no' | 'en', placeholder: string) {
+  return [
+    EditorView.contentAttributes.of({ spellcheck: 'true', lang: lang === 'no' ? 'nb' : 'en', 'aria-label': placeholder }),
+    placeholderExt(placeholder)
+  ];
+}
+
+// Pasted HTML that carries formatting becomes Markdown; anything else
+// pastes as plain text
+const FORMATTED_HTML = /<(h[1-6]|p|ul|ol|li|strong|b|em|i|a|blockquote|pre|table)[\s>]/i;
+
+export function MarkdownEditor(props: MarkdownEditorProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const propsRef = useRef(props);
+  propsRef.current = props;
+  // Changes reach React after the input event: inside it they get sync
+  // priority and chain into React's nested-update limit while typing fast.
+  // The note id travels along, since the user may switch notes meanwhile
+  const pendingRef = useRef<{ doc: string; noteId: string } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushPending = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) propsRef.current.onChange(pending.doc, pending.noteId);
+  };
+  const lensRef = useRef(new Compartment());
+  const contentAttrsRef = useRef(new Compartment());
+
+  const createState = (doc: string) => {
+    const p = propsRef.current;
+    return EditorState.create({
+      doc,
+      extensions: [
+        // Naming flow and shortcuts first: they must win over list continuation
+        Prec.highest(keymap.of([{ key: 'Enter', run: () => propsRef.current.onEnter() }])),
+        Prec.highest(EditorView.domEventHandlers({ keydown: (e, view) => handleShortcut(e, view) })),
+        history(),
+        keymap.of([
+          { key: 'Enter', run: newlineInMarkdown },
+          { key: 'Backspace', run: deleteMarkupBackward },
+          ...standardKeymap
+        ]),
+        markdownLanguage.extension,
+        lensRef.current.of(markdownLens(p.source)),
+        contentAttrsRef.current.of(contentAttributes(p.lang, p.placeholder)),
+        findHighlights,
+        EditorView.lineWrapping,
+        EditorView.domEventHandlers({
+          paste: (e, view) => {
+            const html = e.clipboardData?.getData('text/html') ?? '';
+            const text = e.clipboardData?.getData('text/plain').trim() ?? '';
+            const sel = view.state.selection.main;
+            // A URL pasted over a selection links it
+            if (!sel.empty && /^https?:\/\/\S+$/.test(text) && isSafeUrl(text)) {
+              e.preventDefault();
+              view.dispatch(view.state.replaceSelection(`[${view.state.sliceDoc(sel.from, sel.to)}](${text})`));
+              return true;
+            }
+            if (html && FORMATTED_HTML.test(html)) {
+              e.preventDefault();
+              view.dispatch(view.state.replaceSelection(htmlToMarkdown(html)));
+              return true;
+            }
+            return false;
+          },
+          mousedown: (e, view) => {
+            if (!(e.metaKey || e.ctrlKey)) return false;
+            const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+            const url = pos === null ? null : linkAt(view.state, pos);
+            if (!url || !isSafeUrl(url) || !/^(https?:|mailto:)/i.test(url)) return false;
+            e.preventDefault();
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return true;
+          }
+        }),
+        EditorView.updateListener.of(update => {
+          if (update.docChanged && !update.transactions.some(tr => tr.annotation(External))) {
+            const doc = update.state.doc.toString();
+            pendingRef.current = { doc, noteId: propsRef.current.noteId };
+            propsRef.current.onLiveChange(doc, propsRef.current.noteId);
+            if (!timerRef.current) timerRef.current = setTimeout(flushPending, 0);
+          }
+          if (update.docChanged || update.selectionSet) {
+            propsRef.current.onUpdate({
+              formats: activeFormats(update.state),
+              canUndo: undoDepth(update.state) > 0,
+              canRedo: redoDepth(update.state) > 0
+            });
+          }
+        })
+      ]
+    });
+  };
+
+  // Mount once into a shadow root: CodeMirror injects its styles, and only
+  // adoptedStyleSheets there pass a CSP without 'unsafe-inline' for styles
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(editorCss);
+    shadow.adoptedStyleSheets = [sheet];
+    const view = new EditorView({ state: createState(propsRef.current.content), parent: shadow, root: shadow });
+    props.viewRef.current = view;
+    view.focus();
+    return () => {
+      flushPending();
+      view.destroy();
+      props.viewRef.current = null;
+    };
+    // Mounted once; later prop changes are applied by the effects below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A different note gets a fresh state, so undo never crosses notes
+  useEffect(() => {
+    const view = props.viewRef.current;
+    if (!view) return;
+    flushPending();
+    view.setState(createState(propsRef.current.content));
+    view.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.noteId]);
+
+  // Content replaced outside the editor. Only on a new revision: comparing
+  // content would take a stale render's text for an outside edit
+  useEffect(() => {
+    const view = props.viewRef.current;
+    if (!view || view.state.doc.toString() === propsRef.current.content) return;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: propsRef.current.content },
+      annotations: External.of(true)
+    });
+  }, [props.revision, props.viewRef]);
+
+  useEffect(() => {
+    props.viewRef.current?.dispatch({ effects: lensRef.current.reconfigure(markdownLens(props.source)) });
+  }, [props.source, props.viewRef]);
+
+  useEffect(() => {
+    props.viewRef.current?.dispatch({ effects: contentAttrsRef.current.reconfigure(contentAttributes(props.lang, props.placeholder)) });
+  }, [props.lang, props.placeholder, props.viewRef]);
+
+  // e.code, not e.key: with Shift or Alt held, e.key is the shifted
+  // character and differs between keyboard layouts
+  function handleShortcut(e: KeyboardEvent, view: EditorView): boolean {
+    const mac = isMac();
+    const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+    if (!mod) return false;
+    const p = propsRef.current;
+    const run = (done: boolean) => {
+      if (done) e.preventDefault();
+      return done;
+    };
+
+    // Headings: Cmd+Opt+digit on Mac only; on Windows Ctrl+digit belongs to
+    // the browser's tabs and zoom, and Ctrl+Alt is AltGr
+    if (mac && e.altKey && !e.shiftKey) {
+      const level = ({ Digit0: 0, Digit1: 1, Digit2: 2, Digit3: 3 } as Record<string, number>)[e.code];
+      return level === undefined ? false : run(setHeading(view, level));
+    }
+    if (e.altKey) return false;
+
+    if (!e.shiftKey) {
+      switch (e.code) {
+        case 'KeyB': return run(toggleInline(view, 'bold'));
+        case 'KeyI': return run(toggleInline(view, 'italic'));
+        case 'KeyE': return run(toggleInline(view, 'code'));
+        case 'KeyK': p.onLinkRequest(); return run(true);
+        case 'KeyZ': return run(undo(view) || true);
+        case 'KeyY': return mac ? false : run(redo(view) || true);
+        case 'Period': p.onToggleSource(); return run(true);
+      }
+      return false;
+    }
+    switch (e.code) {
+      case 'KeyX': return run(toggleInline(view, 'strike'));
+      case 'KeyE': return run(toggleCodeBlock(view));
+      case 'KeyZ': return run(redo(view) || true);
+      case 'Digit8': return run(toggleLines(view, 'bullet'));
+      case 'Digit7': return run(toggleLines(view, 'ordered'));
+      case 'Digit9': return run(toggleLines(view, 'task'));
+      case 'Period': return run(toggleLines(view, 'quote'));
+    }
+    return false;
+  }
+
+  return <div ref={hostRef} className="markdown-editor-host" />;
+}

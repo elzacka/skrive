@@ -16,6 +16,8 @@ noen server. Appen bruker ikke informasjonskapsler og har ingen brukerkontoer.
   eller XChaCha20-Poly1305. Krypteringsnøkkelen lages og lagres på enheten din.
   Notater som ikke kan leses, blir liggende som en kryptert
   gjenopprettingskopi til du gjenoppretter eller sletter den.
+  Da notatene ble Markdown, ble én kryptert kopi av dem slik de var
+  lagret på enheten.
 - Innstillinger: Språkvalg og visningsinnstillinger.
 - Auto-backup: Hvis du slår det på, lagres en kryptert kopi av notatene i en
   lokal mappe du velger, sammen med de ti forrige versjonene. Kopiene er

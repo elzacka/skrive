@@ -1391,13 +1391,15 @@ export function Sidebar() {
               {mac && <div className="shortcuts-hint">*{t.renameF2MacHint}</div>}
             </div>
 
-            <div className="shortcuts-section-title">{t.shortcutsRichtextMarkdown}</div>
+            <div className="shortcuts-section-title">{t.formatting}</div>
             <div className="shortcuts-grid">
               <div className="shortcut-row">
-                <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.bodyTextShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.bodyText}</span>
-                </div>
+                {shortcuts.bodyText && (
+                  <div className="shortcut-item">
+                    <span className="shortcut-desc">{t.bodyTextShortcut}</span>
+                    <span className="shortcut-key">{shortcuts.bodyText}</span>
+                  </div>
+                )}
                 <div className="shortcut-item">
                   <span className="shortcut-desc">{t.boldShortcut}</span>
                   <span className="shortcut-key">{shortcuts.bold}</span>
@@ -1419,8 +1421,8 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.heading2}</span>
                 </div>
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.underlineShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.underline}</span>
+                  <span className="shortcut-desc">{t.strikethroughShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.strikethrough}</span>
                 </div>
               </div>
               <div className="shortcut-row">
@@ -1429,8 +1431,8 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.heading3}</span>
                 </div>
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.strikethroughShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.strikethrough}</span>
+                  <span className="shortcut-desc">{t.inlineCodeShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.inlineCode}</span>
                 </div>
               </div>
               <div className="shortcut-row">
@@ -1453,18 +1455,20 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.quote}</span>
                 </div>
               </div>
-            </div>
-
-            <div className="shortcuts-section-title">{t.shortcutsMarkdown}</div>
-            <div className="shortcuts-grid">
               <div className="shortcut-row">
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.inlineCodeShortcut}</span>
-                  <span className="shortcut-key">{shortcuts.inlineCode}</span>
+                  <span className="shortcut-desc">{t.taskListShortcut}</span>
+                  <span className="shortcut-key">{shortcuts.taskList}</span>
                 </div>
                 <div className="shortcut-item">
                   <span className="shortcut-desc">{t.codeBlockShortcut}</span>
                   <span className="shortcut-key">{shortcuts.codeBlock}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.showMarkdown}</span>
+                  <span className="shortcut-key">{shortcuts.markdownLens}</span>
                 </div>
               </div>
             </div>

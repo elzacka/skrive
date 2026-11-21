@@ -8,12 +8,12 @@ En lettvekts notatapp med offline-støtte og kryptert lokal lagring, bygget med 
 - **Offline-først**: Fungerer uten internettilkobling takket være Service Worker og PWA-støtte
 - **Lite data**: Ingen cookies eller brukerkontoer, se [PERSONVERN.md](PERSONVERN.md)
 - **Automatisk navngiving**: Det første du skriver i et nytt notat blir navnet når du trykker Enter
-- **Skriveflyt**: Skriv `- `, `1. ` eller `# ` først på en linje for liste eller overskrift, marker tekst for formateringsmeny, og lim inn lenker rett på markert tekst
+- **Ett format**: Notatene lagres som Markdown. Du skriver i en formatert visning der Markdown-tegnene bare vises der markøren står, og `Cmd+.` viser hele teksten som Markdown
+- **Skriveflyt**: Skriv `- `, `1. `, `- [ ] ` eller `# ` først på en linje for liste, sjekkliste eller overskrift, og lim inn lenker rett på markert tekst. Innlimt tekst fra nettet beholder formateringen
 - **Søk og erstatt**: Søk i notatet med treffmarkering, erstatt ett eller alle treff
 - **Auto-backup**: Automatisk, passordfrase-beskyttet backup til en lokal mappe via File System Access API (Chrome/Edge)
 - **Import/eksport**: Eksporter og importer alle notater som JSON, eller importer enkeltnotater fra .txt- og .md-filer
-- **Flere formater**: Ren tekst, rik tekst og Markdown, med konvertering når du bytter format
-- **Eksportformater**: Rik tekst eksporteres som HTML, Markdown eller RTF; Markdown som .md eller HTML
+- **Eksport**: Enkeltnotater som Markdown eller HTML. Kopier-knappen gir formatert tekst i Word og e-post og Markdown ellers
 - **Etiketter og mapper**: Organiser notatene med etiketter, mapper og dra-og-slipp
 - **Multivalg**: Velg flere notater med Cmd/Ctrl+klikk eller Shift+klikk, og slett med angremulighet
 - **Tospråklig**: Norsk og engelsk grensesnitt
@@ -97,29 +97,26 @@ For utviklingsinstruksjoner, se [CLAUDE.md](CLAUDE.md).
 | Angre | `Cmd+Z` | `Ctrl+Z` |
 | Gjenta | `Cmd+Shift+Z` | `Ctrl+Y` |
 
-### Rik tekst og Markdown
+### Formatering
 
 | Handling | Mac | Windows/Linux |
 |----------|-----|---------------|
-| Brødtekst | `Cmd+Opt+0` | `Ctrl+0` |
-| Overskrift 1 | `Cmd+Opt+1` | `Ctrl+1` |
-| Overskrift 2 | `Cmd+Opt+2` | `Ctrl+2` |
-| Overskrift 3 | `Cmd+Opt+3` | `Ctrl+3` |
+| Brødtekst | `Cmd+Opt+0` | Fjern `#` |
+| Overskrift 1–3 | `Cmd+Opt+1`–`3` | Skriv `#`, `##` eller `###` og mellomrom |
 | Fet | `Cmd+B` | `Ctrl+B` |
 | Kursiv | `Cmd+I` | `Ctrl+I` |
-| Understreking | `Cmd+U` | `Ctrl+U` |
 | Gjennomstreking | `Cmd+Shift+X` | `Ctrl+Shift+X` |
+| Kode | `Cmd+E` | `Ctrl+E` |
+| Kodeblokk | `Cmd+Shift+E` | `Ctrl+Shift+E` |
 | Punktliste | `Cmd+Shift+8` | `Ctrl+Shift+8` |
 | Nummerert liste | `Cmd+Shift+7` | `Ctrl+Shift+7` |
-| Sett inn lenke | `Cmd+K` | `Ctrl+K` |
+| Sjekkliste | `Cmd+Shift+9` | `Ctrl+Shift+9` |
 | Sitat | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+| Sett inn lenke | `Cmd+K` | `Ctrl+K` |
+| Åpne lenke | `Cmd+klikk` | `Ctrl+klikk` |
+| Vis Markdown | `Cmd+.` | `Ctrl+.` |
 
-### Kun Markdown
-
-| Handling | Mac | Windows/Linux |
-|----------|-----|---------------|
-| Inline kode | `Cmd+E` | `Ctrl+E` |
-| Kodeblokk | `Cmd+Shift+E` | `Ctrl+Shift+E` |
+Windows har ingen hurtigtast for overskrifter: Chrome bruker `Ctrl+1`–`8` til faner og `Ctrl+0` til zoom.
 
 ## Lisens
 

@@ -151,7 +151,6 @@ body {
   left: 0;
 }
 
-
 /* Sidebar */
 .sidebar {
   width: var(--sidebar-width);
@@ -880,7 +879,7 @@ body {
 .editor-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-light);
   gap: 12px;
@@ -1103,31 +1102,6 @@ body {
 
 /* Format Selector */
 /* Sits inside the editor header row, left of the actions */
-.format-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.format-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.format-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 11px;
-  background: var(--bg-primary);
-  cursor: pointer;
-  outline: none;
-}
-
-.format-select:focus {
-  border-color: var(--accent);
-}
 
 /* Formatting Toolbar (Rich Text) */
 .formatting-toolbar {
@@ -1196,42 +1170,6 @@ body {
 
 .style-select:focus {
   border-color: var(--accent);
-}
-
-/* Rich Text Editor */
-.editor.richtext {
-  min-height: 100%;
-  outline: none;
-  direction: ltr;
-  text-align: left;
-}
-
-.editor.richtext h1 {
-  font-size: 24px;
-  margin-bottom: 12px;
-  font-weight: 700;
-}
-
-.editor.richtext h2 {
-  font-size: 20px;
-  margin-bottom: 10px;
-  font-weight: 700;
-}
-
-.editor.richtext h3 {
-  font-size: 16px;
-  margin-bottom: 8px;
-  font-weight: 700;
-}
-
-.editor.richtext ul,
-.editor.richtext ol {
-  margin-left: 24px;
-  margin-bottom: 8px;
-}
-
-.editor.richtext li {
-  margin-bottom: 4px;
 }
 
 /* Tag Picker */
@@ -1341,31 +1279,50 @@ body {
 }
 
 /* Editor */
+.markdown-editor-host {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.lens-toggle {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.lens-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.lens-toggle.active {
+  color: var(--accent);
+  background: var(--bg-active);
+  border-color: var(--accent);
+}
+
+.lens-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tag-picker-empty {
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .editor-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.editor-container.with-preview {
-  flex-direction: row;
-  gap: 12px;
-}
-
-.editor-pane,
-.preview-pane {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.preview-pane {
-  border-left: 1px solid var(--border);
-  background: var(--bg-tertiary);
-  border-radius: 6px;
 }
 
 .editor-footer {
@@ -1379,168 +1336,6 @@ body {
   flex-shrink: 0;
 }
 
-.editor {
-  flex: 1;
-  padding: 16px;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.7;
-  resize: none;
-  outline: none;
-  overflow-y: auto;
-  overflow-x: hidden;
-  font-family: var(--font-mono);
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
-}
-
-.editor::-webkit-scrollbar {
-  width: 8px;
-}
-
-.editor::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.editor::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-.editor::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.editor::placeholder {
-  color: var(--text-muted);
-}
-
-/* Markdown Preview */
-.markdown-preview {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-primary);
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
-}
-
-.markdown-preview::-webkit-scrollbar {
-  width: 8px;
-}
-
-.markdown-preview::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.markdown-preview::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-.markdown-preview::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.markdown-preview h1 {
-  font-size: 1.5em;
-  font-weight: 700;
-  margin: 0.5em 0;
-  color: var(--accent);
-}
-
-.markdown-preview h2 {
-  font-size: 1.3em;
-  font-weight: 700;
-  margin: 0.5em 0;
-  color: var(--accent);
-}
-
-.markdown-preview h3 {
-  font-size: 1.1em;
-  font-weight: 700;
-  margin: 0.5em 0;
-  color: var(--accent);
-}
-
-.markdown-preview p {
-  margin: 0.5em 0;
-}
-
-.markdown-preview strong {
-  font-weight: 700;
-}
-
-.markdown-preview em {
-  font-style: italic;
-}
-
-.markdown-preview code {
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-
-.markdown-preview a {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.markdown-preview a:hover {
-  color: var(--accent-hover);
-}
-
-.markdown-preview pre {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: 12px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.markdown-preview pre code {
-  background: none;
-  padding: 0;
-  color: inherit;
-}
-
-/* Language label for code blocks */
-.markdown-preview pre[class*="language-"]::before {
-  content: attr(class);
-  display: block;
-  font-size: 10px;
-  color: #808080;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.markdown-preview pre.language-javascript::before { content: "JavaScript"; }
-.markdown-preview pre.language-js::before { content: "JavaScript"; }
-.markdown-preview pre.language-typescript::before { content: "TypeScript"; }
-.markdown-preview pre.language-ts::before { content: "TypeScript"; }
-.markdown-preview pre.language-python::before { content: "Python"; }
-.markdown-preview pre.language-py::before { content: "Python"; }
-.markdown-preview pre.language-html::before { content: "HTML"; }
-.markdown-preview pre.language-css::before { content: "CSS"; }
-.markdown-preview pre.language-json::before { content: "JSON"; }
-.markdown-preview pre.language-xml::before { content: "XML"; }
-.markdown-preview pre.language-bash::before { content: "Bash"; }
-.markdown-preview pre.language-sh::before { content: "Shell"; }
-.markdown-preview pre.language-sql::before { content: "SQL"; }
-.markdown-preview pre.language-markdown::before { content: "Markdown"; }
-.markdown-preview pre.language-md::before { content: "Markdown"; }
-
 .code-preview {
   background: #1e1e1e;
   color: #d4d4d4;
@@ -1552,38 +1347,7 @@ body {
   line-height: 1.5;
 }
 
-.markdown-preview blockquote {
-  border-left: 3px solid var(--accent);
-  padding-left: 12px;
-  margin: 0.5em 0;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  padding: 8px 12px;
-  border-radius: 0 4px 4px 0;
-}
-
-.markdown-preview ul,
-.markdown-preview ol {
-  margin: 0.5em 0;
-  padding-left: 24px;
-}
-
-.markdown-preview li {
-  margin: 0.25em 0;
-}
-
-.markdown-preview hr {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 1em 0;
-}
-
 /* Markdown Editor Styles */
-.editor.markdown {
-  font-family: var(--font-mono);
-  white-space: pre-wrap;
-  tab-size: 2;
-}
 
 /* No Selection State - empty state with hint */
 .no-selection {
@@ -1682,12 +1446,9 @@ body {
   outline-offset: 2px;
 }
 
-/* Remove focus-visible outline from inputs/selects that have custom focus styles */
 .search-input:focus-visible,
 .title-input:focus-visible,
-.format-select:focus-visible,
 .style-select:focus-visible,
-.editor:focus-visible,
 .new-tag-input:focus-visible,
 .lang-option:focus-visible,
 .action-btn:focus-visible,
@@ -1924,14 +1685,6 @@ body {
   cursor: default;
 }
 
-::highlight(skrive-find) {
-  background-color: rgba(255, 200, 0, 0.4);
-}
-
-::highlight(skrive-find-current) {
-  background-color: rgba(255, 150, 0, 0.75);
-}
-
 /* ============ Save status error ============ */
 
 .save-status.error {
@@ -2089,80 +1842,10 @@ body {
   color: var(--accent);
 }
 
-/* ============ Richtext placeholder ============ */
-
-.editor.richtext:empty::before,
-.editor.richtext:has(> p:only-child > br:only-child)::before {
-  content: attr(data-placeholder);
-  color: var(--text-muted);
-  pointer-events: none;
-  position: absolute;
-}
-
-/* ============ Prose typography ============ */
-
-.editor,
-.markdown-preview {
-  padding: 24px 32px;
-}
-
-.editor.richtext {
-  font-size: 15px;
-}
-
-/* ============ Selection bubble menu ============ */
-
-.selection-bubble {
-  position: fixed;
-  transform: translate(-50%, calc(-100% - 8px));
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 100;
-}
-
-.selection-bubble button {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.selection-bubble button:hover {
-  background: var(--bg-hover);
-}
-
-.selection-bubble button.active {
-  background: var(--accent-light);
-  color: var(--accent);
-}
-
-.selection-bubble button svg {
-  width: 13px;
-  height: 13px;
-  stroke: currentColor;
-  fill: none;
-}
-
 /* ============ Modified date in footer ============ */
 
 .note-modified {
   margin-left: auto;
-}
-
-.selection-bubble.below {
-  transform: translate(-50%, 8px);
 }
 
 /* ============ Lucide icon adjustments ============ */

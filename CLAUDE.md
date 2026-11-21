@@ -27,7 +27,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 - Notes are encrypted with AEGIS-256 (AES-accelerated) or XChaCha20-Poly1305 (fallback). The master key lives in IndexedDB (`skrive-crypto`), wrapped by a non-extractable WebCrypto AES-GCM key; legacy plaintext localStorage keys are migrated on startup.
 - CSP is a `<meta>` tag injected by vite.config.ts (dev and prod variants); GitHub Pages sends no headers. Meta ignores `frame-ancestors`, so main.tsx refuses to render when framed.
-- DOMPurify (strict whitelist) and `isSafeUrl()` run on write — editor input, JSON import, backup restore — not only on render.
+- Notes hold Markdown text; HTML is sanitized (DOMPurify, strict whitelist) on the way in (paste, conversion of old notes) and out (`markdownToHtml()` for copy and export). `isSafeUrl()` gates every link that is rendered or opened.
 - No runtime-loaded external dependencies; fonts and icons are self-hosted.
 - No outbound request: notes are personal data, so the prod CSP names no external host.
 
@@ -49,35 +49,32 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 ## Startup
 
-- New notes go through `buildNote()` in AppContext.tsx and default to richtext.
-- New users get an empty richtext note auto-selected; returning users get the most recently updated note (no seeded welcome note).
+- New notes go through `buildNote()` in AppContext.tsx.
+- New users get an empty note auto-selected; returning users get the most recently updated note (no seeded welcome note).
 - `initRef` guards against double init in StrictMode; `loadedRef` blocks saves until the initial load finishes.
 
 ## Editor
 
-- Richtext undo/redo uses the browser's native stack (`execCommand('undo'/'redo')`); the custom `useUndoRedo` history is for plaintext/markdown only — applying history state to a contentEditable desyncs DOM and state.
-- Find/replace (Cmd/Ctrl+F, FindReplaceBar): textarea formats match by index; richtext walks text nodes via the CSS Custom Highlight API, so a match split across inline tags won't highlight.
-- Cmd/Ctrl+K focuses search globally but opens the link dialog when an editor has focus; the global handler skips on `e.defaultPrevented` or a contentEditable focus target (React flushes discrete events synchronously, so listener order isn't reliable).
-- Switching formats converts content: richtext↔markdown via `htmlToMarkdown()`/`markdownToHtml()`; plaintext→richtext escapes and wraps lines. The same helpers (src/utils/helpers.ts) drive HTML/Markdown/RTF export, RTF via `htmlToRtf()`.
+- One format: notes are Markdown text (`format: 'markdown'`). Older `richtext`/`plaintext` notes, backups and imports convert once via `toMarkdownNote()` (AppContext); the stored state before the first conversion is kept once under `encrypted-state-pre-markdown`.
+- CodeMirror 6 (src/components/MarkdownEditor.tsx, src/editor/) in a shadow root: CodeMirror injects styles, and only `adoptedStyleSheets` there pass the prod CSP. Editor CSS is src/styles/editor.css, loaded `?inline`.
+- Two lenses on the same text: `markdownLens(false)` hides marks unless the selection touches them; `markdownLens(true)` shows them dimmed. Toggle: Cmd/Ctrl+. or "Vis Markdown".
+- Import only `markdownLanguage` and named commands from `@codemirror/lang-markdown`: `markdown()` bundles HTML, CSS and JavaScript support (about 70 kB gzip).
+- Edits reach React after the input event (`setTimeout`, coalesced, with the note id): inside it they get sync priority and hit React's nested-update limit while typing fast. Pending edits flush on note switch and unmount. Each keystroke also goes to `trackLiveEdit()` without React, and the `pagehide` spill and hidden-tab save apply it, since an unload can come before the edit renders.
+- The editor takes outside content only when `mergeRevision` changes (restore, import); comparing content would take a stale render for an outside edit. Find/replace and naming write through the view.
+- Render, copy and export go through src/utils/markdown.ts on the editor's own parser; `htmlToMarkdown()` sanitizes, `markdownToHtml()` output is sanitized. Soft line breaks render as `<br>`.
+- Find/replace (Cmd/Ctrl+F): matches by index in the text, highlights via `setFindMatches`.
+- Cmd/Ctrl+K inserts a link in the editor and focuses search elsewhere; the global handler skips on `e.defaultPrevented` or a contentEditable `composedPath()[0]`.
 - Deleting a note shows a 6 s undo toast, no confirm; folder deletion confirms because it's recursive.
 - Sidebar multi-select follows Finder conventions (Cmd/Ctrl+Click toggle, Shift+Click ranges over `visibleNoteIds`'s render order); bulk delete goes through `deleteNotes()` and shares the undo toast.
 - Moving notes out of a folder: drop on the tree background, drop on another note, or "Flytt ut av mappen" in the context menu. Drop handlers stop propagation so the background handler only fires on true background drops.
 - Escape closes dialogs, popups and context menus everywhere.
 - No custom install prompt — don't intercept `beforeinstallprompt`; the browser's own address-bar icon is the only install affordance.
-- There's no separate title field: in an unnamed note, the first line plus Enter becomes the name via `captureNoteName()` and is removed from the content. Renaming is inline via the sidebar context menu.
-
-### contentEditable invariants
-
-- Input rules (markdown triggers, inline bold/italic, auto-links) run on `beforeinput`, never keydown, so they work on any keyboard layout.
-- `defaultParagraphSeparator` is `p`, `styleWithCSS` off, set at mount.
-- Empty notes seed `<p><br></p>` — a bare text node at the editor root breaks execCommand nesting.
-- A caret anchored on the editor root gets normalized into the block at that offset.
-- After removing input-rule trigger text, replace the emptied text node with `<br>` before calling execCommand, or Chrome formats the previous block.
+- There's no separate title field: in an unnamed note, the first line plus Enter becomes the name via `captureNoteName()` and is removed from the content; `namedRef` stops a second capture before React renders the title. Renaming is inline via the sidebar context menu.
 
 ## Keyboard
 
 - All shortcut checks use `e.code`, never `e.key` — with Shift/Alt held, `e.key` reports the shifted character and varies by layout (Norwegian Shift+8 is `(`).
-- The combo list is `getShortcutLabels()` in src/utils/shortcuts.ts (labels only); keep the handlers in step with it. Windows avoids Ctrl+Alt (collides with AltGr). Never reuse a browser-chrome combo (Cmd/Ctrl+N/T/W/Tab, Shift+N/T/P, F5, F11, F12).
+- The combo list is `getShortcutLabels()` in src/utils/shortcuts.ts (labels only); keep the handlers in step with it. Windows avoids Ctrl+Alt (collides with AltGr) and Ctrl+digit (Chrome's tabs and zoom), so headings there are typed Markdown. Never reuse a browser-chrome combo (Cmd/Ctrl+N/T/W/Tab, Shift+N/T/P, F5, F11, F12).
 - The sidebar tree is a keyboard-navigable ARIA tree (roving tabindex), scoped to tree focus. Its keydown handler must bail when `e.target` is an INPUT, and reads the current row from `document.activeElement`'s `data-item-id`, not from state.
 
 ## Versioning (differs from global)
