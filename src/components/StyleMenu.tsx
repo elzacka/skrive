@@ -78,7 +78,7 @@ export function StyleMenu({ label, options, value, onSelect }: StyleMenuProps) {
             <button
               key={option.label}
               ref={el => { itemRefs.current[i] = el; }}
-              className={`style-menu-item level-${i}`}
+              className="style-menu-item"
               role="option"
               aria-selected={i === value}
               title={option.shortcut ? `${option.label} (${option.shortcut})` : option.label}

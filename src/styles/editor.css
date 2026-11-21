@@ -20,7 +20,8 @@
   outline: none;
 }
 
-.cm-scroller {
+/* One class more than CodeMirror's base theme, which sets monospace */
+.cm-editor .cm-scroller {
   font-family: inherit;
   line-height: inherit;
   overflow-y: auto;

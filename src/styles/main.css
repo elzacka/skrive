@@ -1382,11 +1382,6 @@ body {
   background: var(--bg-active);
 }
 
-/* Each style previews its own weight and size */
-.style-menu-item.level-1 { font-size: 15px; font-weight: 700; }
-.style-menu-item.level-2 { font-size: 13px; font-weight: 700; }
-.style-menu-item.level-3 { font-size: 12px; font-weight: 700; }
-
 .style-menu-item kbd {
   font-family: inherit;
   font-size: 11px;
