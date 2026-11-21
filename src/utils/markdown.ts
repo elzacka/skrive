@@ -201,7 +201,13 @@ function blockMarkdown(el: Element, listDepth = 0): string[] {
     if (!BLOCK_TAGS.has(tag)) {
       if (tag && c.querySelector(Array.from(BLOCK_TAGS).join(','))) {
         flush();
-        out.push(...blockMarkdown(c, listDepth));
+        const inner = blockMarkdown(c, listDepth);
+        // A link card (<a> around blocks) keeps its link on the first block
+        const href = tag === 'a' ? c.getAttribute('href') ?? '' : '';
+        if (href && isSafeUrl(href) && inner.length > 0 && !inner[0].includes('\n')) {
+          inner[0] = inner[0].replace(/^(#{1,6} |> )?(.*)$/, (_, prefix = '', text) => `${prefix}[${text}](${encodeLinkTarget(href)})`);
+        }
+        out.push(...inner);
       } else {
         inlineRun += inlineMarkdown(child);
       }
@@ -237,7 +243,7 @@ function blockMarkdown(el: Element, listDepth = 0): string[] {
       out.push(blockMarkdown(c, listDepth).join('\n\n').split('\n').map(l => (l ? `> ${l}` : '>')).join('\n'));
     } else if (tag === 'pre') {
       const code = (c.textContent ?? '').replace(/\n$/, '');
-      const fence = '`'.repeat(Math.max(3, ...(code.match(/^`{3,}/gm) ?? []).map(run => run.length + 1)));
+      const fence = '`'.repeat(Math.max(3, ...(code.match(/^ {0,3}`{3,}/gm) ?? []).map(run => run.trim().length + 1)));
       out.push(`${fence}\n${code}\n${fence}`);
     } else if (tag === 'hr') {
       out.push('---');

@@ -55,16 +55,22 @@ export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindRep
     return () => view?.dispatch({ effects: setFindMatches.of({ ranges: [], current: 0 }) });
   }, [viewRef]);
 
+  // Offsets can be stale right after a restore replaced the text
+  const isMatch = useCallback((view: EditorView, from: number) =>
+    from + query.length <= view.state.doc.length &&
+    view.state.sliceDoc(from, from + query.length).toLowerCase() === query.toLowerCase(), [query]);
+
   const goTo = useCallback((next: number) => {
     const view = viewRef.current;
     if (matches.length === 0 || !view) return;
     const wrapped = ((next % matches.length) + matches.length) % matches.length;
+    if (!isMatch(view, matches[wrapped])) return;
     setCurrent(wrapped);
     view.dispatch({
       selection: { anchor: matches[wrapped], head: matches[wrapped] + query.length },
       scrollIntoView: true
     });
-  }, [matches, query, viewRef]);
+  }, [matches, query, viewRef, isMatch]);
 
   const replaceCurrent = () => {
     const view = viewRef.current;
@@ -79,9 +85,6 @@ export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindRep
     view.dispatch({ changes: matches.filter(from => isMatch(view, from)).map(from => ({ from, to: from + query.length, insert: replacement })) });
     setCurrent(0);
   };
-
-  const isMatch = (view: EditorView, from: number) =>
-    view.state.sliceDoc(from, from + query.length).toLowerCase() === query.toLowerCase();
 
   const handleKeyDown = (onEnter: (shift: boolean) => void) => (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
