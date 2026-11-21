@@ -1,4 +1,4 @@
-import { EditorSelection, type EditorState } from '@codemirror/state';
+import { EditorSelection, type ChangeSpec, type EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { insertNewlineContinueMarkup } from '@codemirror/lang-markdown';
@@ -90,12 +90,19 @@ function selectedLines(state: EditorState) {
 }
 
 // Body text (0) or heading level 1-3 for every selected line
+// Line prefixes go in front of the cursor: a cursor at the start of the
+// line (or inside the old prefix) lands after the new one, not before it
+function replacePrefixes(view: EditorView, changes: ChangeSpec[]): void {
+  const set = view.state.changes(changes);
+  view.dispatch({ changes: set, selection: view.state.selection.map(set, 1) });
+}
+
 export function setHeading(view: EditorView, level: number): boolean {
   const changes = selectedLines(view.state).map(l => {
     const existing = /^#{1,6}\s+/.exec(l.text);
     return { from: l.from, to: l.from + (existing ? existing[0].length : 0), insert: level ? '#'.repeat(level) + ' ' : '' };
   });
-  view.dispatch({ changes });
+  replacePrefixes(view, changes);
   return true;
 }
 
@@ -121,7 +128,7 @@ export function toggleLines(view: EditorView, style: LineStyle): boolean {
       : '> ';
     return { from: l.from + indent.length, to: l.from + whole.length, insert: prefix };
   });
-  view.dispatch({ changes });
+  replacePrefixes(view, changes);
   return true;
 }
 
