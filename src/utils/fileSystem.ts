@@ -179,51 +179,6 @@ export async function saveNoteToDirectory(
   }
 }
 
-export async function saveAllNotesToDirectory(
-  handle: FileSystemDirectoryHandle,
-  notes: Note[]
-): Promise<boolean> {
-  try {
-    if (!(await verifyPermission(handle))) {
-      return false;
-    }
-    
-    // Create a skrive subdirectory
-    const skriveDir = await handle.getDirectoryHandle('skrive-notes', { create: true });
-    
-    for (const note of notes) {
-      await saveNoteToDirectory(skriveDir, note);
-    }
-
-    return true;
-  } catch (error) {
-    console.warn('Failed to save all notes to directory:', error);
-    return false;
-  }
-}
-
-export async function exportDataToDirectory(
-  handle: FileSystemDirectoryHandle,
-  data: ExportData
-): Promise<boolean> {
-  try {
-    if (!(await verifyPermission(handle))) {
-      return false;
-    }
-    
-    const filename = `skrive-backup-${new Date().toISOString().split('T')[0]}.json`;
-    const fileHandle = await handle.getFileHandle(filename, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(data, null, 2));
-    await writable.close();
-
-    return true;
-  } catch (error) {
-    console.warn('Failed to export data to directory:', error);
-    return false;
-  }
-}
-
 export type ExportFormat = 'native' | 'markdown' | 'rtf' | 'html';
 
 function getExportContent(note: Note, format: ExportFormat): { content: string; extension: string; mimeType: string } {

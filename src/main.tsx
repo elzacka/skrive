@@ -16,8 +16,9 @@ if (window.self !== window.top) {
   throw new Error('Skrive refuses to run inside a frame');
 }
 
-// Register service worker (only on HTTPS or localhost)
-if ('serviceWorker' in navigator &&
+// Production only: in dev, vite-plugin-pwa serves its own dev worker and
+// /skrive/sw.js does not exist
+if (import.meta.env.PROD && 'serviceWorker' in navigator &&
     (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/skrive/sw.js', { scope: '/skrive/' }).catch((error) => {

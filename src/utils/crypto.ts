@@ -1,20 +1,5 @@
-/**
- * End-to-End Encryption Module for Skrive
- *
- * Uses AEGIS-256 (preferred) with XChaCha20-Poly1305 fallback
- * - AEGIS-256: 256-bit key, 256-bit nonce, key-committing, fastest on modern HW
- * - XChaCha20-Poly1305: 256-bit key, 192-bit nonce, constant-time fallback
- *
- * Key Management:
- * - The master key is wrapped with a non-extractable WebCrypto AES-GCM key
- *   and stored in IndexedDB (DB "skrive-crypto")
- * - Legacy plaintext keys in localStorage are migrated on startup
- * - Master key is loaded into memory on app initialization
- *
- * Backup protection:
- * - For auto-backup the master key is wrapped with a key derived from a
- *   user passphrase (PBKDF2-HMAC-SHA256, 600000 iterations)
- */
+// Note encryption (AEGIS-256, XChaCha20-Poly1305 fallback) and key storage;
+// the design is in CLAUDE.md under Security and Auto-backup
 
 import sodium from 'libsodium-wrappers';
 
@@ -92,16 +77,9 @@ export async function initCrypto(): Promise<void> {
 }
 
 /**
- * Get the preferred encryption algorithm
- */
-export function getPreferredAlgorithm(): EncryptionAlgorithm {
-  return preferredAlgorithm;
-}
-
-/**
  * Generate a new master key
  */
-export async function generateMasterKey(): Promise<Uint8Array> {
+async function generateMasterKey(): Promise<Uint8Array> {
   await initCrypto();
 
   // Both AEGIS-256 and XChaCha20-Poly1305 use 256-bit keys
@@ -110,28 +88,10 @@ export async function generateMasterKey(): Promise<Uint8Array> {
 }
 
 /**
- * Set the master key (in memory only)
- */
-export function setMasterKey(key: Uint8Array): void {
-  masterKey = key;
-}
-
-/**
  * Get the current master key
  */
 export function getMasterKey(): Uint8Array | null {
   return masterKey;
-}
-
-/**
- * Clear the master key from memory
- */
-export function clearMasterKey(): void {
-  if (masterKey) {
-    // Overwrite with zeros before clearing
-    masterKey.fill(0);
-    masterKey = null;
-  }
 }
 
 // IndexedDB storage for the wrapped master key
@@ -195,7 +155,7 @@ async function getOrCreateWrappingKey(db: IDBDatabase): Promise<CryptoKey> {
  * Persist the master key: keep it in memory and store it in IndexedDB,
  * wrapped with the non-extractable device wrapping key
  */
-export async function persistMasterKey(key: Uint8Array): Promise<void> {
+async function persistMasterKey(key: Uint8Array): Promise<void> {
   const db = await openCryptoDb();
   const wrappingKey = await getOrCreateWrappingKey(db);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -265,7 +225,7 @@ export async function initializeEncryption(): Promise<void> {
  * Import key from URL-safe base64 string; throws if it is not a valid
  * 256-bit key
  */
-export function importKeyFromBase64(base64Key: string): Uint8Array {
+function importKeyFromBase64(base64Key: string): Uint8Array {
   const key = sodium.from_base64(base64Key, sodium.base64_variants.URLSAFE_NO_PADDING);
   if (key.length !== MASTER_KEY_BYTES) {
     throw new Error('Invalid key length');
@@ -470,24 +430,3 @@ function decryptXChaCha20(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8A
   return plaintext;
 }
 
-/**
- * Check if encryption is enabled (master key exists)
- */
-export function isEncryptionEnabled(): boolean {
-  return masterKey !== null;
-}
-
-/**
- * Get encryption status for UI display
- */
-export function getEncryptionStatus(): {
-  enabled: boolean;
-  algorithm: EncryptionAlgorithm;
-  algorithmName: string;
-} {
-  return {
-    enabled: masterKey !== null,
-    algorithm: preferredAlgorithm,
-    algorithmName: preferredAlgorithm === 'aegis256' ? 'AEGIS-256' : 'XChaCha20-Poly1305'
-  };
-}
