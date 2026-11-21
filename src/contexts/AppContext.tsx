@@ -24,10 +24,6 @@ import {
   type PassphraseWrappedKey
 } from '@/utils/crypto';
 import {
-  getStoredDirectoryHandle,
-  requestDirectoryAccess,
-  clearStoredDirectoryHandle,
-  saveNote,
   verifyPermission,
   hasStoredPermission,
   getStoredBackupHandle,
@@ -243,8 +239,6 @@ export type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
 
 interface AppContextValue {
   state: AppState;
-  directoryHandle: FileSystemDirectoryHandle | null;
-  isOnline: boolean;
 
   // Persistence
   saveStatus: SaveStatus;
@@ -273,7 +267,6 @@ interface AppContextValue {
   deleteNote: (id: string) => void;
   deleteNotes: (ids: string[]) => void;
   selectNote: (id: string | null) => void;
-  saveCurrentNote: () => Promise<void>;
   moveNote: (noteId: string, targetFolderId: string | null) => void;
 
   // Tags
@@ -293,8 +286,6 @@ interface AppContextValue {
   toggleSidebar: () => void;
   
   // File System
-  connectDirectory: () => Promise<boolean>;
-  disconnectDirectory: () => Promise<void>;
   
   // Import/Export
   exportAllData: () => void;
@@ -326,8 +317,6 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [backupHandle, setBackupHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [backupKeyProtection, setBackupKeyProtection] = useState<PassphraseWrappedKey | null>(null);
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(null);
@@ -472,12 +461,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SELECT_NOTE', payload: note.id });
       }
 
-      // Try to restore directory handle (query-only, no prompt)
-      const handle = await getStoredDirectoryHandle();
-      if (handle && await hasStoredPermission(handle)) {
-        setDirectoryHandle(handle);
-      }
-
       // Request persistent storage on all browsers so stored data is
       // protected against automatic eviction
       try {
@@ -606,20 +589,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [state.notes, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, recoveryCopies, buildEncryptedBackup]);
 
-  // Online status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   // Actions
   const setLang = useCallback((lang: 'no' | 'en') => {
     dispatch({ type: 'SET_LANG', payload: lang });
@@ -685,13 +654,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SELECT_NOTE', payload: id });
   }, []);
 
-  const saveCurrentNote = useCallback(async () => {
-    const note = state.notes.find(n => n.id === state.selectedNoteId);
-    if (note) {
-      await saveNote(note, directoryHandle);
-    }
-  }, [state.notes, state.selectedNoteId, directoryHandle]);
-
   const moveNote = useCallback((noteId: string, targetFolderId: string | null) => {
     dispatch({ type: 'UPDATE_NOTE', payload: { id: noteId, updates: { parentId: targetFolderId } } });
   }, []);
@@ -750,20 +712,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleSidebar = useCallback(() => {
     dispatch({ type: 'TOGGLE_SIDEBAR' });
-  }, []);
-
-  const connectDirectory = useCallback(async () => {
-    const handle = await requestDirectoryAccess();
-    if (handle) {
-      setDirectoryHandle(handle);
-      return true;
-    }
-    return false;
-  }, []);
-
-  const disconnectDirectory = useCallback(async () => {
-    await clearStoredDirectoryHandle();
-    setDirectoryHandle(null);
   }, []);
 
   const enableAutoBackup = useCallback(async (passphrase: string) => {
@@ -993,8 +941,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppContextValue = {
     state,
-    directoryHandle,
-    isOnline,
     saveStatus,
     flushSave: performSave,
     startupBlocked,
@@ -1023,7 +969,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteNote,
     deleteNotes,
     selectNote,
-    saveCurrentNote,
     moveNote,
     addTag,
     updateTag,
@@ -1035,8 +980,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deleteFolder,
     setSearchQuery,
     toggleSidebar,
-    connectDirectory,
-    disconnectDirectory,
     autoBackupEnabled: backupHandle !== null,
     lastBackupTime,
     backupError,

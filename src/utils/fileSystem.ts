@@ -2,7 +2,6 @@ import type { Note, ExportData, FileSystemDirectoryHandle } from '@/types';
 import { getExtensionFromFormat, getMimeTypeFromFormat, htmlToMarkdown, htmlToRtf, markdownToHtml } from './helpers';
 import type { EncryptedData, PassphraseWrappedKey } from './crypto';
 
-const DIRECTORY_HANDLE_KEY = 'skrive-directory-handle';
 const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
 const BACKUP_KEY_PROTECTION_KEY = 'skrive-backup-key-protection';
 const BACKUP_FILE = 'skrive-auto-backup.json';
@@ -47,66 +46,6 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function storeDirectoryHandle(handle: FileSystemDirectoryHandle): Promise<void> {
-  try {
-    const db = await openDB();
-    const tx = db.transaction('handles', 'readwrite');
-    const store = tx.objectStore('handles');
-    store.put(handle, DIRECTORY_HANDLE_KEY);
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (error) {
-    console.warn('Failed to store directory handle in IndexedDB:', error);
-  }
-}
-
-export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
-  try {
-    const db = await openDB();
-    const tx = db.transaction('handles', 'readonly');
-    const store = tx.objectStore('handles');
-    const request = store.get(DIRECTORY_HANDLE_KEY);
-    
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
-    console.warn('Failed to get directory handle from IndexedDB:', error);
-    return null;
-  }
-}
-
-export async function clearStoredDirectoryHandle(): Promise<void> {
-  try {
-    const db = await openDB();
-    const tx = db.transaction('handles', 'readwrite');
-    const store = tx.objectStore('handles');
-    store.delete(DIRECTORY_HANDLE_KEY);
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (error) {
-    console.warn('Failed to clear directory handle from IndexedDB:', error);
-  }
-}
-
-export async function requestDirectoryAccess(): Promise<FileSystemDirectoryHandle | null> {
-  try {
-    const handle = await window.showDirectoryPicker({
-      mode: 'readwrite'
-    });
-    await storeDirectoryHandle(handle);
-    return handle;
-  } catch (error) {
-    // User cancelled or permission denied - this is expected behavior
-    return null;
-  }
-}
-
 // Query-only permission check: safe to call without user activation
 // (requestPermission without a user gesture is auto-denied by Chrome)
 export async function hasStoredPermission(
@@ -143,40 +82,6 @@ export async function verifyPermission(
   }
   
   return false;
-}
-
-export async function saveNoteToDirectory(
-  handle: FileSystemDirectoryHandle,
-  note: Note
-): Promise<boolean> {
-  try {
-    if (!(await verifyPermission(handle))) {
-      return false;
-    }
-    
-    const extension = getExtensionFromFormat(note.format);
-    let sanitized = note.title
-      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
-      .replace(/^\.+/, '_')
-      .replace(/\s+$/, '');
-    // Windows reserved names
-    if (/^(CON|PRN|AUX|NUL|COM\d|LPT\d)$/i.test(sanitized)) {
-      sanitized = `_${sanitized}`;
-    }
-    // Max 200 chars for the name (leaving room for extension)
-    sanitized = sanitized.slice(0, 200) || 'note';
-    const filename = `${sanitized}${extension}`;
-    
-    const fileHandle = await handle.getFileHandle(filename, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write(note.content);
-    await writable.close();
-    
-    return true;
-  } catch (error) {
-    console.warn('Failed to save note to directory:', error);
-    return false;
-  }
 }
 
 export type ExportFormat = 'native' | 'markdown' | 'rtf' | 'html';
@@ -220,19 +125,6 @@ export function downloadNote(note: Note, format: ExportFormat = 'native'): void 
   const { content, extension, mimeType } = getExportContent(note, format);
   const filename = `${note.title}${extension}`;
   downloadWithBlob(content, filename, mimeType);
-}
-
-// Use File System Access API if available, otherwise fall back to download
-export async function saveNote(
-  note: Note,
-  directoryHandle: FileSystemDirectoryHandle | null
-): Promise<boolean> {
-  if (directoryHandle) {
-    return saveNoteToDirectory(directoryHandle, note);
-  } else {
-    downloadNote(note);
-    return true;
-  }
 }
 
 // Auto-backup handle management

@@ -371,7 +371,7 @@ function RichTextEditor({
 }
 
 export function Editor() {
-  const { state, getSelectedNote, updateNote, deleteNote, saveCurrentNote, addTag, toggleNoteTag, saveStatus } = useApp();
+  const { state, getSelectedNote, updateNote, deleteNote, addTag, toggleNoteTag, saveStatus } = useApp();
   const t = i18n[state.lang];
   const note = getSelectedNote();
   const mac = isMac();
@@ -1311,14 +1311,6 @@ export function Editor() {
     deleteNote(note.id);
   };
 
-  const handleSave = async () => {
-    try {
-      await saveCurrentNote();
-    } catch {
-      // Export failed or was cancelled
-    }
-  };
-
   const handleExport = (format: ExportFormat = 'native') => {
     if (!note) return;
     downloadNote(note, format);
@@ -1414,7 +1406,7 @@ export function Editor() {
             </button>
           )}
           {note.format === 'plaintext' ? (
-            <button className="action-btn save-btn" onClick={handleSave}>
+            <button className="action-btn save-btn" onClick={() => handleExport()}>
               {t.save}
             </button>
           ) : (

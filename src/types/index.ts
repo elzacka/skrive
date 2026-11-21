@@ -113,8 +113,6 @@ export interface I18nStrings {
   assignTags: string;
   newTagPlaceholder: string;
   addTag: string;
-  manageTags: string;
-  titlePlaceholder: string;
   editorPlaceholder: string;
   writeHere: string;
   created: string;
@@ -130,8 +128,6 @@ export interface I18nStrings {
   toggleSidebar: string;
   undoShortcut: string;
   redoShortcut: string;
-  exportShortcut: string;
-  formatShortcut: string;
   boldShortcut: string;
   italicShortcut: string;
   underlineShortcut: string;
@@ -183,14 +179,8 @@ export interface I18nStrings {
   importData: string;
   importNote: string;
   exportData: string;
-  connectFolder: string;
-  disconnectFolder: string;
-  folderConnected: string;
-  noFolderConnected: string;
   offline: string;
   online: string;
-  syncStatus: string;
-  lastSynced: string;
   untitled: string;
   securityPrivacy: string;
   privacyPolicy: string;
@@ -199,14 +189,12 @@ export interface I18nStrings {
   copy: string;
   copyToClipboard: string;
   preview: string;
-  confirmDelete: string;
   saving: string;
   unsaved: string;
   saved: string;
   noTagsYet: string;
   hideSidebar: string;
   showSidebar: string;
-  notNow: string;
   click: string;
   orPress: string;
   words: string;
@@ -244,9 +232,7 @@ export interface I18nStrings {
   enableAutoBackup: string;
   disableAutoBackup: string;
   autoBackupActive: string;
-  autoBackupInactive: string;
   restoreFromBackup: string;
-  backupRestored: string;
   backupFailed: string;
   autoBackupUnsupported: string;
   lastBackup: string;
