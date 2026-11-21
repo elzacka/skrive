@@ -847,17 +847,25 @@ body {
 
 .editor-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  padding: 12px 16px;
+  justify-content: space-between;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-light);
-  gap: 12px;
+  gap: 8px 16px;
 }
 
 .header-actions {
   display: flex;
   gap: 6px;
   align-items: center;
+  margin-left: auto;
+}
+
+/* Same height as the formatting buttons beside them */
+.header-actions .action-btn {
+  height: 28px;
+  min-width: 28px;
 }
 
 .export-menu-container {
@@ -1199,10 +1207,7 @@ body {
 /* Formatting Toolbar (Rich Text) */
 .formatting-toolbar {
   display: flex;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-light);
   gap: 4px;
-  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -1264,6 +1269,7 @@ body {
 
 .style-select {
   appearance: none;
+  height: 28px;
   padding: 4px 28px 4px 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1281,8 +1287,8 @@ body {
 /* Tag Picker */
 .tag-picker {
   position: absolute;
-  top: 52px;
-  right: 16px;
+  top: calc(100% + 4px);
+  right: 0;
   width: 240px;
   background: var(--bg-primary);
   border-radius: 8px;
@@ -1389,33 +1395,6 @@ body {
   flex: 1;
   display: flex;
   min-height: 0;
-}
-
-.lens-toggle {
-  margin-left: auto;
-  padding: 4px 10px;
-  font-size: 12px;
-  color: var(--text-muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.lens-toggle:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.lens-toggle.active {
-  color: var(--accent);
-  background: var(--bg-active);
-  border-color: var(--accent);
-}
-
-.lens-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 
 .tag-picker-empty {

@@ -33,7 +33,8 @@ import {
   LoaderCircleIcon,
   CircleAlertIcon,
   HistoryIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  MarkdownIcon
 } from './Icons';
 
 const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
@@ -317,6 +318,41 @@ export function Editor() {
   return (
     <div className="editor-panel">
       <div className="editor-header">
+        <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
+          <div className="format-group style-select-wrap">
+            <select
+              className="style-select"
+              value={String(Math.min(formats.heading, 3))}
+              onChange={(e) => run(view => setHeading(view, Number(e.target.value)))}
+              aria-label={t.textStyle}
+            >
+              <option value="0">{t.bodyText}</option>
+              <option value="1">{t.heading1}</option>
+              <option value="2">{t.heading2}</option>
+              <option value="3">{t.heading3}</option>
+            </select>
+            <ChevronDownIcon size={14} />
+          </div>
+          <div className="format-group">
+            {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
+            {formatButton(t.italicShortcut, shortcuts.italic, formats.italic, () => inline('italic'), ItalicIcon)}
+            {formatButton(t.strikethroughShortcut, shortcuts.strikethrough, formats.strike, () => inline('strike'), StrikethroughIcon)}
+            {formatButton(t.inlineCodeShortcut, shortcuts.inlineCode, formats.code, () => inline('code'), CodeIcon)}
+          </div>
+          <div className="format-group">
+            {formatButton(t.bulletListShortcut, shortcuts.bulletList, formats.list === 'bullet', () => lines('bullet'), BulletListIcon)}
+            {formatButton(t.numberedListShortcut, shortcuts.numberedList, formats.list === 'ordered', () => lines('ordered'), NumberedListIcon)}
+            {formatButton(t.taskListShortcut, shortcuts.taskList, formats.list === 'task', () => lines('task'), TaskListIcon)}
+            {formatButton(t.quoteShortcut, shortcuts.quote, formats.list === 'quote', () => lines('quote'), QuoteIcon)}
+            {formatButton(t.codeBlockShortcut, shortcuts.codeBlock, null, () => run(toggleCodeBlock), CodeBlockIcon)}
+          </div>
+          <div className="format-group">
+            {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
+          </div>
+          <div className="format-group">
+            {formatButton(t.showMarkdown, shortcuts.markdownLens, source, toggleSource, MarkdownIcon)}
+          </div>
+        </div>
         <div className="header-actions">
           <span className={`save-status ${saveStatus}`} title={saveStatusText} aria-live="polite">
             {saveStatus === 'unsaved' && <CircleIcon size={9} />}
@@ -363,60 +399,55 @@ export function Editor() {
               </div>
             )}
           </div>
-          <button
-            className="action-btn"
-            onClick={() => setShowTagPicker(!showTagPicker)}
-            aria-expanded={showTagPicker}
-          >
-            {t.assignTags}
-          </button>
+          <div className="export-menu-container" ref={tagPickerRef}>
+            <button
+              className="action-btn"
+              onClick={() => setShowTagPicker(!showTagPicker)}
+              aria-expanded={showTagPicker}
+            >
+              {t.assignTags}
+            </button>
+            {showTagPicker && (
+              <div className="tag-picker show">
+                <div className="tag-picker-section">
+                  <div className="tag-picker-title">{t.assignTags}</div>
+                  <div className="tag-picker-list">
+                    {state.tags.length === 0 ? (
+                      <div className="tag-picker-empty">{t.noTagsYet}</div>
+                    ) : (
+                      [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
+                        <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)}>
+                          <span>{tag.name}</span>
+                          {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={12} /></span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="tag-picker-divider" />
+                <div className="tag-picker-section">
+                  <input
+                    type="text"
+                    className="new-tag-input"
+                    placeholder={t.newTagPlaceholder}
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
+                    dir="ltr"
+                  />
+                  <button className="add-tag-btn" onClick={handleAddTag}>
+                    {t.addTag}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button className="action-btn" onClick={() => deleteNote(note.id)}>
             {t.delete}
           </button>
         </div>
       </div>
 
-      <div className="formatting-toolbar" role="toolbar" aria-label={t.formatting} onKeyDown={handleToolbarKeyDown}>
-        <div className="format-group style-select-wrap">
-          <select
-            className="style-select"
-            value={String(Math.min(formats.heading, 3))}
-            onChange={(e) => run(view => setHeading(view, Number(e.target.value)))}
-            aria-label={t.textStyle}
-          >
-            <option value="0">{t.bodyText}</option>
-            <option value="1">{t.heading1}</option>
-            <option value="2">{t.heading2}</option>
-            <option value="3">{t.heading3}</option>
-          </select>
-          <ChevronDownIcon size={14} />
-        </div>
-        <div className="format-group">
-          {formatButton(t.boldShortcut, shortcuts.bold, formats.bold, () => inline('bold'), BoldIcon)}
-          {formatButton(t.italicShortcut, shortcuts.italic, formats.italic, () => inline('italic'), ItalicIcon)}
-          {formatButton(t.strikethroughShortcut, shortcuts.strikethrough, formats.strike, () => inline('strike'), StrikethroughIcon)}
-          {formatButton(t.inlineCodeShortcut, shortcuts.inlineCode, formats.code, () => inline('code'), CodeIcon)}
-        </div>
-        <div className="format-group">
-          {formatButton(t.bulletListShortcut, shortcuts.bulletList, formats.list === 'bullet', () => lines('bullet'), BulletListIcon)}
-          {formatButton(t.numberedListShortcut, shortcuts.numberedList, formats.list === 'ordered', () => lines('ordered'), NumberedListIcon)}
-          {formatButton(t.taskListShortcut, shortcuts.taskList, formats.list === 'task', () => lines('task'), TaskListIcon)}
-          {formatButton(t.quoteShortcut, shortcuts.quote, formats.list === 'quote', () => lines('quote'), QuoteIcon)}
-          {formatButton(t.codeBlockShortcut, shortcuts.codeBlock, null, () => run(toggleCodeBlock), CodeBlockIcon)}
-        </div>
-        <div className="format-group">
-          {formatButton(t.linkShortcut, shortcuts.link, null, openLinkDialog, LinkIcon)}
-        </div>
-        <button
-          className={`lens-toggle ${source ? 'active' : ''}`}
-          onMouseDown={keepFocus}
-          onClick={toggleSource}
-          title={`${t.showMarkdown} (${shortcuts.markdownLens})`}
-          aria-pressed={source}
-        >
-          {t.showMarkdown}
-        </button>
-      </div>
 
       {showLinkDialog && (
         <div className="link-dialog-overlay">
@@ -462,40 +493,6 @@ export function Editor() {
         </div>
       )}
 
-      {showTagPicker && (
-        <div className="tag-picker show" ref={tagPickerRef}>
-          <div className="tag-picker-section">
-            <div className="tag-picker-title">{t.assignTags}</div>
-            <div className="tag-picker-list">
-              {state.tags.length === 0 ? (
-                <div className="tag-picker-empty">{t.noTagsYet}</div>
-              ) : (
-                [...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
-                  <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)}>
-                    <span>{tag.name}</span>
-                    {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={12} /></span>}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="tag-picker-divider" />
-          <div className="tag-picker-section">
-            <input
-              type="text"
-              className="new-tag-input"
-              placeholder={t.newTagPlaceholder}
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
-              dir="ltr"
-            />
-            <button className="add-tag-btn" onClick={handleAddTag}>
-              {t.addTag}
-            </button>
-          </div>
-        </div>
-      )}
 
       {note.tags.length > 0 && (
         <div className="current-tags">
