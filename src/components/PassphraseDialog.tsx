@@ -95,7 +95,7 @@ export function PassphraseDialog({ mode, hint, onSubmit, onCancel, returnFocus }
             onClick={handleSubmit}
             disabled={!passphrase || busy}
           >
-            {t.confirm}
+            {mode === 'set' ? t.enableAutoBackup : t.confirm}
           </button>
         </div>
       </div>

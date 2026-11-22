@@ -726,9 +726,6 @@ body {
 }
 
 .privacy-popup-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   font-size: 11px;
   color: var(--accent);
   text-decoration: none;
@@ -736,10 +733,6 @@ body {
 
 .privacy-popup-link:hover {
   color: var(--accent-hover);
-}
-
-.privacy-popup-link svg {
-  flex-shrink: 0;
 }
 
 .guide-version {
@@ -786,11 +779,6 @@ body {
 
 .backup-popup-btn:hover {
   background: var(--bg-hover);
-}
-
-.backup-popup-btn svg {
-  flex-shrink: 0;
-  color: var(--accent);
 }
 
 .backup-popup-section {
@@ -1027,22 +1015,12 @@ body {
 .dialog-empty {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 6px;
-  padding: 16px 12px 8px;
-  text-align: center;
   font-size: 13px;
   color: var(--text-primary);
 }
 
-.dialog-empty svg {
-  color: var(--text-muted);
-  stroke-width: 1.5;
-  margin-bottom: 6px;
-}
-
 .dialog-empty-hint {
-  max-width: 340px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-muted);
@@ -1708,12 +1686,6 @@ body {
 
 .context-menu-item:hover {
   background: var(--bg-hover);
-}
-
-.context-menu-item svg {
-  width: 14px;
-  height: 14px;
-  stroke: var(--text-primary);
 }
 
 .context-menu-divider {

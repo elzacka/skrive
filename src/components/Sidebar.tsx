@@ -7,25 +7,12 @@ import type { Note, Folder, TreeClipboard } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import {
   PlusIcon,
-  FolderIcon,
-  FolderOutputIcon,
-  NoteIcon,
   KeyboardIcon,
   EncryptedIcon,
   DeleteIcon,
-  EditIcon,
-  CopyIcon,
-  ArrowForwardIcon,
   SortIcon,
   TransferIcon,
-  DownloadIcon,
-  UploadIcon,
-  ArticleIcon,
-  FolderCogIcon,
-  FolderCheckIcon,
-  FolderDownIcon,
-  CutIcon,
-  ClipboardIcon
+  ArticleIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
 import { FOCUS_EDITOR_EVENT } from './MarkdownEditor';
@@ -1117,18 +1104,15 @@ export function Sidebar() {
     <>
       <div className="context-menu-divider" role="separator" />
       <button className="context-menu-item" role="menuitem" onClick={() => { setClipboard(clipboardFor(contextMenu.type as 'folder' | 'note', contextMenu.id, 'copy')); closeContextMenu(); }}>
-        <CopyIcon />
         <span>{t.copy}{moveCount}</span>
       </button>
       <button className="context-menu-item" role="menuitem" onClick={() => { setClipboard(clipboardFor(contextMenu.type as 'folder' | 'note', contextMenu.id, 'move')); closeContextMenu(); }}>
-        <CutIcon />
         <span>{t.cut}{moveCount}</span>
       </button>
     </>
   );
   const pasteItem = contextMenu && clipboard && (
     <button className="context-menu-item" role="menuitem" onClick={() => { pasteAt(contextMenu.type, contextMenu.id); closeContextMenu(); }}>
-      <ClipboardIcon />
       <span>{t.paste}</span>
     </button>
   );
@@ -1317,7 +1301,6 @@ export function Sidebar() {
               href={`${import.meta.env.BASE_URL}${state.lang === 'no' ? 'personvern.html' : 'privacy.html'}`}
               className="privacy-popup-link"
             >
-              <ArrowForwardIcon size={12} />
               {t.privacyPolicy}
             </a>
           </div>
@@ -1376,13 +1359,11 @@ export function Sidebar() {
                           {t.backupPermissionHint}
                         </div>
                         <button className="backup-popup-btn" onClick={async () => { await reactivateBackup(); }}>
-                          <FolderCogIcon size={16} />
                           <span>{t.reactivateBackup}</span>
                         </button>
                       </>
                     )}
                     <div className="backup-popup-status">
-                      <FolderCheckIcon size={14} />
                       <span>{t.autoBackupActive}</span>
                     </div>
                     {lastBackupTime && (
@@ -1401,7 +1382,6 @@ export function Sidebar() {
                           {t.backupKeyStale}
                         </div>
                         <button className="backup-popup-btn" onClick={() => { setShowRenewDialog(true); setPopup(null); }}>
-                          <FolderCogIcon size={16} />
                           <span>{t.renewBackup}</span>
                         </button>
                       </>
@@ -1412,19 +1392,16 @@ export function Sidebar() {
                       </div>
                     )}
                     <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setPopup(null); }}>
-                      <FolderCogIcon size={16} />
                       <span>{t.disableAutoBackup}</span>
                     </button>
                   </>
                 ) : (
                   <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setPopup(null); }}>
-                    <FolderCogIcon size={16} />
                     <span>{t.enableAutoBackup}</span>
                   </button>
                 )}
                 <div className="backup-popup-divider" />
                 <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setPopup(null); }}>
-                  <UploadIcon size={16} />
                   <span>{t.restoreFromBackup}</span>
                 </button>
                 <div className="backup-popup-divider" />
@@ -1439,7 +1416,6 @@ export function Sidebar() {
             )}
             {fsAccessSupported && (
               <button className="backup-popup-btn" onClick={exportFiles}>
-                <FolderDownIcon size={16} />
                 <span>{t.exportAsFiles}</span>
               </button>
             )}
@@ -1448,15 +1424,12 @@ export function Sidebar() {
               <div className="backup-popup-detail">{t.exportedTo.replace('{folder}', exportResult.folder)}</div>
             )}
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setPopup(null); }}>
-              <DownloadIcon size={16} />
               <span>{t.exportData}</span>
             </button>
             <button className="backup-popup-btn" onClick={async () => { await importData(); setPopup(null); }}>
-              <UploadIcon size={16} />
               <span>{t.importData}</span>
             </button>
             <button className="backup-popup-btn" onClick={async () => { await importNote(); setPopup(null); }}>
-              <UploadIcon size={16} />
               <span>{t.importNote}</span>
             </button>
           </div>
@@ -1609,12 +1582,6 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.rangeSelectModifier}+{t.clickLabel}</span>
                 </div>
               </div>
-              <div className="shortcut-row">
-                <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.contextMenuHint}</span>
-                  <span className="shortcut-key">{t.rightClickLabel}</span>
-                </div>
-              </div>
               {mac && <div className="shortcuts-hint">*{t.renameF2MacHint}</div>}
             </div>
 
@@ -1759,11 +1726,9 @@ export function Sidebar() {
           {contextMenu.type === 'sidebar' ? (
             <>
               <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('note')}>
-                <NoteIcon />
                 <span>{t.newNote}</span>
               </button>
               <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('folder')}>
-                <FolderIcon />
                 <span>{t.newFolder}</span>
               </button>
               {pasteItem && <div className="context-menu-divider" role="separator" />}
@@ -1772,11 +1737,9 @@ export function Sidebar() {
           ) : (
             <>
               <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('note')}>
-                <NoteIcon />
                 <span>{t.newNote}</span>
               </button>
               <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('folder')}>
-                <FolderIcon />
                 <span>{t.newFolder}</span>
               </button>
               <div className="context-menu-divider" role="separator" />
@@ -1785,12 +1748,10 @@ export function Sidebar() {
                 role="menuitem"
                 onClick={contextMenu.type === 'folder' ? handleStartEditFolder : handleStartEditNote}
               >
-                <EditIcon />
                 <span>{t.rename}</span>
               </button>
               {contextMenu.type === 'note' && (
                 <button className="context-menu-item" role="menuitem" onClick={handleDuplicate}>
-                  <CopyIcon />
                   <span>{t.duplicate}</span>
                 </button>
               )}
@@ -1798,24 +1759,21 @@ export function Sidebar() {
               {pasteItem}
               {contextMenu.type === 'note' && moveTargets.length > 0 && (
                 <button className="context-menu-item" role="menuitem" aria-expanded={showMoveList} onClick={() => setShowMoveList(open => !open)}>
-                  <FolderIcon />
                   <span>{t.moveToFolder}{moveCount}</span>
                 </button>
               )}
               {contextMenu.type === 'note' && showMoveList && moveTargets.map(({ folder, depth }) => (
-                  <button key={folder.id} className="context-menu-item context-menu-subitem" role="menuitem" style={{ paddingLeft: 32 + depth * 12 }} onClick={() => handleMoveTo(folder.id)}>
+                  <button key={folder.id} className="context-menu-item context-menu-subitem" role="menuitem" style={{ paddingLeft: 24 + depth * 12 }} onClick={() => handleMoveTo(folder.id)}>
                     <span>{folder.name}</span>
                   </button>
                 ))}
               {(contextMenu.type === 'note' ? state.notes : state.folders).find(x => x.id === contextMenu.id)?.parentId != null && (
                 <button className="context-menu-item" role="menuitem" onClick={() => handleMoveTo(null)}>
-                  <FolderOutputIcon />
                   <span>{t.moveToRoot}{moveCount}</span>
                 </button>
               )}
               <div className="context-menu-divider" role="separator" />
               <button className="context-menu-item" role="menuitem" onClick={handleDelete}>
-                <DeleteIcon />
                 <span>{t.delete}{contextMenu.type === 'note' ? moveCount : ''}</span>
               </button>
             </>
@@ -1833,12 +1791,10 @@ export function Sidebar() {
           onKeyDown={(e) => { moveFocus(e); if (e.key === 'Escape') sidebarRef.current?.querySelector<HTMLElement>(`[data-tag-id="${tagContextMenu.id}"]`)?.focus(); }}
         >
           <button className="context-menu-item" role="menuitem" onClick={handleStartEditTag}>
-            <EditIcon />
             <span>{t.rename}</span>
           </button>
           <div className="context-menu-divider" role="separator" />
           <button className="context-menu-item" role="menuitem" onClick={handleDeleteTag}>
-            <DeleteIcon />
             <span>{t.delete}</span>
           </button>
         </div>

@@ -76,37 +76,6 @@ export function ReplaceIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function FolderIcon({ size = 24 }: IconProps) {
-  return icon(
-    <path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2" />,
-    size
-  );
-}
-
-export function FolderOutputIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M12 19h-7a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3.5" />
-      <path d="M19 22v-6" />
-      <path d="M22 19l-3 -3l-3 3" />
-    </>,
-    size
-  );
-}
-
-export function NoteIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-      <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2" />
-      <path d="M9 9l1 0" />
-      <path d="M9 13l6 0" />
-      <path d="M9 17l6 0" />
-    </>,
-    size
-  );
-}
-
 export function KeyboardIcon({ size = 24 }: IconProps) {
   return icon(
     <>
@@ -152,17 +121,6 @@ export function HistoryIcon({ size = 16 }: IconProps) {
     <>
       <path d="M12 8l0 4l2 2" />
       <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" />
-    </>,
-    size
-  );
-}
-
-export function FolderDownIcon({ size = 16 }: IconProps) {
-  return icon(
-    <>
-      <path d="M12 19h-7a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3.5" />
-      <path d="M19 16v6" />
-      <path d="M22 19l-3 3l-3 -3" />
     </>,
     size
   );
@@ -303,44 +261,12 @@ export function LinkIcon({ size = 14 }: IconProps) {
   );
 }
 
-export function EditIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
-      <path d="M13.5 6.5l4 4" />
-    </>,
-    size
-  );
-}
-
 export function DownloadIcon({ size = 24 }: IconProps) {
   return icon(
     <>
       <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
       <path d="M7 11l5 5l5 -5" />
       <path d="M12 4l0 12" />
-    </>,
-    size
-  );
-}
-
-export function UploadIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" />
-      <path d="M7 9l5 -5l5 5" />
-      <path d="M12 4l0 12" />
-    </>,
-    size
-  );
-}
-
-export function ArrowForwardIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M5 12l14 0" />
-      <path d="M13 18l6 -6" />
-      <path d="M13 6l6 6" />
     </>,
     size
   );
@@ -393,32 +319,6 @@ export function ArticleIcon({ size = 24 }: IconProps) {
       <path d="M3 6l0 13" />
       <path d="M12 6l0 13" />
       <path d="M21 6l0 13" />
-    </>,
-    size
-  );
-}
-
-export function FolderCogIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M12.5 19h-7.5a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v3" />
-      <path d="M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-      <path d="M19.001 15.5v1.5" />
-      <path d="M19.001 21v1.5" />
-      <path d="M22.032 17.25l-1.299 .75" />
-      <path d="M17.27 20l-1.3 .75" />
-      <path d="M15.97 17.25l1.3 .75" />
-      <path d="M20.733 20l1.3 .75" />
-    </>,
-    size
-  );
-}
-
-export function FolderCheckIcon({ size = 24 }: IconProps) {
-  return icon(
-    <>
-      <path d="M11 19h-6a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v4" />
-      <path d="M15 19l2 2l4 -4" />
     </>,
     size
   );
@@ -477,28 +377,6 @@ export function TagIcon({ size = 24 }: IconProps) {
     <>
       <path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
       <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" />
-    </>,
-    size
-  );
-}
-
-export function CutIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M4 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-      <path d="M14 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
-      <path d="M9.15 14.85l8.85 -10.85" />
-      <path d="M6 4l8.85 10.85" />
-    </>,
-    size
-  );
-}
-
-export function ClipboardIcon({ size = 14 }: IconProps) {
-  return icon(
-    <>
-      <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
-      <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
     </>,
     size
   );

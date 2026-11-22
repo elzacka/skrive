@@ -5,7 +5,7 @@ import { trashDaysLeft, TRASH_DAYS } from '@/utils/storage';
 import { isUnnamed } from '@/utils/helpers';
 import { useModal } from '@/hooks';
 import { markdownToPlainText } from '@/utils/markdown';
-import { CloseIcon, DeleteIcon, RestoreIcon, TrashXIcon } from './Icons';
+import { CloseIcon, RestoreIcon, TrashXIcon } from './Icons';
 
 export function TrashDialog({ onClose }: { onClose: () => void }) {
   const { state, restoreFromTrash, purgeFromTrash } = useApp();
@@ -44,7 +44,6 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
         <div className="link-dialog-body">
           {items.length === 0 ? (
             <div className="dialog-empty">
-              <DeleteIcon size={28} />
               <p>{t.trashEmpty}</p>
               <p className="dialog-empty-hint">{t.trashIntro.replace('{days}', String(TRASH_DAYS))}</p>
             </div>

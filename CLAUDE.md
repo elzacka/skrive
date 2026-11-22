@@ -37,6 +37,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 ## Icons
 
 - All icons are self-hosted inline SVGs in src/components/Icons.tsx (Tabler Icons outline set, MIT; source version in the file header) — never load from a CDN or npm runtime package, and never mix in another icon set.
+- Menus, context menus and popup lists are text only; icons belong on icon-only buttons.
 - Icons are stroke-based (`fill="none"`, `stroke="currentColor"`); color them via CSS `stroke`, not `fill` — a `fill` rule overrides `fill="none"` and turns them into solid blobs.
 - To add one, copy the inner SVG elements (minus the `stroke="none"` bounding-box path) from Tabler's `icons/outline/<name>.svg` into a new export following the existing `icon()` helper.
 

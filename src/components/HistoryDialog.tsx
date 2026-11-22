@@ -4,7 +4,7 @@ import { i18n } from '@/utils/i18n';
 import { formatDate } from '@/utils/helpers';
 import { listVersions, HISTORY_DAYS, type NoteVersion } from '@/utils/storage';
 import { useModal } from '@/hooks';
-import { CloseIcon, HistoryIcon } from './Icons';
+import { CloseIcon } from './Icons';
 
 interface HistoryDialogProps {
   noteId: string;
@@ -46,7 +46,6 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
         <div className="link-dialog-body">
           {versions && versions.length === 0 && (
             <div className="dialog-empty">
-              <HistoryIcon size={28} />
               <p>{t.historyEmpty}</p>
               <p className="dialog-empty-hint">{t.historyIntro.replace('{days}', String(HISTORY_DAYS))}</p>
             </div>
