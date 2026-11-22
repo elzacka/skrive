@@ -338,7 +338,7 @@ interface AppContextValue {
   pasteItems: (items: TreeClipboard, targetFolderId: string | null) => void;
 
   // Tags
-  addTag: (name: string) => void;
+  addTag: (name: string) => string;
   updateTag: (id: string, updates: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
   toggleNoteTag: (noteId: string, tagId: string) => void;
@@ -894,6 +894,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const addTag = useCallback((name: string) => {
     const tag: Tag = { id: generateId(), name };
     dispatch({ type: 'ADD_TAG', payload: tag });
+    return tag.id;
   }, []);
 
   const updateTag = useCallback((id: string, updates: Partial<Tag>) => {

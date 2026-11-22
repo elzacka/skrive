@@ -311,11 +311,14 @@ export function Editor() {
     );
   }
 
+  // A typed tag goes on the note; a name that exists reuses that tag
   const handleAddTag = () => {
-    if (newTagName.trim()) {
-      addTag(newTagName.trim());
-      setNewTagName('');
-    }
+    const name = newTagName.trim();
+    if (!name) return;
+    const existing = state.tags.find(tag => tag.name.localeCompare(name, state.lang, { sensitivity: 'accent' }) === 0);
+    const tagId = existing?.id ?? addTag(name);
+    if (!note.tags.includes(tagId)) toggleNoteTag(note.id, tagId);
+    setNewTagName('');
   };
 
   const handleExport = (format: ExportFormat) => {
