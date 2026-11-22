@@ -713,6 +713,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The time survives a reload, so the popup shows it after an update
+  const markBackupWritten = useCallback(() => {
+    hasLocalDataRef.current = true;
+    const now = Date.now();
+    setLastBackupTime(now);
+    localStorage.setItem('skrive-last-backup', String(now));
+    setBackupError(false);
+  }, []);
+
   // Auto-backup to directory (debounced 5s).
   // Never write while a restore is pending: the state still holds a fresh
   // empty note and writing would destroy the backup being restored from
@@ -734,11 +743,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const success = await writeAutoBackup(backupHandle, backupFile);
       if (success) {
-        hasLocalDataRef.current = true;
-        const now = Date.now();
-        setLastBackupTime(now);
-        localStorage.setItem('skrive-last-backup', String(now));
-        setBackupError(false);
+        markBackupWritten();
       } else if (!(await hasStoredPermission(backupHandle))) {
         // Chrome revokes access when a tab sits in the background
         setBackupPermissionNeeded(true);
@@ -752,7 +757,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(backupTimerRef.current);
       }
     };
-  }, [state.notes, state.trash, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup]);
+  }, [state.notes, state.trash, state.tags, state.folders, backupHandle, backupKeyProtection, pendingRestoreState, backupPermissionNeeded, backupKeyStale, recoveryCopies, buildEncryptedBackup, markBackupWritten]);
 
   // An older protection without a fingerprint counts as fitting: the key
   // has not changed since, or it would have been marked stale
@@ -970,14 +975,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     if (backupFile) {
       const success = await writeAutoBackup(handle, backupFile);
-      if (success) {
-        hasLocalDataRef.current = true;
-        setLastBackupTime(Date.now());
-        setBackupError(false);
-      }
+      if (success) markBackupWritten();
     }
     return true;
-  }, [state.notes, state.trash, state.tags, state.folders, buildEncryptedBackup]);
+  }, [state.notes, state.trash, state.tags, state.folders, buildEncryptedBackup, markBackupWritten]);
 
   const disableAutoBackup = useCallback(async () => {
     await clearBackupHandle();
@@ -1069,10 +1070,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [pendingRestoreState]);
 
   // Re-request backup folder permission after it expired (needs a user
-  // gesture, so this is called from a click)
+  // gesture); a click on the popup button also triggers the automatic ask,
+  // so a request in flight is shared
+  const reactivatingRef = useRef<Promise<boolean> | null>(null);
+  const requestBackupPermission = useCallback((handle: FileSystemDirectoryHandle) => {
+    reactivatingRef.current ??= verifyPermission(handle).finally(() => { reactivatingRef.current = null; });
+    return reactivatingRef.current;
+  }, []);
   const reactivateBackup = useCallback(async () => {
     if (!backupHandle) return false;
-    if (!(await verifyPermission(backupHandle))) return false;
+    if (!(await requestBackupPermission(backupHandle))) return false;
     const protection = await getStoredBackupKeyProtection();
     if (protection) {
       setBackupKeyProtection(protection);
@@ -1091,7 +1098,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     return true;
-  }, [backupHandle, restoreLegacyBackup]);
+  }, [backupHandle, restoreLegacyBackup, requestBackupPermission]);
+
+  // Chrome gives folder access back only through requestPermission() in a
+  // user gesture, without a prompt when the user allowed every visit: ask on
+  // the first click or key press; after a refusal only the popup asks again
+  const backupAskRef = useRef(false);
+  useEffect(() => {
+    if (!backupPermissionNeeded || backupAskRef.current) return;
+    const ask = () => {
+      // Escape and modifier keys give no user activation; wait for the next
+      if (navigator.userActivation && !navigator.userActivation.isActive) return;
+      remove();
+      backupAskRef.current = true;
+      reactivateBackup()
+        .then(ok => { backupAskRef.current = !ok; })
+        .catch(() => {});
+    };
+    const remove = () => {
+      window.removeEventListener('pointerdown', ask, true);
+      window.removeEventListener('keydown', ask, true);
+    };
+    window.addEventListener('pointerdown', ask, true);
+    window.addEventListener('keydown', ask, true);
+    return remove;
+  }, [backupPermissionNeeded, reactivateBackup]);
 
   // First the device key; then, given the passphrase, the key stored for
   // auto-backup, which is the old key if a lost one was replaced
