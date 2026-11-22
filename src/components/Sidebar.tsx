@@ -73,6 +73,14 @@ export type NoteSortMode = 'alpha' | 'recent';
 type FooterPopup = 'privacy' | 'guide' | 'shortcuts' | 'lang' | 'backup';
 
 // Up and down arrows move between the buttons of a popup or menu
+// Opens a context menu from the keyboard: Shift+F10 and the menu key
+// (Windows), Ctrl+Return (macOS). Chrome on macOS sends no contextmenu
+// event for either, so the app opens the menu itself
+function isMenuKey(e: React.KeyboardEvent): boolean {
+  return (e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu' ||
+    (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key === 'Enter');
+}
+
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
   if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
   const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'));
@@ -994,8 +1002,7 @@ export function Sidebar() {
       window.dispatchEvent(new Event(FOCUS_EDITOR_EVENT));
       return;
     }
-    // Chrome on macOS sends no contextmenu event for Shift+F10
-    if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+    if (isMenuKey(e)) {
       const rect = item && rowRefs.current.get(item.id)?.getBoundingClientRect();
       if (!item || !rect) return;
       e.preventDefault();
@@ -1245,6 +1252,12 @@ export function Sidebar() {
                   className={`tag-chip ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
                   onClick={() => setTagFilter(state.selectedTagFilter === tag.id ? null : tag.id)}
                   onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
+                  onKeyDown={(e) => {
+                    if (!isMenuKey(e)) return;
+                    e.preventDefault();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTagContextMenu({ x: rect.left + 16, y: rect.bottom, id: tag.id });
+                  }}
                   aria-pressed={state.selectedTagFilter === tag.id}
                 >
                   {tag.name}
@@ -1670,6 +1683,12 @@ export function Sidebar() {
                 <div className="shortcut-item">
                   <span className="shortcut-desc">{t.rangeSelectHint}</span>
                   <span className="shortcut-key">{shortcuts.rangeSelectModifier}+{t.clickLabel}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.showMenu}</span>
+                  <span className="shortcut-key">{shortcuts.showMenu}</span>
                 </div>
               </div>
               {mac && <p className="shortcuts-footnote"><sup className="footnote-mark">1</sup>{t.renameF2MacHint}</p>}

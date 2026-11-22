@@ -28,6 +28,7 @@ export function getShortcutLabels(mac: boolean) {
     navigate: '↑ ↓ ← →',
     openItem: 'Enter',
     rename: 'F2',
+    showMenu: mac ? '⌃↩' : 'Shift+F10',
     duplicate: mac ? '⌘D' : 'Ctrl+D',
     copy: mac ? '⌘C' : 'Ctrl+C',
     cut: mac ? '⌘X' : 'Ctrl+X',

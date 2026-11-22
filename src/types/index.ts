@@ -184,6 +184,7 @@ export interface I18nStrings {
   extendSelectionShortcut: string;
   multiSelectHint: string;
   rangeSelectHint: string;
+  showMenu: string;
   clickLabel: string;
   renameF2MacHint: string;
   screenGateTitle: string;
