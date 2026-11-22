@@ -325,6 +325,8 @@ export function Sidebar() {
     updateTag,
     deleteTag,
     toggleNoteTag,
+    addTag,
+    toggleSidebar,
     exportAllData,
     importNote,
     autoBackupEnabled,
@@ -358,6 +360,8 @@ export function Sidebar() {
   const popupRef = useRef<HTMLDivElement>(null);
   const [showMoveList, setShowMoveList] = useState(false);
   const [showTagList, setShowTagList] = useState(false);
+  // Name typed for a tag that exists only once Enter or blur commits it
+  const [newTagName, setNewTagName] = useState<string | null>(null);
   const [clipboard, setClipboard] = useState<TreeClipboard | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
@@ -688,6 +692,20 @@ export function Sidebar() {
     }
     setEditingTagId(null);
     setEditingTagName('');
+  };
+
+  // A name that exists (case-insensitive) is not made twice
+  const commitNewTag = () => {
+    const name = newTagName?.trim();
+    if (name && !state.tags.some(tag => tag.name.localeCompare(name, state.lang, { sensitivity: 'accent' }) === 0)) {
+      addTag(name);
+    }
+    setNewTagName(null);
+  };
+
+  const startNewTag = () => {
+    if (!state.sidebarVisible) toggleSidebar();
+    setNewTagName('');
   };
 
   const handleTagKeyDown = (e: React.KeyboardEvent) => {
@@ -1129,6 +1147,12 @@ export function Sidebar() {
         ? (e.altKey && !e.metaKey && !e.shiftKey && !e.ctrlKey)
         : (e.ctrlKey && e.shiftKey && !e.altKey);
       if (!modifierActive || document.querySelector('[aria-modal="true"]')) return;
+      // New tag: Opt+T (Mac), Ctrl+Shift+4 (Windows)
+      if (macKb ? e.code === 'KeyT' : e.code === 'Digit4') {
+        e.preventDefault();
+        startNewTag();
+        return;
+      }
       if (macKb ? e.code !== 'KeyF' : e.code !== 'Digit2') return;
       e.preventDefault();
       const focused = focusedItemId ? visibleTreeItems.find(i => i.id === focusedItemId) : undefined;
@@ -1189,11 +1213,16 @@ export function Sidebar() {
         />
       </div>
 
-      {sortedTags.length > 0 && (
-        <div className="tags-section">
-          <div className="section-header">
-            <span className="section-title">{t.tags}</span>
+      <div className="tags-section">
+        <div className="section-header">
+          <span className="section-title">{t.tags}</span>
+          <div className="section-actions">
+            <button className="section-btn primary" onClick={(e) => { e.stopPropagation(); startNewTag(); }} title={t.newTag} aria-label={t.newTag}>
+              <PlusIcon size={16} />
+            </button>
           </div>
+        </div>
+        {(sortedTags.length > 0 || newTagName !== null) && (
           <div className="tag-chips" role="group" aria-label={t.tags}>
             {sortedTags.map(tag => (
               editingTagId === tag.id ? (
@@ -1222,9 +1251,26 @@ export function Sidebar() {
                 </button>
               )
             ))}
+            {newTagName !== null && (
+              <input
+                type="text"
+                className="tag-edit-input"
+                placeholder={t.newTag}
+                aria-label={t.newTag}
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onBlur={commitNewTag}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitNewTag();
+                  else if (e.key === 'Escape') setNewTagName(null);
+                }}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="notes-section">
         <div className="section-header">

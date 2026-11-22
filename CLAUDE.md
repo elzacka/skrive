@@ -77,7 +77,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - Modal dialogs carry `role="dialog"` and `aria-modal="true"` and use `useModal()` (Tab stays inside, focus returns to the opener); popups anchored to a button use `usePopover()`. Global shortcuts (except Cmd/Ctrl+S) and the sidebar's Delete/Backspace skip while one is open; the editor takes focus after it closes, only if nothing else did.
 - Sidebar multi-select follows Finder conventions (Cmd/Ctrl+Click toggle, Shift+Click ranges over `visibleNoteIds`'s render order); bulk delete goes through `deleteNotes()` and shares the undo toast.
 - Moving notes out of a folder: drop on the tree background, drop on another note, or "Flytt ut av mappen" in the context menu. Drop handlers stop propagation so the background handler only fires on true background drops.
-- Tags are made only with the editor's tag button and put on notes only from the note context menu («Etiketter»), which applies to the whole multi-selection: a tag all targets have comes off, else it goes on all.
+- Tags as a set (create with +, filter, rename, delete) live in the sidebar's «Etiketter» section, shown even when empty; tags go on notes only from the note context menu («Etiketter»), which applies to the whole multi-selection: a tag all targets have comes off, else it goes on all.
 - «Flytt til mappe» in the note context menu is the keyboard path into a folder (WCAG 2.1.1); dragging must never be the only way. The hidden sidebar is `inert`, so Cmd/Ctrl+K shows it before focusing search.
 - Escape closes dialogs, popups and context menus everywhere.
 - No custom install prompt — don't intercept `beforeinstallprompt`; the browser's own address-bar icon is the only install affordance.

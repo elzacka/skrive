@@ -127,8 +127,6 @@ export interface I18nStrings {
   folder: string;
   newNote: string;
   newFolder: string;
-  newTagPlaceholder: string;
-  addTag: string;
   editorPlaceholder: string;
   writeHere: string;
   modified: string;

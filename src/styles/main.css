@@ -1425,42 +1425,6 @@ body {
 }
 
 /* Tag Picker */
-.tag-picker {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  width: 220px;
-  background: var(--bg-primary);
-  border-radius: var(--radius-popover);
-  box-shadow: var(--shadow-popover);
-  border: 1px solid var(--border);
-  z-index: 100;
-  overflow: hidden;
-  display: none;
-}
-
-.tag-picker.show {
-  display: block;
-}
-
-.tag-add-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-}
-
-.new-tag-input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 12px;
-}
-
 /* Current Tags */
 .current-tags {
   display: flex;

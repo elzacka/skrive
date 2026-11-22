@@ -37,9 +37,7 @@ import {
   LoaderCircleIcon,
   CircleAlertIcon,
   HistoryIcon,
-  PlusIcon,
   DownloadIcon,
-  TagIcon,
   DeleteIcon
 } from './Icons';
 
@@ -67,16 +65,12 @@ function LinkDialog({ onClose, children }: { onClose: () => void; children: Reac
 }
 
 export function Editor() {
-  const { state, getSelectedNote, updateNote, deleteNote, addTag, toggleNoteTag, saveStatus, trackLiveEdit } = useApp();
+  const { state, getSelectedNote, updateNote, deleteNote, toggleNoteTag, saveStatus, trackLiveEdit } = useApp();
   const t = i18n[state.lang];
   const note = getSelectedNote();
   const mac = isMac();
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
 
-  const tagPicker = usePopover();
-  // Bumped by the new-tag shortcut; focuses the input after the picker renders
-  const [tagFocusTick, setTagFocusTick] = useState(0);
-  const [newTagName, setNewTagName] = useState('');
   const [source, setSource] = useState(false);
   const [typography, setTypography] = useState<Typography>(loadTypography);
   const [showFind, setShowFind] = useState(false);
@@ -102,11 +96,6 @@ export function Editor() {
   const deferredContent = useDeferredValue(note?.content ?? '');
   const counts = useMemo(() => countWordsAndChars(deferredContent), [deferredContent]);
 
-  useEffect(() => {
-    if (tagFocusTick > 0) {
-      (document.querySelector('.new-tag-input') as HTMLInputElement | null)?.focus();
-    }
-  }, [tagFocusTick]);
 
   // A different note starts without the find bar; MarkdownEditor reports
   // the new note's toolbar state
@@ -150,18 +139,10 @@ export function Editor() {
         setFindFocusTick(tick => tick + 1);
         return;
       }
-      const newTagCombo = mac
-        ? (e.altKey && !e.metaKey && !e.shiftKey && !e.ctrlKey && e.code === 'KeyT')
-        : (e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'Digit4');
-      if (newTagCombo) {
-        e.preventDefault();
-        tagPicker.setOpen(true);
-        setTagFocusTick(tick => tick + 1);
-      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mac, showLinkDialog, showFind, closeLinkDialog, tagPicker.setOpen]);
+  }, [mac, showLinkDialog, showFind, closeLinkDialog]);
 
   const closeVersions = useCallback(() => {
     setShowVersions(false);
@@ -311,16 +292,6 @@ export function Editor() {
     );
   }
 
-  // Tags are made here and put on notes from the sidebar's context menu;
-  // a name that exists is not made twice
-  const handleAddTag = () => {
-    const name = newTagName.trim();
-    if (!name) return;
-    const exists = state.tags.some(tag => tag.name.localeCompare(name, state.lang, { sensitivity: 'accent' }) === 0);
-    if (!exists) addTag(name);
-    setNewTagName('');
-  };
-
   const handleExport = (format: ExportFormat) => {
     downloadNote(note, format);
     exportMenu.setOpen(false);
@@ -420,38 +391,6 @@ export function Editor() {
             </button>
           </div>
           <div className="format-group">
-            <div className="export-menu-container" {...tagPicker.rootProps}>
-              <button
-                ref={tagPicker.triggerRef}
-                className="action-btn icon-btn"
-                onClick={() => tagPicker.setOpen(!tagPicker.open)}
-                aria-expanded={tagPicker.open}
-                title={t.newTag}
-                aria-label={t.newTag}
-              >
-                <TagIcon size={14} />
-              </button>
-              {tagPicker.open && (
-                <div className="tag-picker show">
-                  <div className="tag-add-row">
-                    <input
-                      type="text"
-                      className="new-tag-input"
-                      placeholder={t.newTagPlaceholder}
-                      aria-label={t.newTagPlaceholder}
-                      value={newTagName}
-                      onChange={(e) => setNewTagName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
-                      dir="ltr"
-                      autoFocus
-                    />
-                    <button className="row-icon-btn" onClick={handleAddTag} disabled={!newTagName.trim()} title={t.addTag} aria-label={t.addTag}>
-                      <PlusIcon size={16} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
             <button className="action-btn icon-btn" onClick={handleCopy} title={t.copyToClipboard} aria-label={t.copy}>
               {copyFeedback ? <CheckIcon /> : <CopyIcon />}
             </button>
