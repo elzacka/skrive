@@ -73,9 +73,8 @@ export type NoteSortMode = 'alpha' | 'recent';
 type FooterPopup = 'privacy' | 'guide' | 'shortcuts' | 'lang' | 'backup';
 
 // Up and down arrows move between the buttons of a popup or menu
-// Opens a context menu from the keyboard: Shift+F10 and the menu key
-// (Windows), Ctrl+Return (macOS). Chrome on macOS sends no contextmenu
-// event for either, so the app opens the menu itself
+// Shift+F10 and the menu key (Windows), Ctrl+Return (macOS); Chrome on
+// macOS sends no contextmenu event for them, so the app opens the menu
 function isMenuKey(e: React.KeyboardEvent): boolean {
   return (e.shiftKey && e.code === 'F10') || e.code === 'ContextMenu' ||
     (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.code === 'Enter' || e.code === 'NumpadEnter'));
