@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
-import { trashDaysLeft, TRASH_DAYS } from '@/utils/storage';
+import { trashDaysLeft } from '@/utils/storage';
 import { isUnnamed } from '@/utils/helpers';
 import { useModal } from '@/hooks';
 import { markdownToPlainText } from '@/utils/markdown';
@@ -36,18 +36,13 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
     <div className="link-dialog-overlay" onClick={onClose}>
       <div ref={dialogRef} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
-          <h3 id="trash-title">{t.trash}</h3>
+          <h3 id="trash-title">{items.length === 0 ? t.trashEmpty : t.trash}</h3>
           <button ref={closeRef} className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
             <CloseIcon size={16} />
           </button>
         </div>
-        <div className="link-dialog-body">
-          {items.length === 0 ? (
-            <div className="dialog-empty">
-              <p>{t.trashEmpty}</p>
-              <p className="dialog-empty-hint">{t.trashIntro.replace('{days}', String(TRASH_DAYS))}</p>
-            </div>
-          ) : (
+        {items.length > 0 && (<>
+          <div className="link-dialog-body">
             <ul className="trash-list">
               {items.map(note => {
                 const days = trashDaysLeft(note);
@@ -71,15 +66,13 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
                 );
               })}
             </ul>
-          )}
-        </div>
-        {items.length > 0 && (
+          </div>
           <div className="link-dialog-actions">
             <button className="text-btn danger dialog-action-start" onClick={() => purge(items.map(n => n.id), t.confirmEmptyTrash)}>
               {t.emptyTrash}
             </button>
           </div>
-        )}
+        </>)}
       </div>
     </div>
   );

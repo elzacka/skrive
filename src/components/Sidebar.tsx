@@ -18,7 +18,7 @@ import { PassphraseDialog } from './PassphraseDialog';
 import { FOCUS_EDITOR_EVENT } from './MarkdownEditor';
 import { TrashDialog } from './TrashDialog';
 import { exportNotesToFolder } from '@/utils/fileSystem';
-import { TRASH_DAYS } from '@/utils/storage';
+import { TRASH_DAYS, HISTORY_DAYS } from '@/utils/storage';
 
 interface TreeItemProps {
   folder: Folder;
@@ -1691,7 +1691,7 @@ export function Sidebar() {
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideTrash}</div>
-                <div className="guide-item-desc">{t.guideTrashDesc.replace('{days}', String(TRASH_DAYS))}</div>
+                <div className="guide-item-desc">{t.guideTrashDesc.replace('{days}', String(TRASH_DAYS)).replace('{historyDays}', String(HISTORY_DAYS))}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideExport}</div>

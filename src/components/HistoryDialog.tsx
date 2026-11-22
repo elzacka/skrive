@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { formatDate } from '@/utils/helpers';
-import { listVersions, HISTORY_DAYS, type NoteVersion } from '@/utils/storage';
+import { listVersions, type NoteVersion } from '@/utils/storage';
 import { useModal } from '@/hooks';
 import { CloseIcon } from './Icons';
 
@@ -38,18 +38,13 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
     <div className="link-dialog-overlay" onClick={onClose}>
       <div ref={dialogRef} className={`link-dialog ${version ? 'wide-dialog' : ''}`} role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
-          <h3 id="history-title">{t.history}</h3>
+          <h3 id="history-title">{versions?.length === 0 ? t.historyEmpty : t.history}</h3>
           <button className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
             <CloseIcon size={16} />
           </button>
         </div>
         <div className="link-dialog-body">
-          {versions && versions.length === 0 && (
-            <div className="dialog-empty">
-              <p>{t.historyEmpty}</p>
-              <p className="dialog-empty-hint">{t.historyIntro.replace('{days}', String(HISTORY_DAYS))}</p>
-            </div>
-          )}
+          {versions?.length === 0 && <p className="dialog-intro">{t.historyIntro}</p>}
           {version && (
             <div className="history-view">
               <ul className="history-list">

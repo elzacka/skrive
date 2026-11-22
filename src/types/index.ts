@@ -296,7 +296,6 @@ export interface I18nStrings {
   notesDeleted: string;
   confirmDeleteFolder: string;
   trash: string;
-  trashIntro: string;
   trashEmpty: string;
   trashDaysLeft: string;
   trashOneDayLeft: string;

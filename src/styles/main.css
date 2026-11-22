@@ -926,6 +926,10 @@ body {
   padding: 16px 16px 0 20px;
 }
 
+.link-dialog-header:last-child {
+  padding-bottom: 16px;
+}
+
 .link-dialog-header h3 {
   margin: 0;
   font-size: 15px;
@@ -1010,20 +1014,6 @@ body {
 
 .wide-dialog {
   width: 720px;
-}
-
-.dialog-empty {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.dialog-empty-hint {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-muted);
 }
 
 /* Quiet text button for secondary or destructive actions */
