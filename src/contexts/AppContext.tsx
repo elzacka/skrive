@@ -45,7 +45,7 @@ import {
   type EncryptedBackupFile,
   type LegacyAutoBackupData
 } from '@/utils/fileSystem';
-import { generateId, isFileSystemAccessSupported, defaultNoteTitle } from '@/utils/helpers';
+import { generateId, isFileSystemAccessSupported, defaultNoteTitle, isUnnamed } from '@/utils/helpers';
 import { htmlToMarkdown } from '@/utils/markdown';
 
 // Notes are Markdown. HTML notes from older versions, backups and imports
@@ -54,6 +54,11 @@ import { htmlToMarkdown } from '@/utils/markdown';
 function toMarkdownNote(note: Note): Note {
   if (note.format === 'markdown') return note;
   return { ...note, format: 'markdown', content: note.format === 'richtext' ? htmlToMarkdown(note.content) : note.content };
+}
+
+function hasContent(data: Pick<AppState, 'notes' | 'trash' | 'tags' | 'folders'>): boolean {
+  return data.folders.length > 0 || data.tags.length > 0 || data.trash.length > 0 ||
+    data.notes.some(n => n.content.trim() !== '' || !isUnnamed(n.title));
 }
 
 // Restore and import add to what is there and never remove a note: an
@@ -599,9 +604,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // A failure before the notes are loaded blocks the app: opening saves
+    // then would write the empty start state over the stored notes
     initApp().catch((error) => {
-      console.warn('App initialization failed:', error);
-      loadedRef.current = true;
+      console.error('App initialization failed:', error);
+      if (!loadedRef.current) setStartupBlocked('storage');
     });
   }, []);
 
@@ -731,6 +738,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (backupTimerRef.current) {
       clearTimeout(backupTimerRef.current);
     }
+
+    // Nothing written in any note, no folder, tag or trash: a backup of
+    // that can only replace a better one
+    if (!hasContent({ notes: state.notes, trash: state.trash, tags: state.tags, folders: state.folders })) return;
 
     backupTimerRef.current = setTimeout(async () => {
       const backupFile = await buildEncryptedBackup(backupKeyProtection, {
