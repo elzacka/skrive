@@ -7,6 +7,7 @@ import type { Note, Folder, TreeClipboard } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import {
   PlusIcon,
+  CheckIcon,
   KeyboardIcon,
   EncryptedIcon,
   DeleteIcon,
@@ -323,6 +324,7 @@ export function Sidebar() {
     moveNote,
     updateTag,
     deleteTag,
+    toggleNoteTag,
     exportAllData,
     importNote,
     autoBackupEnabled,
@@ -355,6 +357,7 @@ export function Sidebar() {
   const popupTriggers = useRef(new Map<FooterPopup, HTMLButtonElement>());
   const popupRef = useRef<HTMLDivElement>(null);
   const [showMoveList, setShowMoveList] = useState(false);
+  const [showTagList, setShowTagList] = useState(false);
   const [clipboard, setClipboard] = useState<TreeClipboard | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
@@ -637,6 +640,7 @@ export function Sidebar() {
       setMultiSelected(new Set());
     }
     setShowMoveList(false);
+    setShowTagList(false);
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
   };
 
@@ -707,6 +711,14 @@ export function Sidebar() {
 
   // Move the clicked note (or the whole multi-selection) to a folder or,
   // with null, out of folders
+  // A tag goes on every target note, or comes off all of them when all have it
+  const toggleTagOnTargets = (tagId: string) => {
+    const allHave = tagTargets.every(n => n.tags.includes(tagId));
+    for (const n of tagTargets) {
+      if (n.tags.includes(tagId) === allHave) toggleNoteTag(n.id, tagId);
+    }
+  };
+
   const handleMoveTo = (folderId: string | null) => {
     if (!contextMenu) return;
     if (contextMenu.type === 'folder') {
@@ -971,6 +983,7 @@ export function Sidebar() {
       e.preventDefault();
       if (item.type === 'note' && !multiSelected.has(item.id)) setMultiSelected(new Set());
       setShowMoveList(false);
+      setShowTagList(false);
       setContextMenu({ x: rect.left + 16, y: rect.bottom, type: item.type, id: item.id });
       return;
     }
@@ -1130,6 +1143,10 @@ export function Sidebar() {
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
   // " (3)" when the context menu acts on a multi-selection
   const moveCount = contextMenu && multiSelected.size > 1 && multiSelected.has(contextMenu.id) ? ` (${multiSelected.size})` : '';
+  const tagTargets = contextMenu?.type !== 'note' ? []
+    : multiSelected.size > 1 && multiSelected.has(contextMenu.id)
+      ? state.notes.filter(n => multiSelected.has(n.id))
+      : state.notes.filter(n => n.id === contextMenu.id);
   const moveTargets = contextMenu?.type === 'note'
     ? folderList.filter(({ folder }) => folder.id !== state.notes.find(n => n.id === contextMenu.id)?.parentId)
     : [];
@@ -1529,7 +1546,7 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.find}</span>
                 </div>
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.newTagShortcut}</span>
+                  <span className="shortcut-desc">{t.newTag}</span>
                   <span className="shortcut-key">{shortcuts.newTag}</span>
                 </div>
               </div>
@@ -1799,6 +1816,21 @@ export function Sidebar() {
                   <span>{t.moveToRoot}{moveCount}</span>
                 </button>
               )}
+              {contextMenu.type === 'note' && sortedTags.length > 0 && (
+                <button className="context-menu-item" role="menuitem" aria-expanded={showTagList} onClick={() => setShowTagList(open => !open)}>
+                  <span>{t.tags}{moveCount}</span>
+                </button>
+              )}
+              {contextMenu.type === 'note' && showTagList && sortedTags.map(tag => {
+                const count = tagTargets.filter(n => n.tags.includes(tag.id)).length;
+                const checked = count === 0 ? false : count === tagTargets.length ? true : 'mixed';
+                return (
+                  <button key={tag.id} className="context-menu-item context-menu-subitem" role="menuitemcheckbox" aria-checked={checked} style={{ paddingLeft: 24 }} onClick={() => toggleTagOnTargets(tag.id)}>
+                    <span>{tag.name}</span>
+                    {checked && <span className="context-menu-check" aria-hidden="true">{checked === 'mixed' ? '–' : <CheckIcon size={14} />}</span>}
+                  </button>
+                );
+              })}
               <div className="context-menu-divider" role="separator" />
               <button className="context-menu-item" role="menuitem" onClick={handleDelete}>
                 <span>{t.delete}{contextMenu.type === 'note' ? moveCount : ''}</span>

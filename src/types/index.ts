@@ -127,7 +127,6 @@ export interface I18nStrings {
   folder: string;
   newNote: string;
   newFolder: string;
-  assignTags: string;
   newTagPlaceholder: string;
   addTag: string;
   editorPlaceholder: string;
@@ -181,7 +180,7 @@ export interface I18nStrings {
   deleteShortcut: string;
   duplicate: string;
   duplicateShortcut: string;
-  newTagShortcut: string;
+  newTag: string;
   newFolderShortcut: string;
   selectAllShortcut: string;
   extendSelectionShortcut: string;

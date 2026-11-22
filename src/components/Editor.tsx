@@ -311,13 +311,13 @@ export function Editor() {
     );
   }
 
-  // A typed tag goes on the note; a name that exists reuses that tag
+  // Tags are made here and put on notes from the sidebar's context menu;
+  // a name that exists is not made twice
   const handleAddTag = () => {
     const name = newTagName.trim();
     if (!name) return;
-    const existing = state.tags.find(tag => tag.name.localeCompare(name, state.lang, { sensitivity: 'accent' }) === 0);
-    const tagId = existing?.id ?? addTag(name);
-    if (!note.tags.includes(tagId)) toggleNoteTag(note.id, tagId);
+    const exists = state.tags.some(tag => tag.name.localeCompare(name, state.lang, { sensitivity: 'accent' }) === 0);
+    if (!exists) addTag(name);
     setNewTagName('');
   };
 
@@ -426,23 +426,13 @@ export function Editor() {
                 className="action-btn icon-btn"
                 onClick={() => tagPicker.setOpen(!tagPicker.open)}
                 aria-expanded={tagPicker.open}
-                title={t.assignTags}
-                aria-label={t.assignTags}
+                title={t.newTag}
+                aria-label={t.newTag}
               >
                 <TagIcon size={14} />
               </button>
               {tagPicker.open && (
                 <div className="tag-picker show">
-                  {state.tags.length > 0 && (
-                    <div className="tag-picker-list">
-                      {[...state.tags].sort((a, b) => a.name.localeCompare(b.name, state.lang)).map(tag => (
-                        <button key={tag.id} className="tag-picker-item" onClick={() => toggleNoteTag(note.id, tag.id)} aria-pressed={note.tags.includes(tag.id)}>
-                          <span>{tag.name}</span>
-                          {note.tags.includes(tag.id) && <span className="check-mark"><CheckIcon size={14} /></span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                   <div className="tag-add-row">
                     <input
                       type="text"
@@ -453,7 +443,7 @@ export function Editor() {
                       onChange={(e) => setNewTagName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag(); }}
                       dir="ltr"
-                      autoFocus={state.tags.length === 0}
+                      autoFocus
                     />
                     <button className="row-icon-btn" onClick={handleAddTag} disabled={!newTagName.trim()} title={t.addTag} aria-label={t.addTag}>
                       <PlusIcon size={16} />

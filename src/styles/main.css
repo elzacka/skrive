@@ -1443,41 +1443,6 @@ body {
   display: block;
 }
 
-.tag-picker-list {
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  max-height: 240px;
-  overflow-y: auto;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.tag-picker-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.tag-picker-item:hover {
-  background: var(--bg-hover);
-}
-
-.check-mark {
-  display: inline-flex;
-  align-items: center;
-  color: var(--accent);
-}
-
 .tag-add-row {
   display: flex;
   align-items: center;
@@ -1679,6 +1644,12 @@ body {
 
 .context-menu-item:hover {
   background: var(--bg-hover);
+}
+
+.context-menu-check {
+  display: flex;
+  margin-left: auto;
+  color: var(--accent);
 }
 
 .context-menu-divider {
