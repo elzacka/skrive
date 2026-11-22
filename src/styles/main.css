@@ -1783,6 +1783,11 @@ a:focus-visible {
   background: var(--danger);
 }
 
+/* Information, not a failure */
+.storage-banner.info {
+  background: var(--accent);
+}
+
 .storage-banner-actions {
   display: flex;
   gap: 8px;

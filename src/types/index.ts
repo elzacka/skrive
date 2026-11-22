@@ -287,6 +287,9 @@ export interface I18nStrings {
   backupPaused: string;
   storagePersistent: string;
   storageNotPersistent: string;
+  storageAtRisk: string;
+  storageAtRiskNoAutoBackup: string;
+  freshStartHint: string;
   backupPermissionNeeded: string;
   reactivateBackup: string;
   backupKeyStale: string;

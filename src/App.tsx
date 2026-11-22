@@ -5,6 +5,7 @@ import { Sidebar, Editor, SidebarToggle, PassphraseDialog, ScreenGate } from '@/
 import { CloseIcon } from '@/components/Icons';
 import { useKeyboardShortcuts, useMediaQuery } from '@/hooks';
 import { i18n } from '@/utils/i18n';
+import { isFileSystemAccessSupported } from '@/utils/helpers';
 import '@/styles/main.css';
 
 // Phones: coarse pointer plus a small viewport in either orientation
@@ -29,10 +30,19 @@ function AppContent() {
     lastDeletedNotes,
     undoDelete,
     dismissDeleted,
-    holdDeleted
+    holdDeleted,
+    freshStart,
+    dismissFreshStart,
+    restoreFromBackup,
+    storagePersisted,
+    autoBackupEnabled
   } = useApp();
   const t = i18n[state.lang];
   const [recoveryState, setRecoveryState] = useState<'idle' | 'passphrase' | 'failed' | 'saveFailed' | 'hidden'>('idle');
+  const [riskDismissed, setRiskDismissed] = useState(false);
+  // The hint goes once the user writes; the storage warning waits for it
+  const showFreshStart = freshStart && !state.notes.some(n => n.content.trim() !== '');
+  const showRisk = !showFreshStart && storagePersisted === false && !autoBackupEnabled && !riskDismissed;
 
   // Screen readers pick the voice from it
   useEffect(() => {
@@ -98,6 +108,23 @@ function AppContent() {
           }}
           onCancel={() => setRecoveryState('failed')}
         />
+      )}
+      {showFreshStart && (
+        <div className="storage-banner info" role="status">
+          <span>{t.freshStartHint}</span>
+          <span className="storage-banner-actions">
+            <button className="storage-banner-close" onClick={() => restoreFromBackup()}>{t.importBackup}</button>
+            <button className="storage-banner-close" onClick={dismissFreshStart}>{t.close}</button>
+          </span>
+        </div>
+      )}
+      {showRisk && (
+        <div className="storage-banner info" role="status">
+          <span>{isFileSystemAccessSupported() ? t.storageAtRisk : t.storageAtRiskNoAutoBackup}</span>
+          <span className="storage-banner-actions">
+            <button className="storage-banner-close" onClick={() => setRiskDismissed(true)}>{t.close}</button>
+          </span>
+        </div>
       )}
       <div className="main-content">
         <Sidebar />

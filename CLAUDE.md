@@ -24,7 +24,9 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - One restore entry (`restoreFromBackup()`, every browser) takes any backup file: encrypted ones ask for the passphrase, plain JSON and legacy plaintext merge directly. Restores merge by id (newer `updatedAt` wins) and never remove notes. A note stays in the trash when it was deleted here after the incoming copy's last edit.
 - Deleted notes go to `state.trash` (`TrashedNote`, `deletedAt`) for `TRASH_DAYS`, expired at startup. Encrypted backups carry the trash; the plain JSON export leaves it out. An untouched placeholder is discarded, not trashed.
 - Note history: `recordVersion()` keeps the text as last saved before an edit, stamped with when it was written (`savedAt`, shown) and when it was kept (`keptAt`, expiry), at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
-- `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
+- `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup, and a refusal with auto-backup off shows a banner (a browser low on disk space deletes storage that isn't persistent: notes, key and backup handle at once).
+- A start with nothing stored looks the same as a cleared storage, so it shows a banner with «Importer backup» until the user writes or restores (`freshStart`).
+- Auto-backup never writes a state without content, and an `initApp()` failure before the notes load blocks the app: both would replace data with the empty start state.
 
 ## Security
 

@@ -317,6 +317,10 @@ interface AppContextValue {
   recoverCopies: (passphrase?: string) => Promise<RecoveryResult>;
   discardRecoveryCopies: () => Promise<void>;
   storagePersisted: boolean | null;
+  // Started with nothing stored: a browser that cleared its storage looks
+  // like this too, so the app points to the backup
+  freshStart: boolean;
+  dismissFreshStart: () => void;
 
   // Delete undo
   lastDeletedNotes: Note[] | null;
@@ -417,6 +421,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const [storagePersisted, setStoragePersisted] = useState<boolean | null>(null);
+  const [freshStart, setFreshStart] = useState(false);
+  const dismissFreshStart = useCallback(() => setFreshStart(false), []);
   const [lastDeletedNotes, setLastDeletedNotes] = useState<Note[] | null>(null);
   const backupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initRef = useRef(false);
@@ -442,6 +448,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Merge restored data into state and open the most recently edited note
   const applyRestoredData = useCallback((data: StoredData) => {
     liveEditRef.current = null;
+    setFreshStart(false);
     // The empty note made at startup has no place among restored notes,
     // unless the user has written in it
     const placeholder = stateRef.current.notes.find(n => n.id === placeholderIdRef.current);
@@ -590,6 +597,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         const note = buildNote(lang);
         placeholderIdRef.current = note.id;
+        if (!hasLocalData) setFreshStart(true);
         dispatch({ type: 'ADD_NOTE', payload: note });
         dispatch({ type: 'SELECT_NOTE', payload: note.id });
       }
@@ -1247,6 +1255,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     recoverCopies,
     discardRecoveryCopies,
     storagePersisted,
+    freshStart,
+    dismissFreshStart,
     lastDeletedNotes,
     undoDelete,
     dismissDeleted,
