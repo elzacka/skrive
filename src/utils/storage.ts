@@ -554,7 +554,8 @@ export async function importNoteFromFile(): Promise<ImportedNote | null> {
   });
 }
 
-export async function importFromJsonFile(): Promise<ExportData | null> {
+// Raw JSON of a picked backup file; the caller tells encrypted from plain
+export async function pickJsonFile(): Promise<unknown> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -575,10 +576,7 @@ export async function importFromJsonFile(): Promise<ExportData | null> {
       }
 
       try {
-        const text = await file.text();
-        const data = parseImportData(JSON.parse(text));
-        if (!data) console.warn('Import data validation failed');
-        resolve(data);
+        resolve(JSON.parse(await file.text()));
       } catch (error) {
         console.warn('Failed to parse import file:', error);
         resolve(null);

@@ -199,7 +199,6 @@ export interface I18nStrings {
   heading3: string;
   search: string;
   importExport: string;
-  importData: string;
   importNote: string;
   exportData: string;
   untitled: string;

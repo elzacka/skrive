@@ -303,16 +303,18 @@ export async function writeAutoBackup(
   }
 }
 
+// Encrypted backups are marked by format; anything else is plain data
+export function isEncryptedBackup(data: unknown): data is EncryptedBackupFile {
+  const file = data as EncryptedBackupFile | null;
+  return file?.format === 'skrive-encrypted-backup' && !!file.keyProtection?.wrappedKey && !!file.payload?.ciphertext;
+}
+
 async function parseBackup(file: File): Promise<AutoBackupReadResult | null> {
   if (file.size > MAX_IMPORT_FILE_SIZE) return null;
   const data = JSON.parse(await file.text()) as Record<string, unknown>;
 
   if (data.format === 'skrive-encrypted-backup') {
-    const encrypted = data as unknown as EncryptedBackupFile;
-    if (!encrypted.keyProtection?.wrappedKey || !encrypted.payload?.ciphertext) {
-      return null;
-    }
-    return { kind: 'encrypted', file: encrypted };
+    return isEncryptedBackup(data) ? { kind: 'encrypted', file: data } : null;
   }
 
   if (typeof data.encryptionKey === 'string' && Array.isArray(data.notes)) {
@@ -336,15 +338,3 @@ export async function readAutoBackup(
   }
 }
 
-// Manual restore: the user picks the backup file or one of its dated copies
-export async function pickBackupFile(): Promise<AutoBackupReadResult | null> {
-  try {
-    const [fileHandle] = await window.showOpenFilePicker({
-      types: [{ description: 'Skrive backup', accept: { 'application/json': ['.json'] } }]
-    });
-    return parseBackup(await fileHandle.getFile());
-  } catch (error) {
-    console.warn('Failed to read backup file:', error);
-    return null;
-  }
-}

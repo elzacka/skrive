@@ -320,7 +320,6 @@ export function Sidebar() {
     updateTag,
     deleteTag,
     exportAllData,
-    importData,
     importNote,
     autoBackupEnabled,
     lastBackupTime,
@@ -1398,10 +1397,6 @@ export function Sidebar() {
                   </button>
                 )}
                 <div className="backup-popup-divider" />
-                <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setPopup(null); }}>
-                  <span>{t.restoreFromBackup}</span>
-                </button>
-                <div className="backup-popup-divider" />
               </>
             ) : (
               <>
@@ -1423,8 +1418,9 @@ export function Sidebar() {
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setPopup(null); }}>
               <span>{t.exportData}</span>
             </button>
-            <button className="backup-popup-btn" onClick={async () => { await importData(); setPopup(null); }}>
-              <span>{t.importData}</span>
+            <div className="backup-popup-divider" />
+            <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setPopup(null); }}>
+              <span>{t.restoreFromBackup}</span>
             </button>
             <button className="backup-popup-btn" onClick={async () => { await importNote(); setPopup(null); }}>
               <span>{t.importNote}</span>

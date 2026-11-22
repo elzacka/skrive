@@ -6,7 +6,7 @@ import {
   saveEmergencySpill,
   createExportData,
   exportToJsonFile,
-  importFromJsonFile,
+  pickJsonFile,
   importNoteFromFile,
   parseImportData,
   listRecoveryCopies,
@@ -39,7 +39,7 @@ import {
   clearBackupHandle,
   writeAutoBackup,
   readAutoBackup,
-  pickBackupFile,
+  isEncryptedBackup,
   storeBackupKeyProtection,
   getStoredBackupKeyProtection,
   type EncryptedBackupFile,
@@ -357,7 +357,6 @@ interface AppContextValue {
   
   // Import and export
   exportAllData: () => void;
-  importData: () => Promise<boolean>;
   importNote: () => Promise<boolean>;
   
   // Auto-backup
@@ -1004,19 +1003,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return saved ? 'saved' : 'saveFailed';
   }, [applyRestoredData]);
 
+  // One entry for every backup file: encrypted ones ask for the passphrase,
+  // plain exports and legacy plaintext backups merge right away
   const restoreFromBackup = useCallback(async () => {
-    if (!isFileSystemAccessSupported()) return false;
+    const json = await pickJsonFile();
+    if (!json) return false;
 
-    const result = await pickBackupFile();
-    if (!result) return false;
-
-    if (result.kind === 'legacy') {
-      return restoreLegacyBackup(result.data);
+    if (isEncryptedBackup(json)) {
+      setPendingRestoreState({ file: json, handle: null, source: 'manual' });
+      return true;
     }
 
-    setPendingRestoreState({ file: result.file, handle: null, source: 'manual' });
+    const data = parseImportData(json);
+    if (!data) {
+      console.warn('Backup file failed validation');
+      return false;
+    }
+    applyRestoredData(data);
     return true;
-  }, [restoreLegacyBackup]);
+  }, [applyRestoredData]);
 
   // The backup is opened with its own key, and its notes are saved with this
   // device's key: the master key never changes, so no stored copy goes stale
@@ -1141,15 +1146,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     exportToJsonFile(createExportData({ notes: state.notes, tags: state.tags, folders: state.folders }));
   }, [state]);
 
-  const importData = useCallback(async () => {
-    const data = await importFromJsonFile();
-    if (data) {
-      dispatch({ type: 'MERGE_DATA', payload: data });
-      return true;
-    }
-    return false;
-  }, []);
-
   const importNote = useCallback(async () => {
     const imported = await importNoteFromFile();
     if (imported) {
@@ -1249,7 +1245,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cancelRestore,
     fsAccessSupported: isFileSystemAccessSupported(),
     exportAllData,
-    importData,
     importNote,
     getSelectedNote,
     getFilteredNotes
