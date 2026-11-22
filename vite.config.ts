@@ -103,6 +103,8 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     target: 'esnext',
+    // Files, never data: URIs: the CSP allows fonts only from 'self'
+    assetsInlineLimit: 0,
     minify: 'esbuild',
     // libsodium is one file with its WASM inlined, and CodeMirror and React
     // load up front for an offline app; neither chunk can split further

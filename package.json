@@ -17,6 +17,7 @@
     "@codemirror/view": "^6.43.15",
     "@lezer/highlight": "^1.2.5",
     "dompurify": "^3.4.12",
+    "katex": "^0.19.1",
     "libsodium-wrappers-sumo": "0.7.15",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"

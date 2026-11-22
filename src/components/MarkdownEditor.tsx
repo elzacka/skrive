@@ -12,6 +12,10 @@ import { htmlToMarkdown } from '@/utils/markdown';
 import { isSafeUrl } from '@/utils/sanitize';
 import { isMac } from '@/utils/helpers';
 import editorCss from '@/styles/editor.css?inline';
+import katexCss from 'katex/dist/katex.min.css?inline';
+// Fonts declared in a shadow root do not load: KaTeX's @font-face rules
+// come from this document-level copy
+import 'katex/dist/katex.min.css';
 
 // A change that came from outside the editor (find/replace, naming,
 // restore); it must not be reported back as user input
@@ -178,9 +182,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     const host = hostRef.current;
     if (!host) return;
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(editorCss);
-    shadow.adoptedStyleSheets = [sheet];
+    shadow.adoptedStyleSheets = [katexCss, editorCss].map(css => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      return sheet;
+    });
     const view = new EditorView({ state: createState(propsRef.current.content), parent: shadow, root: shadow });
     props.viewRef.current = view;
     // setState and a new view call no update listener

@@ -1,6 +1,7 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 import { StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
+import katex from 'katex';
 import { markdownToHtml } from '@/utils/markdown';
 
 // Both lenses style the same Markdown text. The formatted lens hides marks
@@ -55,16 +56,24 @@ class TableWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-function tableDecorations(state: EditorState): DecorationSet {
+// Top-level tables, and paragraphs that are one $$ formula: both span
+// lines, so they render as blocks until the selection enters them
+function blockDecorations(state: EditorState): DecorationSet {
   const ranges: Range<Decoration>[] = [];
+  const touched = (from: number, to: number) => state.selection.ranges.some(r => r.from <= to && r.to >= from);
   syntaxTree(state).iterate({
     enter: (node) => {
-      // Top-level tables only: one in a quote or list stays text
-      if (node.name !== 'Table') return node.name === 'Document';
+      if (node.name === 'Document') return true;
       const from = state.doc.lineAt(node.from).from;
       const to = state.doc.lineAt(node.to).to;
-      if (!state.selection.ranges.some(r => r.from <= to && r.to >= from)) {
+      if (node.name === 'Table' && !touched(from, to)) {
         ranges.push(Decoration.replace({ widget: new TableWidget(state.sliceDoc(from, to), from), block: true }).range(from, to));
+      }
+      const math = node.node.firstChild;
+      if (node.name === 'Paragraph' && math?.name === 'InlineMath' && math.from === node.from && math.to === node.to &&
+          state.sliceDoc(node.from, node.from + 2) === '$$' && !touched(from, to)) {
+        const { tex } = mathSource(state, node.from, node.to);
+        ranges.push(Decoration.replace({ widget: new MathWidget(tex, true, node.from), block: true }).range(from, to));
       }
       return false;
     }
@@ -73,12 +82,36 @@ function tableDecorations(state: EditorState): DecorationSet {
 }
 
 // Block widgets that replace line breaks must come from a state field
-const tables = StateField.define<DecorationSet>({
-  create: tableDecorations,
+const blocks = StateField.define<DecorationSet>({
+  create: blockDecorations,
   update: (decorations, tr) =>
-    tr.docChanged || tr.selection || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? tableDecorations(tr.state) : decorations,
+    tr.docChanged || tr.selection || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? blockDecorations(tr.state) : decorations,
   provide: field => EditorView.decorations.from(field)
 });
+
+// render() sets KaTeX's styles through the CSSOM, which the CSP allows;
+// renderToString() would need style attributes, which it blocks
+class MathWidget extends WidgetType {
+  constructor(readonly tex: string, readonly display: boolean, readonly from: number) { super(); }
+  eq(other: MathWidget) { return other.tex === this.tex && other.display === this.display && other.from === this.from; }
+  toDOM(view: EditorView) {
+    const el = document.createElement(this.display ? 'div' : 'span');
+    el.className = 'cm-md-mathwidget';
+    katex.render(this.tex, el, { displayMode: this.display, throwOnError: false, strict: 'ignore' });
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      view.dispatch({ selection: { anchor: this.from } });
+      view.focus();
+    });
+    return el;
+  }
+  ignoreEvent() { return true; }
+}
+
+function mathSource(state: EditorState, from: number, to: number) {
+  const width = state.sliceDoc(from, from + 2) === '$$' ? 2 : 1;
+  return { tex: state.sliceDoc(from + width, to - width).trim(), display: width === 2 };
+}
 
 class HrWidget extends WidgetType {
   eq() { return true; }
@@ -258,9 +291,20 @@ function build(view: EditorView, source: boolean): DecorationSet {
           case 'Tag':
             ranges.push(mark('cm-md-tag').range(node.from, node.to));
             return false;
-          case 'InlineMath':
-            ranges.push(mark('cm-md-math').range(node.from, node.to));
+          // A $$ paragraph is the state field's; a formula across lines
+          // inside other text stays source, since a plugin cannot replace
+          // line breaks
+          case 'InlineMath': {
+            const { tex, display } = mathSource(state, node.from, node.to);
+            const parent = node.node.parent;
+            if (display && parent?.name === 'Paragraph' && parent.from === node.from && parent.to === node.to) return false;
+            if (touches(node.from, node.to) || tex.includes('\n') || !tex) {
+              ranges.push(mark('cm-md-math').range(node.from, node.to));
+            } else {
+              ranges.push(Decoration.replace({ widget: new MathWidget(tex, display, node.from) }).range(node.from, node.to));
+            }
             return false;
+          }
           case 'Autolink':
             if (!touches(node.from, node.to)) {
               for (const child of node.node.getChildren('LinkMark')) ranges.push(hide.range(child.from, child.to));
@@ -348,5 +392,5 @@ export function markdownLens(source: boolean): Extension {
       }
     }
   }, { decorations: v => v.decorations });
-  return source ? plugin : [plugin, tables];
+  return source ? plugin : [plugin, blocks];
 }

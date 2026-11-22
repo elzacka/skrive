@@ -153,6 +153,14 @@
   color: var(--accent);
 }
 
+.cm-md-mathwidget {
+  cursor: text;
+}
+
+.cm-md-mathwidget .katex-display {
+  margin: 0.5em 0;
+}
+
 .cm-md-frontmatter {
   font-size: 0.85em;
   color: var(--text-muted);
