@@ -200,7 +200,7 @@ export interface I18nStrings {
   search: string;
   importExport: string;
   importNote: string;
-  exportData: string;
+  exportBackup: string;
   untitled: string;
   securityPrivacy: string;
   privacyPolicy: string;
@@ -247,7 +247,7 @@ export interface I18nStrings {
   enableAutoBackup: string;
   disableAutoBackup: string;
   autoBackupActive: string;
-  restoreFromBackup: string;
+  importBackup: string;
   backupFailed: string;
   autoBackupUnsupported: string;
   lastBackup: string;

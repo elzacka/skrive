@@ -1416,11 +1416,11 @@ export function Sidebar() {
               <div className="backup-popup-detail">{t.exportedTo.replace('{folder}', exportResult.folder)}</div>
             )}
             <button className="backup-popup-btn" onClick={() => { exportAllData(); setPopup(null); }}>
-              <span>{t.exportData}</span>
+              <span>{t.exportBackup}</span>
             </button>
             <div className="backup-popup-divider" />
             <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setPopup(null); }}>
-              <span>{t.restoreFromBackup}</span>
+              <span>{t.importBackup}</span>
             </button>
             <button className="backup-popup-btn" onClick={async () => { await importNote(); setPopup(null); }}>
               <span>{t.importNote}</span>
