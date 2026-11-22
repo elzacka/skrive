@@ -245,7 +245,6 @@ export interface I18nStrings {
   installHintChromium: string;
   installHintSafariMac: string;
   installHintSafariIpad: string;
-  autoBackup: string;
   enableAutoBackup: string;
   disableAutoBackup: string;
   autoBackupActive: string;

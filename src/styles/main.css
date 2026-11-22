@@ -796,18 +796,6 @@ body {
   background: var(--bg-hover);
 }
 
-.backup-popup-section {
-  padding: 4px 10px;
-}
-
-.backup-popup-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-}
-
 .backup-popup-status {
   display: flex;
   align-items: center;

@@ -1345,9 +1345,6 @@ export function Sidebar() {
           <div className="backup-popup show" {...popupProps('backup')}>
             {fsAccessSupported ? (
               <>
-                <div className="backup-popup-section">
-                  <span className="backup-popup-section-title">{t.autoBackup}</span>
-                </div>
                 {autoBackupEnabled ? (
                   <>
                     {backupPermissionNeeded && (
