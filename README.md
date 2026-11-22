@@ -10,7 +10,7 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 - **Skrift og avstand**: Velg iA Writer Duo, Monaspace eller Recursive, og størrelse og linjeavstand
 - **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager
-- **Backup og eksport**: Kryptert auto-backup til en mappe du velger (Chrome og Edge), eksport som Markdown, HTML eller JSON, og import av .txt og .md
+- **Backup og eksport**: Kryptert auto-backup til en mappe du velger (Chrome og Edge), eksport som Markdown, HTML eller ukryptert backup, og import av backup, .txt og .md
 - **Oppdateringer**: En knapp viser når en ny versjon er klar, og du velger selv når appen lastes på nytt
 - **Norsk og engelsk**
 

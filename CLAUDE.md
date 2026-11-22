@@ -66,7 +66,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - Two lenses on the same text: `markdownLens(false)` hides marks unless the selection touches them; `markdownLens(true)` shows them dimmed. Toggle: Cmd/Ctrl+. or "MD".
 - Font, size and line spacing ("Aa") are a per-device preference in localStorage (`skrive-typography`, src/utils/typography.ts), set as CSS variables on `.editor-container`. Recursive's MONO axis follows the lens (`--editor-mono`). Font files and OFL licenses: public/fonts.
 - editor.css selectors need one class more than CodeMirror's base theme (e.g. `.cm-editor .cm-scroller`): it loads later at equal specificity and wins silently.
-- Toolbar order follows word processors: undo/redo, style and font, character, link, block, view; right: status and history, tags/copy/export, delete last.
+- Toolbar order follows word processors: undo/redo, style and font, character, link, block, view; right: status and history, copy/export, delete last.
 - Import only `markdownLanguage` and named commands from `@codemirror/lang-markdown`: `markdown()` bundles HTML, CSS and JavaScript support (about 70 kB gzip).
 - Edits reach React after the input event (`setTimeout`, coalesced, with the note id): inside it they get sync priority and hit React's nested-update limit while typing fast. Pending edits flush on note switch and unmount. Each keystroke also goes to `trackLiveEdit()` without React, and the `pagehide` spill and hidden-tab save apply it, since an unload can come before the edit renders.
 - The editor takes outside content only when `mergeRevision` changes (restore, import); comparing content would take a stale render for an outside edit. Find/replace and naming write through the view.

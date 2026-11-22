@@ -77,8 +77,8 @@ type FooterPopup = 'privacy' | 'guide' | 'shortcuts' | 'lang' | 'backup';
 // (Windows), Ctrl+Return (macOS). Chrome on macOS sends no contextmenu
 // event for either, so the app opens the menu itself
 function isMenuKey(e: React.KeyboardEvent): boolean {
-  return (e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu' ||
-    (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key === 'Enter');
+  return (e.shiftKey && e.code === 'F10') || e.code === 'ContextMenu' ||
+    (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.code === 'Enter' || e.code === 'NumpadEnter'));
 }
 
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
