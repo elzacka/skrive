@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { InstanceGate } from './components/InstanceGate';
+import { registerAppUpdate } from './utils/appUpdate';
 
 // Enforce HTTPS in production
 if (import.meta.env.PROD && window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
@@ -15,6 +16,8 @@ if (window.self !== window.top) {
   document.documentElement.style.display = 'none';
   throw new Error('Skrive refuses to run inside a frame');
 }
+
+registerAppUpdate();
 
 const root = createRoot(document.getElementById('root')!);
 const mount = () => root.render(

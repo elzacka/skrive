@@ -302,7 +302,7 @@ interface AppContextValue {
 
   // Persistence
   saveStatus: SaveStatus;
-  flushSave: () => void;
+  flushSave: () => Promise<void>;
   trackLiveEdit: (content: string, noteId: string) => void;
   startupBlocked: 'key' | 'storage' | null;
   // Whether a key reset leaves the old notes reachable via the passphrase

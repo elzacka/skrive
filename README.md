@@ -11,6 +11,7 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 - **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager
 - **Backup og eksport**: Kryptert auto-backup til en mappe du velger (Chrome og Edge), eksport som Markdown, HTML eller JSON, og import av .txt og .md
+- **Oppdateringer**: En knapp viser når en ny versjon er klar, og du velger selv når appen lastes på nytt
 - **Norsk og engelsk**
 
 Hurtigtastene står i appen, under tastaturikonet nederst i sidepanelet.

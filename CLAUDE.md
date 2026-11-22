@@ -53,6 +53,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 ## Startup
 
+- Updates: the service worker uses `registerType: 'prompt'`, never autoUpdate. A downloaded version waits until the user presses `UpdateButton` (editor header, src/utils/appUpdate.ts), which flushes the save, sends SKIP_WAITING and reloads.
 - New notes go through `buildNote()` in AppContext.tsx.
 - New users get an empty note auto-selected; returning users get the most recently updated note (no seeded welcome note).
 - `initRef` guards against double init in StrictMode; `loadedRef` blocks saves until the initial load finishes.

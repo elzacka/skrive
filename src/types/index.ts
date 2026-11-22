@@ -225,6 +225,9 @@ export interface I18nStrings {
   exportAsHtml: string;
   insertLink: string;
   linkUnsafe: string;
+  updateApp: string;
+  updatingApp: string;
+  appUpdated: string;
   linkUrl: string;
   linkText: string;
   insert: string;

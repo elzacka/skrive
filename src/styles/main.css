@@ -1239,6 +1239,29 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* The update button stands out in the accent colour; it shows only when a
+   new version waits */
+.update-btn {
+  color: var(--accent);
+}
+
+.update-btn.applying svg {
+  animation: spin 1s linear infinite;
+}
+
+/* Holds, then fades out (UpdateButton) */
+.update-done {
+  display: inline-flex;
+  padding: 0 8px;
+  color: var(--accent);
+  animation: update-done 2600ms ease-in forwards;
+}
+
+@keyframes update-done {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .action-btn {
   padding: 4px 10px;
   background: transparent;

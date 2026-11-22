@@ -14,6 +14,7 @@ import { MarkdownEditor } from './MarkdownEditor';
 import { HistoryDialog } from './HistoryDialog';
 import { StyleMenu } from './StyleMenu';
 import { TypographyMenu } from './TypographyMenu';
+import { UpdateButton } from './UpdateButton';
 import { FONTS, SIZES, SPACINGS, loadTypography, saveTypography, type Typography } from '@/utils/typography';
 import { recordVersion } from '@/utils/storage';
 import { useModal, usePopover } from '@/hooks';
@@ -402,6 +403,7 @@ export function Editor() {
         </div>
         <div className="header-actions">
           <div className="format-group">
+            <UpdateButton />
             <span className={`save-status ${saveStatus}`} title={saveStatusText}>
               {saveStatus === 'unsaved' && <CircleIcon size={9} />}
               {saveStatus === 'saving' && <LoaderCircleIcon size={12} />}

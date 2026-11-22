@@ -29,7 +29,9 @@ export default defineConfig(({ mode }) => ({
       }
     },
     VitePWA({
-      registerType: 'autoUpdate',
+      // The user decides when a new version loads (UpdateButton)
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icons/*.png', 'fonts/*.woff2'],
       manifest: {
         id: '/skrive/',
