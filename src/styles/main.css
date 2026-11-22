@@ -371,7 +371,7 @@ body {
   background: var(--accent-light);
 }
 
-/* The tint alone is 1.3:1 on white; the weight marks the open note too */
+/* The tint alone is 1.3:1 on white; the weight marks the row too */
 .tree-item-row.active .tree-label {
   font-weight: 600;
 }
@@ -1719,9 +1719,13 @@ a:focus-visible {
   box-shadow: inset 0 0 0 100vmax rgba(var(--accent-rgb), 0.08);
 }
 
-/* Tree rows use the open note's tint */
+/* A keyboard-focused row looks marked: tint and weight */
 .tree-item-row:focus-visible {
   background: var(--accent-light);
+}
+
+.tree-item-row:focus-visible .tree-label {
+  font-weight: 600;
 }
 
 /* While the keyboard is on another row, only that row is marked */

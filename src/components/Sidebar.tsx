@@ -24,10 +24,11 @@ interface TreeItemProps {
   folder: Folder;
   folders: Folder[];
   notes: Note[];
-  selectedNoteId: string | null;
+  // The one marked row, folder or note
+  markedId: string | null;
   multiSelectedIds: Set<string>;
   onSelectNote: (id: string, e: React.MouseEvent) => void;
-  onToggleFolder: (id: string) => void;
+  onFolderClick: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, type: 'folder' | 'note', id: string) => void;
   onMoveNote?: (noteId: string, targetFolderId: string | null) => void;
   editingFolderId: string | null;
@@ -89,7 +90,7 @@ function compareNotes(a: Note, b: Note, sortMode: NoteSortMode, untitledText: st
   return (a.title || untitledText).localeCompare(b.title || untitledText, lang);
 }
 
-function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, branch, lang }: TreeItemProps & { lang: string }) {
+function TreeFolder({ folder, folders, notes, markedId, multiSelectedIds, onSelectNote, onFolderClick, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, branch, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = useMemo(
     () => folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang)),
@@ -127,14 +128,15 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, 
   return (
     <div className="tree-item" role="none">
       <div
-        className={`tree-item-row ${isDragOver ? 'drag-over' : ''}`}
+        className={`tree-item-row ${markedId === folder.id ? 'active' : ''} ${isDragOver ? 'drag-over' : ''}`}
         role={isEditing ? undefined : 'treeitem'}
+        aria-selected={isEditing ? undefined : markedId === folder.id}
         aria-expanded={isEditing ? undefined : folder.expanded}
         tabIndex={isEditing ? -1 : focusId === folder.id ? 0 : -1}
         data-item-id={folder.id}
         ref={(el) => registerRowRef(folder.id, el)}
         onFocus={() => onRowFocus(folder.id)}
-        onClick={() => !isEditing && onToggleFolder(folder.id)}
+        onClick={() => !isEditing && onFolderClick(folder.id)}
         onContextMenu={(e) => onContextMenu(e, 'folder', folder.id)}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -150,6 +152,7 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, 
             onBlur={onSaveFolderName}
             onKeyDown={onFolderKeyDown}
             autoFocus
+            onFocus={(e) => e.currentTarget.select()}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -169,10 +172,10 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, 
               folder={child}
               folders={folders}
               notes={notes}
-              selectedNoteId={selectedNoteId}
+              markedId={markedId}
               multiSelectedIds={multiSelectedIds}
               onSelectNote={onSelectNote}
-              onToggleFolder={onToggleFolder}
+              onFolderClick={onFolderClick}
               onContextMenu={onContextMenu}
               onMoveNote={onMoveNote}
               editingFolderId={editingFolderId}
@@ -198,7 +201,7 @@ function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, 
               key={note.id}
               branch={childBranch(branch, i === childNotes.length - 1)}
               note={note}
-              isSelected={note.id === selectedNoteId}
+              isSelected={note.id === markedId}
               isMultiSelected={multiSelectedIds.has(note.id)}
               onSelect={onSelectNote}
               onContextMenu={onContextMenu}
@@ -290,6 +293,7 @@ function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, 
             onBlur={onSaveNoteName}
             onKeyDown={onNoteNameKeyDown}
             autoFocus
+            onFocus={(e) => e.currentTarget.select()}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -365,6 +369,7 @@ export function Sidebar() {
   const selectionAnchorRef = useRef<string | null>(null);
   // Roving tabindex: the tree row that currently holds keyboard focus
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const [folderMark, setFolderMark] = useState<{ id: string; noteId: string | null } | null>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
 
   const registerRowRef = (id: string, el: HTMLDivElement | null) => {
@@ -544,14 +549,22 @@ export function Sidebar() {
     return items;
   }, [isSearching, searchResults, state.folders, state.lang, filteredNotes, sortMode, t.untitled]);
 
-  // Tab lands on the open note when visible, else the first row; a stale
+  // A marked folder holds while the same note stays open; opening another
+  // note, from anywhere, marks that note instead
+  const markedFolderId =
+    folderMark && folderMark.noteId === state.selectedNoteId && visibleTreeItems.some(i => i.id === folderMark.id)
+      ? folderMark.id
+      : null;
+  const markedId = markedFolderId ?? state.selectedNoteId;
+
+  // Tab lands on the marked row when visible, else the first row; a stale
   // focusedItemId (deleted row) falls back the same way
   const defaultFocusId = useMemo(() => {
-    if (state.selectedNoteId && visibleTreeItems.some(i => i.id === state.selectedNoteId)) {
-      return state.selectedNoteId;
+    if (markedId && visibleTreeItems.some(i => i.id === markedId)) {
+      return markedId;
     }
     return visibleTreeItems[0]?.id ?? null;
-  }, [state.selectedNoteId, visibleTreeItems]);
+  }, [markedId, visibleTreeItems]);
   const effectiveFocusId =
     focusedItemId && visibleTreeItems.some(i => i.id === focusedItemId)
       ? focusedItemId
@@ -562,6 +575,7 @@ export function Sidebar() {
   // last clicked note
   const handleSelectNote = (id: string, e: React.MouseEvent) => {
     setFocusedItemId(id);
+    setFolderMark(null);
     // Without an earlier click, the range starts at the open note
     const anchor = selectionAnchorRef.current ?? state.selectedNoteId;
     if (e.shiftKey && anchor) {
@@ -602,6 +616,18 @@ export function Sidebar() {
     if (folder) {
       updateFolder(id, { expanded: !folder.expanded });
     }
+  };
+
+  const markFolder = (id: string) => {
+    setFolderMark({ id, noteId: state.selectedNoteId });
+    setMultiSelected(new Set());
+  };
+
+  // A click marks the folder and opens or closes it, as in VS Code
+  const handleFolderClick = (id: string) => {
+    setFocusedItemId(id);
+    markFolder(id);
+    handleToggleFolder(id);
   };
 
   const handleContextMenu = (e: React.MouseEvent, type: 'folder' | 'note' | 'sidebar', id: string) => {
@@ -766,6 +792,7 @@ export function Sidebar() {
     // Start editing the new folder name immediately
     setEditingFolderId(newFolderId);
     setEditingFolderName(t.newFolder);
+    markFolder(newFolderId);
   };
 
   // A collapsed parent would hide a new item in it
@@ -877,7 +904,11 @@ export function Sidebar() {
   // focus stays in the tree
   const goToRow = (id: string) => {
     focusRow(id);
-    if (!state.notes.some(n => n.id === id)) return;
+    if (!state.notes.some(n => n.id === id)) {
+      markFolder(id);
+      return;
+    }
+    setFolderMark(null);
     setMultiSelected(new Set());
     selectionAnchorRef.current = id;
     selectNote(id);
@@ -891,6 +922,7 @@ export function Sidebar() {
     if (items.length === 0) return;
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyA') {
       e.preventDefault();
+      setFolderMark(null);
       setMultiSelected(new Set(items.filter(i => i.type === 'note').map(i => i.id)));
       return;
     }
@@ -968,6 +1000,7 @@ export function Sidebar() {
         const next = items[nextIndex];
         // Shift extends the note selection; folders move focus unselected
         if (e.shiftKey && next.type === 'note') {
+          setFolderMark(null);
           if (!selectionAnchorRef.current || !visibleNoteIds.includes(selectionAnchorRef.current)) {
             selectionAnchorRef.current = item.type === 'note' ? item.id : next.id;
           }
@@ -993,6 +1026,7 @@ export function Sidebar() {
         if (!item) return;
         e.preventDefault();
         if (item.type === 'note') {
+          setFolderMark(null);
           setMultiSelected(new Set());
           selectionAnchorRef.current = item.id;
           selectNote(item.id);
@@ -1029,7 +1063,7 @@ export function Sidebar() {
           }
         }
         if (item.parentId) {
-          focusRow(item.parentId);
+          goToRow(item.parentId);
         }
         return;
       }
@@ -1208,7 +1242,7 @@ export function Sidebar() {
                 key={note.id}
                 branch={null}
                 note={note}
-                isSelected={note.id === state.selectedNoteId}
+                isSelected={note.id === markedId}
                 isMultiSelected={multiSelected.has(note.id)}
                 onSelect={handleSelectNote}
                 onContextMenu={handleContextMenu}
@@ -1233,10 +1267,10 @@ export function Sidebar() {
                   folder={folder}
                   folders={state.folders}
                   notes={filteredNotes}
-                  selectedNoteId={state.selectedNoteId}
+                  markedId={markedId}
                   multiSelectedIds={multiSelected}
                   onSelectNote={handleSelectNote}
-                  onToggleFolder={handleToggleFolder}
+                  onFolderClick={handleFolderClick}
                   onContextMenu={handleContextMenu}
                   onMoveNote={moveNote}
                   editingFolderId={editingFolderId}
@@ -1262,7 +1296,7 @@ export function Sidebar() {
                   key={note.id}
                   branch={null}
                   note={note}
-                  isSelected={note.id === state.selectedNoteId}
+                  isSelected={note.id === markedId}
                   isMultiSelected={multiSelected.has(note.id)}
                   onSelect={handleSelectNote}
                   onContextMenu={handleContextMenu}
