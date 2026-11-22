@@ -1809,6 +1809,13 @@ export function Sidebar() {
                 <div className="guide-item-title">{t.guideAutoBackup}</div>
                 <div className="guide-item-desc">{t.guideAutoBackupDesc}</div>
               </div>
+              {/* File Handling API: installed apps from Chrome and Edge */}
+              {!isSafari() && !isFirefox() && (
+                <div className="guide-item">
+                  <div className="guide-item-title">{t.guideOpenFiles}</div>
+                  <div className="guide-item-desc">{t.guideOpenFilesDesc}</div>
+                </div>
+              )}
               {installHint && (
                 <div className="guide-item">
                   <div className="guide-item-title">{t.guideInstall}</div>

@@ -1,20 +1,19 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { EditorView } from '@codemirror/view';
-import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { setFindMatches } from '@/editor/find';
 import { CloseIcon, ChevronUpIcon, ChevronDownIcon, ReplaceIcon } from './Icons';
 
 interface FindReplaceBarProps {
+  lang: 'no' | 'en';
   content: string;
   viewRef: React.RefObject<EditorView | null>;
   onClose: () => void;
   focusTick: number;
 }
 
-export function FindReplaceBar({ content, viewRef, onClose, focusTick }: FindReplaceBarProps) {
-  const { state } = useApp();
-  const t = i18n[state.lang];
+export function FindReplaceBar({ lang, content, viewRef, onClose, focusTick }: FindReplaceBarProps) {
+  const t = i18n[lang];
   const [query, setQuery] = useState('');
   const [replacement, setReplacement] = useState('');
   const [showReplace, setShowReplace] = useState(false);

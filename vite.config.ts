@@ -43,6 +43,13 @@ export default defineConfig(({ mode }) => ({
         display: 'standalone',
         start_url: '/skrive/',
         scope: '/skrive/',
+        // "Open with" in Finder and File Explorer, one window per file.
+        // vite-plugin-pwa's type lacks launch_type
+        file_handlers: [{
+          action: '/skrive/?file',
+          accept: { 'text/markdown': ['.md', '.markdown'], 'text/plain': ['.txt'] },
+          launch_type: 'multiple-clients'
+        } as { action: string; accept: Record<string, string[]> }],
         icons: [
           {
             src: 'icons/icon-192x192.png',

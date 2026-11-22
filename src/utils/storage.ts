@@ -512,7 +512,7 @@ export function exportToJsonFile(data: ExportData): void {
 
 // Maximum file size for import (50MB for JSON, 1MB for single notes)
 export const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
-const MAX_NOTE_FILE_SIZE = 1 * 1024 * 1024;
+export const MAX_NOTE_FILE_SIZE = 1 * 1024 * 1024;
 
 export interface ImportedNote {
   title: string;

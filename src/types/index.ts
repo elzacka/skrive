@@ -97,6 +97,10 @@ declare global {
         accept: Record<string, string[]>;
       }>;
     }): Promise<FileSystemFileHandle[]>;
+    // File Handling API: files the OS opens with the installed app
+    launchQueue?: {
+      setConsumer(consumer: (params: { files: readonly FileSystemFileHandle[] }) => void): void;
+    };
   }
 }
 
@@ -312,6 +316,17 @@ export interface I18nStrings {
   guideTypography: string;
   guideTypographyDesc: string;
   guideInstall: string;
+  guideOpenFiles: string;
+  guideOpenFilesDesc: string;
+  fileNoneTitle: string;
+  fileNoneBody: string;
+  fileTooLarge: string;
+  fileNotText: string;
+  fileOpenFailed: string;
+  fileSaveDenied: string;
+  fileChanged: string;
+  fileRetry: string;
+  fileOverwrite: string;
   find: string;
   findShortcut: string;
   findPlaceholder: string;

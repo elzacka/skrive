@@ -11,6 +11,7 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 - **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager
 - **Backup og eksport**: Kryptert auto-backup til en mappe du velger (Chrome og Edge), eksport som Markdown, HTML eller ukryptert backup, og import av backup, .txt og .md
+- **Åpne med**: Når Skrive er installert fra Chrome eller Edge, åpner den .md- og .txt-filer fra «Åpne med» i Finder og Filutforsker og lagrer endringene rett i filen
 - **Oppdateringer**: En knapp viser når en ny versjon er klar, og du velger selv når appen lastes på nytt
 - **Norsk og engelsk**
 

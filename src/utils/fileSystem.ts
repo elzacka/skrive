@@ -1,4 +1,4 @@
-import type { Note, Folder, ExportData, FileSystemDirectoryHandle } from '@/types';
+import type { Note, Folder, ExportData, FileSystemDirectoryHandle, FileSystemHandle } from '@/types';
 import { escapeHtml } from './helpers';
 import { markdownToHtml } from './markdown';
 import type { EncryptedData, PassphraseWrappedKey } from './crypto';
@@ -51,20 +51,20 @@ export async function hasStoredPermission(
 }
 
 export async function verifyPermission(
-  handle: FileSystemDirectoryHandle,
+  handle: FileSystemHandle,
   readWrite = true
 ): Promise<boolean> {
   const options: { mode: 'read' | 'readwrite' } = { mode: readWrite ? 'readwrite' : 'read' };
   
   // Check if we already have permission
-  if ((await (handle as FileSystemDirectoryHandle & { 
+  if ((await (handle as FileSystemHandle & { 
     queryPermission: (options: { mode: string }) => Promise<string> 
   }).queryPermission(options)) === 'granted') {
     return true;
   }
   
   // Request permission
-  if ((await (handle as FileSystemDirectoryHandle & { 
+  if ((await (handle as FileSystemHandle & { 
     requestPermission: (options: { mode: string }) => Promise<string> 
   }).requestPermission(options)) === 'granted') {
     return true;
