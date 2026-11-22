@@ -4,8 +4,8 @@ import DOMPurify from 'dompurify';
 const DOMPURIFY_CONFIG = {
   ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li',
                  'strong', 'b', 'em', 'i', 'u', 'strike', 's', 'del', 'code', 'pre',
-                 'blockquote', 'a', 'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-  ALLOWED_ATTR: ['href', 'target', 'rel', 'start'],
+                 'blockquote', 'a', 'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'mark', 'sup'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'start', 'align', 'border'],
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input'],
   FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'dir'],

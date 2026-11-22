@@ -1,4 +1,4 @@
-import { markdownLanguage } from '@codemirror/lang-markdown';
+import { markdownParser } from '@/editor/obsidian';
 import { escapeHtml } from './helpers';
 import { sanitizeHtml, isSafeUrl, escapeHtmlAttribute } from './sanitize';
 
@@ -6,10 +6,11 @@ import { sanitizeHtml, isSafeUrl, escapeHtmlAttribute } from './sanitize';
 // conversion of HTML notes go through the editor's own parser, so what the
 // editor shows and what leaves the app always agree
 
-type SyntaxNode = ReturnType<typeof markdownLanguage.parser.parse>['topNode'];
+type SyntaxNode = ReturnType<typeof markdownParser.parse>['topNode'];
 
-const SKIPPED = new Set(['HeaderMark', 'QuoteMark', 'ListMark', 'EmphasisMark', 'CodeMark',
-  'CodeInfo', 'LinkMark', 'StrikethroughMark', 'TableDelimiter', 'Comment', 'LinkTitle', 'LinkLabel']);
+const SKIPPED = new Set(['HeaderMark', 'CalloutMark', 'QuoteMark', 'ListMark', 'EmphasisMark', 'CodeMark',
+  'CodeInfo', 'LinkMark', 'StrikethroughMark', 'TableDelimiter', 'Comment', 'LinkTitle', 'LinkLabel',
+  'HighlightMark', 'Frontmatter', 'ObsidianComment']);
 
 function children(node: SyntaxNode): SyntaxNode[] {
   const list: SyntaxNode[] = [];
@@ -48,13 +49,30 @@ function render(node: SyntaxNode, src: string): string {
   switch (name) {
     case 'Document': return blocks(node, src);
     case 'Paragraph': return `<p>${inline(node, src).trim()}</p>`;
-    case 'Blockquote': return `<blockquote>${blocks(node, src)}</blockquote>`;
+    case 'Blockquote': {
+      // A callout's first line is its title, or its type when that is empty
+      const first = node.getChild('Paragraph');
+      const mark = first?.firstChild?.name === 'CalloutMark' ? first.firstChild : null;
+      if (!first || !mark) return `<blockquote>${blocks(node, src)}</blockquote>`;
+      const newline = src.indexOf('\n', mark.to);
+      const lineEnd = newline < 0 || newline > first.to ? first.to : newline;
+      const type = /\[!([\w-]+)/.exec(src.slice(mark.from, mark.to))?.[1] ?? '';
+      const title = inline(first, src, mark.to, lineEnd).trim() || escapeHtml(type.charAt(0).toUpperCase() + type.slice(1));
+      const body = lineEnd < first.to ? `<br>${inline(first, src, lineEnd + 1).trim()}` : '';
+      const rest = children(node).filter(c => c.from > first.to).map(c => render(c, src)).join('');
+      return `<blockquote><p><strong>${title}</strong>${body}</p>${rest}</blockquote>`;
+    }
     case 'BulletList': return `<ul>${blocks(node, src)}</ul>`;
     case 'OrderedList': {
       const start = parseInt(src.slice(node.from, node.to), 10);
       return start > 1 ? `<ol start="${start}">${blocks(node, src)}</ol>` : `<ol>${blocks(node, src)}</ol>`;
     }
-    case 'ListItem': return `<li>${blocks(node, src)}</li>`;
+    // The item's own text needs no <p>: it would space every item apart
+    case 'ListItem': {
+      const [first, ...rest] = children(node).filter(c => c.name !== 'ListMark');
+      if (first?.name !== 'Paragraph') return `<li>${blocks(node, src)}</li>`;
+      return `<li>${inline(first, src).trim()}${rest.map(c => render(c, src)).join('')}</li>`;
+    }
     case 'Task': {
       const marker = node.getChild('TaskMarker');
       const done = marker ? /x/i.test(src.slice(marker.from, marker.to)) : false;
@@ -102,20 +120,48 @@ function render(node: SyntaxNode, src: string): string {
     case 'Escape': return escapeHtml(src.slice(node.from + 1, node.to));
     case 'Table': {
       const rows = children(node).filter(c => c.name === 'TableHeader' || c.name === 'TableRow');
-      return `<table>${rows.map(row => {
+      // The delimiter row (| :-- | :-: | --: |) sets each column's alignment
+      const delimiter = children(node).find(c => c.name === 'TableDelimiter' && /-/.test(src.slice(c.from, c.to)));
+      const aligns = delimiter ? src.slice(delimiter.from, delimiter.to).replace(/^\s*\||\|\s*$/g, '').split('|').map(cell => {
+        const c = cell.trim();
+        return c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : '';
+      }) : [];
+      return `<table border="1">${rows.map(row => {
         const tag = row.name === 'TableHeader' ? 'th' : 'td';
-        return `<tr>${row.getChildren('TableCell').map(cell => `<${tag}>${inline(cell, src).trim()}</${tag}>`).join('')}</tr>`;
+        return `<tr>${row.getChildren('TableCell').map((cell, i) =>
+          `<${tag}${aligns[i] ? ` align="${aligns[i]}"` : ''}>${inline(cell, src).trim()}</${tag}>`).join('')}</tr>`;
       }).join('')}</table>`;
     }
+    case 'Highlight': return `<mark>${inline(node, src)}</mark>`;
+    case 'WikiLink': {
+      const shown = node.getChild('WikiAlias') ?? node.getChild('WikiTarget');
+      return shown ? escapeHtml(src.slice(shown.from, shown.to)) : '';
+    }
+    case 'FootnoteRef': {
+      const label = node.getChild('FootnoteLabel');
+      return label ? `<sup>${escapeHtml(src.slice(label.from, label.to))}</sup>` : '';
+    }
+    // Reference definitions are not shown, except a one-word footnote
+    case 'LinkReference': {
+      const footnote = /^\[\^([^\]]+)\]:\s*(.*)$/s.exec(src.slice(node.from, node.to));
+      return footnote ? `<p><sup>${escapeHtml(footnote[1])}</sup>: ${text(footnote[2])}</p>` : '';
+    }
+    case 'InlineMath': return `<code>${escapeHtml(src.slice(node.from, node.to))}</code>`;
+    case 'Tag': return escapeHtml(src.slice(node.from, node.to));
+    // Inline HTML keeps the tags the sanitizer allows, bare; others drop
+    case 'HTMLTag': {
+      const tag = /^<(\/?)(u|b|strong|i|em|s|del|mark|sup|br)\s*\/?>$/i.exec(src.slice(node.from, node.to));
+      return tag ? `<${tag[1]}${tag[2].toLowerCase()}>` : '';
+    }
     default:
-      // Unknown syntax (HTML, emoji, sub/superscript) stays as typed
+      // Unknown syntax (HTML blocks, emoji, sub/superscript) stays as typed
       return text(src.slice(node.from, node.to));
   }
 }
 
 export function markdownToHtml(md: string): string {
   if (!md) return '';
-  const tree = markdownLanguage.parser.parse(md);
+  const tree = markdownParser.parse(md);
   return sanitizeHtml(render(tree.topNode, md));
 }
 
@@ -165,6 +211,7 @@ function inlineMarkdown(node: Node): string {
     case 'strong': case 'b': return wrap('**');
     case 'em': case 'i': return wrap('*');
     case 's': case 'del': case 'strike': return wrap('~~');
+    case 'mark': return wrap('==');
     case 'code': {
       // Backslashes do not escape inside code; a longer backtick run does
       const code = el.textContent ?? '';

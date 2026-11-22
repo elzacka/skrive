@@ -539,7 +539,8 @@ export async function importNoteFromFile(): Promise<ImportedNote | null> {
       }
 
       try {
-        const content = await file.text();
+        // The editor holds \n line endings
+        const content = (await file.text()).replace(/\r\n?/g, '\n');
         const filename = file.name;
         const title = filename.replace(/\.(txt|md)$/i, '');
 

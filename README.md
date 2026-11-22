@@ -6,7 +6,7 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 
 - **Kryptert og lokalt**: Notatene krypteres med AEGIS-256 og forlater aldri enheten. Ingen konto, ingen cookies
 - **Offline**: Virker uten internett og kan installeres som app (PWA) på Mac, Windows og Linux
-- **Markdown**: Du skriver i en formatert visning, og «MD» viser hele teksten som Markdown. Den første linjen blir notatets navn
+- **Markdown**: Du skriver i en formatert visning, og «MD» viser hele teksten som Markdown. Den første linjen blir notatets navn. Viser også tabeller og Obsidian-syntaks: Egenskaper, utheving, wikilenker, fotnoter, callouts, kommentarer og etiketter
 - **Skrift og avstand**: Velg iA Writer Duo, Monaspace eller Recursive, og størrelse og linjeavstand
 - **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager

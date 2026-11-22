@@ -116,6 +116,93 @@
   color: var(--text-muted);
 }
 
+/* Obsidian syntax */
+
+.cm-md-highlight {
+  background: rgba(255, 221, 64, 0.45);
+  border-radius: 2px;
+}
+
+.cm-md-tag {
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.cm-md-footnote {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent);
+}
+
+.cm-md-comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.cm-md-code,
+.cm-md-codeblock,
+.cm-md-math,
+.cm-md-frontmatter {
+  font-family: var(--font-mono);
+}
+
+.cm-md-math {
+  color: var(--accent);
+}
+
+.cm-md-frontmatter {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.cm-md-callout {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  background: var(--accent-light);
+}
+
+.cm-md-callout-title {
+  font-weight: 700;
+}
+
+.cm-md-underline {
+  text-decoration: underline;
+}
+
+.cm-md-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+}
+
+.cm-md-sup,
+.cm-md-sub {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.cm-md-sup {
+  vertical-align: super;
+}
+
+.cm-md-sub {
+  vertical-align: sub;
+}
+
+.cm-md-hr {
+  display: inline-block;
+  width: 100%;
+  vertical-align: middle;
+  border-top: 1px solid var(--border);
+}
+
 /* Rendered table: shown while the selection is outside it */
 .cm-md-tablewidget {
   overflow-x: auto;
@@ -131,8 +218,18 @@
 .cm-md-tablewidget td {
   border: 1px solid var(--border);
   padding: 4px 10px;
-  text-align: left;
   vertical-align: top;
+}
+
+/* The align attribute from the delimiter row wins over this */
+.cm-md-tablewidget th:not([align]),
+.cm-md-tablewidget td:not([align]) {
+  text-align: left;
+}
+
+.cm-md-tablewidget mark {
+  color: inherit;
+  background: rgba(255, 221, 64, 0.45);
 }
 
 .cm-md-tablewidget th {

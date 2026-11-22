@@ -80,6 +80,27 @@ const tables = StateField.define<DecorationSet>({
   provide: field => EditorView.decorations.from(field)
 });
 
+class HrWidget extends WidgetType {
+  eq() { return true; }
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = 'cm-md-hr';
+    return span;
+  }
+}
+
+// A callout without a title shows its type, as Obsidian does
+class LabelWidget extends WidgetType {
+  constructor(readonly label: string) { super(); }
+  eq(other: LabelWidget) { return other.label === this.label; }
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = 'cm-md-callout-title';
+    span.textContent = this.label;
+    return span;
+  }
+}
+
 const hide = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new BulletWidget() });
 const mark = (cls: string) => Decoration.mark({ class: cls });
@@ -95,13 +116,22 @@ const INLINE_CLASS: Record<string, string> = {
   URL: 'cm-md-link'
 };
 
+// Inline HTML that Obsidian renders; the tags hide like Markdown marks
+const HTML_CLASS: Record<string, string> = {
+  u: 'cm-md-underline', kbd: 'cm-md-kbd', sup: 'cm-md-sup', sub: 'cm-md-sub', mark: 'cm-md-highlight',
+  b: 'cm-md-strong', strong: 'cm-md-strong', i: 'cm-md-em', em: 'cm-md-em', s: 'cm-md-strike', del: 'cm-md-strike'
+};
+
 const MARK_NODES = new Set(['HeaderMark', 'QuoteMark', 'ListMark', 'EmphasisMark', 'CodeMark',
-  'CodeInfo', 'LinkMark', 'StrikethroughMark', 'TaskMarker', 'TableDelimiter']);
+  'CodeInfo', 'LinkMark', 'StrikethroughMark', 'TaskMarker', 'TableDelimiter', 'HighlightMark', 'WikiMark',
+  'FootnoteMark', 'CalloutMark', 'FrontmatterMark', 'MathMark', 'ObsidianComment', 'LinkReference']);
 
 function build(view: EditorView, source: boolean): DecorationSet {
   const { state } = view;
   const ranges: Range<Decoration>[] = [];
   const focused = view.hasFocus;
+  // Closing HTML tags already paired with their opening tag
+  const pairedClosers = new Set<number>();
   const touches = (from: number, to: number) =>
     focused && state.selection.ranges.some(r => r.from <= to && r.to >= from);
   const lineAt = (pos: number) => state.doc.lineAt(pos);
@@ -134,6 +164,17 @@ function build(view: EditorView, source: boolean): DecorationSet {
           return;
         }
 
+        // Text lines, then a === or --- line, which stays visible but dim
+        const setext = /^SetextHeading(\d)$/.exec(name);
+        if (setext) {
+          const underline = node.node.getChild('HeaderMark');
+          if (underline) {
+            eachLine(node.from, underline.from - 1, `cm-md-h${setext[1]}`);
+            ranges.push(mark('cm-md-mark').range(underline.from, underline.to));
+          }
+          return;
+        }
+
         if (name in INLINE_CLASS) {
           if (name === 'URL' && node.node.parent?.name === 'Link') return;
           if (node.to > node.from) ranges.push(mark(INLINE_CLASS[name]).range(node.from, node.to));
@@ -154,8 +195,91 @@ function build(view: EditorView, source: boolean): DecorationSet {
 
         switch (name) {
           case 'Blockquote':
-            eachLine(node.from, node.to, 'cm-md-quote');
+            eachLine(node.from, node.to, node.node.getChild('Paragraph')?.firstChild?.name === 'CalloutMark' ? 'cm-md-callout' : 'cm-md-quote');
             return;
+          case 'CalloutMark': {
+            const l = lineAt(node.from);
+            const title = state.doc.sliceString(node.to, l.to).trim();
+            if (touches(l.from, l.to)) {
+              ranges.push(mark('cm-md-mark').range(node.from, node.to));
+            } else if (title) {
+              const end = state.doc.sliceString(node.to, node.to + 1) === ' ' ? node.to + 1 : node.to;
+              ranges.push(hide.range(node.from, end));
+              if (l.to > end) ranges.push(mark('cm-md-callout-title').range(end, l.to));
+            } else {
+              const type = /\[!([\w-]+)/.exec(state.doc.sliceString(node.from, node.to))?.[1] ?? '';
+              ranges.push(Decoration.replace({ widget: new LabelWidget(type.charAt(0).toUpperCase() + type.slice(1)) }).range(node.from, node.to));
+            }
+            return;
+          }
+          case 'Frontmatter':
+            eachLine(node.from, node.to, 'cm-md-frontmatter');
+            return false;
+          case 'Highlight':
+            ranges.push(mark('cm-md-highlight').range(node.from, node.to));
+            if (!touches(node.from, node.to)) {
+              for (const child of node.node.getChildren('HighlightMark')) ranges.push(hide.range(child.from, child.to));
+            }
+            return;
+          case 'WikiLink': {
+            const shown = node.node.getChild('WikiAlias') ?? node.node.getChild('WikiTarget');
+            if (!shown) return false;
+            ranges.push(mark('cm-md-link').range(shown.from, shown.to));
+            if (!touches(node.from, node.to)) {
+              ranges.push(hide.range(node.from, shown.from));
+              ranges.push(hide.range(shown.to, node.to));
+            }
+            return false;
+          }
+          case 'FootnoteRef': {
+            const label = node.node.getChild('FootnoteLabel');
+            const definition = lineAt(node.from).from === node.from && state.doc.sliceString(node.to, node.to + 1) === ':';
+            if (definition || !label) {
+              ranges.push(mark('cm-md-mark').range(node.from, node.to + (definition ? 1 : 0)));
+            } else {
+              ranges.push(mark('cm-md-footnote').range(label.from, label.to));
+              if (!touches(node.from, node.to)) {
+                ranges.push(hide.range(node.from, label.from));
+                ranges.push(hide.range(label.to, node.to));
+              }
+            }
+            return false;
+          }
+          // Reference definitions are not shown by Obsidian; a one-word
+          // footnote definition parses as one too
+          case 'LinkReference': {
+            const footnote = /^\[\^[^\]]+\]:/.exec(state.doc.sliceString(node.from, node.to));
+            ranges.push(mark('cm-md-mark').range(node.from, footnote ? node.from + footnote[0].length : node.to));
+            return false;
+          }
+          case 'ObsidianComment':
+            ranges.push(mark('cm-md-comment').range(node.from, node.to));
+            return false;
+          case 'Tag':
+            ranges.push(mark('cm-md-tag').range(node.from, node.to));
+            return false;
+          case 'InlineMath':
+            ranges.push(mark('cm-md-math').range(node.from, node.to));
+            return false;
+          case 'Autolink':
+            if (!touches(node.from, node.to)) {
+              for (const child of node.node.getChildren('LinkMark')) ranges.push(hide.range(child.from, child.to));
+            }
+            return;
+          case 'HTMLTag': {
+            if (pairedClosers.has(node.from)) return;
+            const tag = /^<([a-z]+)>$/i.exec(state.doc.sliceString(node.from, node.to))?.[1].toLowerCase();
+            for (let sib = node.node.nextSibling; tag && HTML_CLASS[tag] && sib; sib = sib.nextSibling) {
+              if (sib.name !== 'HTMLTag' || state.doc.sliceString(sib.from, sib.to).toLowerCase() !== `</${tag}>`) continue;
+              pairedClosers.add(sib.from);
+              if (sib.from > node.to) ranges.push(mark(HTML_CLASS[tag]).range(node.to, sib.from));
+              const tagMark = touches(node.from, sib.to) ? mark('cm-md-mark') : hide;
+              ranges.push(tagMark.range(node.from, node.to), tagMark.range(sib.from, sib.to));
+              return;
+            }
+            ranges.push(mark('cm-md-mark').range(node.from, node.to));
+            return;
+          }
           case 'QuoteMark': {
             const l = lineAt(node.from);
             if (!touches(l.from, l.to)) {
@@ -194,7 +318,9 @@ function build(view: EditorView, source: boolean): DecorationSet {
             if (node.node.parent?.name === 'FencedCode') ranges.push(mark('cm-md-mark').range(node.from, node.to));
             return;
           case 'HorizontalRule':
-            ranges.push(mark('cm-md-mark').range(node.from, node.to));
+            ranges.push(touches(node.from, node.to)
+              ? mark('cm-md-mark').range(node.from, node.to)
+              : Decoration.replace({ widget: new HrWidget() }).range(node.from, node.to));
             return;
           case 'Table':
             eachLine(node.from, node.to, 'cm-md-table');

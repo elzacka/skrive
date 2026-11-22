@@ -3,7 +3,8 @@ import { EditorState, Compartment, Annotation, Prec } from '@codemirror/state';
 import { EditorView, keymap, placeholder as placeholderExt } from '@codemirror/view';
 import { history, undo, redo, undoDepth, redoDepth, standardKeymap } from '@codemirror/commands';
 // Only these parts: markdown() would bundle HTML, CSS and JavaScript support
-import { markdownLanguage, deleteMarkupBackward } from '@codemirror/lang-markdown';
+import { deleteMarkupBackward } from '@codemirror/lang-markdown';
+import { skriveMarkdown } from '@/editor/obsidian';
 import { markdownLens } from '@/editor/livePreview';
 import { findHighlights } from '@/editor/find';
 import { activeFormats, toggleInline, toggleLines, toggleCodeBlock, setHeading, linkAt, newlineInMarkdown, insertLink, type ActiveFormats } from '@/editor/commands';
@@ -125,7 +126,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           { key: 'Tab', run: focusAfterEditor },
           ...standardKeymap
         ]),
-        markdownLanguage.extension,
+        skriveMarkdown.extension,
         lensRef.current.of(markdownLens(p.source)),
         contentAttrsRef.current.of(contentAttributes(p.lang, p.placeholder)),
         findHighlights,
