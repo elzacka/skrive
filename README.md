@@ -6,7 +6,7 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 
 - **Kryptert og lokalt**: Notatene krypteres med AEGIS-256 og forlater aldri enheten. Ingen konto, ingen cookies
 - **Offline**: Virker uten internett og kan installeres som app (PWA) på Mac, Windows og Linux
-- **Markdown**: Du skriver i en formatert visning, og «MD» viser hele teksten som Markdown. Den første linjen blir notatets navn. Viser også tabeller og Obsidian-syntaks: Egenskaper, utheving, wikilenker, fotnoter, callouts, kommentarer og etiketter
+- **Markdown**: Du skriver i en formatert visning, og «MD» viser hele teksten som Markdown. Den første linjen blir notatets navn. Viser også tabeller, matte og Obsidian-syntaks: Egenskaper, utheving, wikilenker, fotnoter, callouts, kommentarer og etiketter
 - **Skrift og avstand**: Velg iA Writer Duo, Monaspace eller Recursive, og størrelse og linjeavstand
 - **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager
@@ -30,7 +30,7 @@ Skrive er ikke sikrere enn enheten, så lås den med passord, PIN eller biometri
 
 ## Teknologier
 
-React, Vite og TypeScript, med libsodium for kryptering, CodeMirror som editor og DOMPurify mot XSS. Versjonene står i `package.json`.
+React, Vite og TypeScript, med libsodium for kryptering, CodeMirror som editor, KaTeX for matte og DOMPurify mot XSS. Versjonene står i `package.json`.
 
 Ikoner fra [Tabler Icons](https://tabler.io/icons) (MIT). Fonter (SIL OFL 1.1, lisensene ligger i `public/fonts`): [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono), [iA Writer Duo](https://github.com/iaolo/iA-Fonts), [Monaspace Neon](https://github.com/githubnext/monaspace) og [Recursive](https://github.com/arrowtype/recursive). Alt er selvhostet.
 
