@@ -80,6 +80,8 @@
      Muted at 0.7 keeps 4.5:1 on the tinted hover and active backgrounds */
   --text-primary: #2c2c2c;
   --text-muted: rgba(44, 44, 44, 0.7);
+  /* Lowest that keeps 4.5:1 on white */
+  --text-faint: rgba(44, 44, 44, 0.66);
 
   --accent: #0A520D;
   --accent-hover: #0d6610;
@@ -566,14 +568,27 @@ body {
   margin-top: 0;
 }
 
-.shortcuts-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 6px;
+.shortcuts-footnote {
+  margin-top: 16px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* Short rule above, as in print */
+.shortcuts-footnote::before {
+  content: '';
+  display: block;
+  width: 32px;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .footnote-mark {
-  font-size: 11px;
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: 0.6em;
+  margin: 0 0.2em 0 0.1em;
 }
 
 /* The one exception to the desktop-only rule: phones and windows under

@@ -1522,7 +1522,7 @@ export function Sidebar() {
               </div>
               <div className="shortcut-row">
                 <div className="shortcut-item">
-                  <span className="shortcut-desc">{t.renameShortcut}{mac && <sup className="footnote-mark">*</sup>}</span>
+                  <span className="shortcut-desc">{t.renameShortcut}{mac && <sup className="footnote-mark" aria-hidden="true">1</sup>}</span>
                   <span className="shortcut-key">{shortcuts.rename}</span>
                 </div>
                 <div className="shortcut-item">
@@ -1582,7 +1582,7 @@ export function Sidebar() {
                   <span className="shortcut-key">{shortcuts.rangeSelectModifier}+{t.clickLabel}</span>
                 </div>
               </div>
-              {mac && <div className="shortcuts-hint">*{t.renameF2MacHint}</div>}
+              {mac && <p className="shortcuts-footnote"><sup className="footnote-mark">1</sup>{t.renameF2MacHint}</p>}
             </div>
 
             <div className="shortcuts-section-title">{t.formatting}</div>
