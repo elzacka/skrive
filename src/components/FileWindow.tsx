@@ -3,13 +3,13 @@ import type { EditorView } from '@codemirror/view';
 import type { FileSystemFileHandle } from '@/types';
 import type { SaveStatus } from '@/contexts/AppContext';
 import { i18n } from '@/utils/i18n';
+import { isMac } from '@/utils/helpers';
+import { getShortcutLabels } from '@/utils/shortcuts';
 import { verifyPermission } from '@/utils/fileSystem';
 import { readOpenedFile, writeOpenedFile, type OpenedFile, type OpenResult } from '@/utils/openFile';
 import { DocumentEditor, SaveStatusIndicator, CopyButton } from './DocumentEditor';
+import { DeviceFloppyIcon } from './Icons';
 import '@/styles/main.css';
-
-// The same pause as for notes
-const SAVE_DELAY = 800;
 
 // From the browser: the app's own setting lives in the encrypted notes
 const lang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'no';
@@ -17,24 +17,26 @@ const lang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'no';
 type Problem = 'denied' | 'changed' | 'failed';
 type OpenError = Exclude<OpenResult['kind'], 'ok'> | 'none';
 
-// A file opened from Finder or File Explorer, edited where it lies. Nothing
-// of it enters the notes, the history or a backup
+// A file opened from Finder or File Explorer, edited where it lies and
+// saved only when the user saves. Nothing of it enters the notes, the
+// history or a backup
 export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandle> | null }) {
   const t = i18n[lang];
+  const saveShortcut = getShortcutLabels(isMac()).save;
   const [file, setFile] = useState<OpenedFile | null>(null);
   const [openError, setOpenError] = useState<{ kind: OpenError; name?: string } | null>(launched ? null : { kind: 'none' });
   const [content, setContent] = useState('');
-  const [status, setStatus] = useState<SaveStatus>('saved');
+  const [savedText, setSavedText] = useState('');
+  const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
 
   const viewRef = useRef<EditorView | null>(null);
   const fileRef = useRef<OpenedFile | null>(null);
   const lastModifiedRef = useRef(0);
-  const pendingRef = useRef<string | null>(null);
-  const writingRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const permissionRef = useRef<Promise<boolean> | null>(null);
-  const overwriteRef = useRef(false);
+  // The editor's text on every keystroke, ahead of React's render
+  const liveTextRef = useRef('');
+  const savedTextRef = useRef('');
+  const savingRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.lang = lang === 'no' ? 'nb' : 'en';
@@ -53,7 +55,9 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
       }
       fileRef.current = result.file;
       lastModifiedRef.current = result.file.lastModified;
+      liveTextRef.current = savedTextRef.current = result.file.text;
       setContent(result.file.text);
+      setSavedText(result.file.text);
       setFile(result.file);
       setOpenError(null);
     });
@@ -63,68 +67,37 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
     };
   }, [launched]);
 
-  // One write at a time; edits made meanwhile go in the next one
-  const save = useCallback(async () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = null;
+  // Called from a click or Cmd/Ctrl+S, so a permission prompt may show
+  const save = useCallback(async (overwrite = false) => {
     const current = fileRef.current;
-    if (!current || writingRef.current || pendingRef.current === null) return;
-    writingRef.current = true;
+    const text = liveTextRef.current;
+    if (!current || savingRef.current) return;
+    if (text === savedTextRef.current && !overwrite) return;
+    savingRef.current = true;
+    setSaving(true);
     try {
-      if (!(await (permissionRef.current ??= verifyPermission(current.handle).catch(() => false)))) {
+      if (!(await verifyPermission(current.handle).catch(() => false))) {
         setProblem('denied');
-        setStatus('error');
         return;
       }
-      while (pendingRef.current !== null) {
-        const text = pendingRef.current;
-        pendingRef.current = null;
-        setStatus('saving');
-        let result: number | Problem;
-        try {
-          result = await writeOpenedFile(current, text, overwriteRef.current ? null : lastModifiedRef.current);
-        } catch {
-          result = 'failed';
-        }
-        if (typeof result !== 'number') {
-          pendingRef.current ??= text;
-          setProblem(result);
-          setStatus('error');
-          return;
-        }
-        lastModifiedRef.current = result;
-        overwriteRef.current = false;
+      const result = await writeOpenedFile(current, text, overwrite ? null : lastModifiedRef.current).catch(() => 'failed' as const);
+      if (typeof result !== 'number') {
+        setProblem(result);
+        return;
       }
+      lastModifiedRef.current = result;
+      savedTextRef.current = text;
+      setSavedText(text);
       setProblem(null);
-      setStatus('saved');
     } finally {
-      writingRef.current = false;
+      savingRef.current = false;
+      setSaving(false);
     }
   }, []);
 
-  // Runs inside the input event: the first edit asks for write access
-  // while the keystroke still counts as a user gesture
   const handleLiveChange = useCallback((text: string) => {
-    const current = fileRef.current;
-    if (!current) return;
-    permissionRef.current ??= verifyPermission(current.handle).catch(() => false);
-    pendingRef.current = text;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(save, SAVE_DELAY);
-  }, [save]);
-
-  const handleChange = useCallback((text: string) => {
-    setContent(text);
-    setStatus(prev => prev === 'error' ? prev : 'unsaved');
+    liveTextRef.current = text;
   }, []);
-
-  const retry = () => {
-    const current = fileRef.current;
-    if (!current) return;
-    if (problem === 'denied') permissionRef.current = verifyPermission(current.handle).catch(() => false);
-    if (problem === 'changed') overwriteRef.current = true;
-    save();
-  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -133,21 +106,14 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
         save();
       }
     };
-    const handleHide = () => {
-      if (document.visibilityState === 'hidden') save();
-    };
-    // A write cannot finish during unload, so the browser asks first
+    // The browser's own leave dialog: a page cannot offer Save there
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (pendingRef.current === null && !writingRef.current) return;
-      save();
-      e.preventDefault();
+      if (liveTextRef.current !== savedTextRef.current) e.preventDefault();
     };
     window.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('visibilitychange', handleHide);
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('visibilitychange', handleHide);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [save]);
@@ -163,6 +129,8 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
     );
   }
 
+  const dirty = content !== savedText;
+  const status: SaveStatus = saving ? 'saving' : problem ? 'error' : dirty ? 'unsaved' : 'saved';
   const problemText = problem && { denied: t.fileSaveDenied, changed: t.fileChanged, failed: t.saveError }[problem];
   const statusText = { saving: t.saving, unsaved: t.unsaved, error: problemText ?? t.saveError, saved: t.saved }[status];
 
@@ -173,7 +141,7 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
         <div className="storage-banner">
           <span>{problemText}</span>
           <span className="storage-banner-actions">
-            <button className="storage-banner-close" onClick={retry}>
+            <button className="storage-banner-close" onClick={() => save(problem === 'changed')}>
               {problem === 'changed' ? t.fileOverwrite : t.fileRetry}
             </button>
           </span>
@@ -186,13 +154,23 @@ export function FileWindow({ launched }: { launched: Promise<FileSystemFileHandl
           content={content}
           revision={0}
           placeholder={t.writeHere}
-          onChange={handleChange}
+          onChange={setContent}
           onLiveChange={handleLiveChange}
           viewRef={viewRef}
+          autoFocus={false}
           actions={
             <>
               <div className="format-group">
                 <SaveStatusIndicator status={status} text={statusText} />
+                <button
+                  className="action-btn icon-btn"
+                  onClick={() => save()}
+                  disabled={!dirty || saving}
+                  title={`${t.fileSave} (${saveShortcut})`}
+                  aria-label={t.fileSave}
+                >
+                  <DeviceFloppyIcon size={15} />
+                </button>
               </div>
               <div className="format-group">
                 <CopyButton content={content} lang={lang} />

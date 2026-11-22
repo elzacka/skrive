@@ -56,8 +56,9 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 
 - Manifest `file_handlers` (vite.config.ts): `.md`, `.markdown`, `.txt`, one window per file. Chrome/Edge installed apps only. A change to `file_handlers` resets the user's file-handling permission in Chrome.
 - The launch URL `?file` renders `FileWindow` (main.tsx): no instance lock, no AppProvider, no update flow (its reload would lose an unsaved edit). Language from `navigator.language`.
-- The file is edited where it lies (src/utils/openFile.ts) and never enters the notes, history or backups. Write access is asked on the first edit, while the keystroke counts as user activation.
-- Saves debounce 800 ms. A write is refused when the file's `lastModified` changed outside Skrive, until the user chooses «Lagre likevel». CRLF and BOM are written back as found; files that aren't UTF-8 text or exceed `MAX_NOTE_FILE_SIZE` are refused.
+- The file is edited where it lies (src/utils/openFile.ts) and never enters the notes, history or backups. No autosave: the user saves (button or Cmd/Ctrl+S, which also asks for write access) or discards by closing; unsaved changes get the browser's leave dialog, which a page can't give a Save button.
+- A write is refused when the file's `lastModified` changed outside Skrive, until the user chooses «Lagre likevel». The dominant line ending and a BOM are written back as found; files that aren't UTF-8 text or exceed `MAX_NOTE_FILE_SIZE` are refused.
+- The editor opens without focus, so the first line shows formatted. On macOS Chrome puts the app in ~/Applications/Chrome Apps; the guide points «Annet…» there.
 - Chromium delivers no launch after a reload, so a reloaded file window shows how to open the file again.
 
 ## Startup
@@ -72,7 +73,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - One format: notes are Markdown text (`format: 'markdown'`). Older `richtext`/`plaintext` notes, backups and imports convert once via `toMarkdownNote()` (AppContext); the loaded state before the first conversion is kept once, encrypted, under `encrypted-state-pre-markdown` and deleted after 30 days.
 - `DocumentEditor` holds the toolbar, find bar, link dialog and editor; `Editor` adds the note parts (naming, history, tags, export, delete), `FileWindow` the file parts.
 - CodeMirror 6 (src/components/MarkdownEditor.tsx, src/editor/) in a shadow root: CodeMirror injects styles, and only `adoptedStyleSheets` there pass the prod CSP. Editor CSS is src/styles/editor.css, loaded `?inline`.
-- Two lenses on the same text: `markdownLens(false)` hides marks unless the selection touches them; `markdownLens(true)` shows them dimmed. Toggle: Cmd/Ctrl+. or "MD".
+- Two lenses on the same text: `markdownLens(false)` hides marks unless the selection touches them; `markdownLens(true)` shows them dimmed. Top-level tables render as a table (block widget from a state field: plugins can't replace line breaks) until the selection enters them. Toggle: Cmd/Ctrl+. or "MD".
 - Font, size and line spacing ("Aa") are a per-device preference in localStorage (`skrive-typography`, src/utils/typography.ts), set as CSS variables on `.editor-container`. Recursive's MONO axis follows the lens (`--editor-mono`). Font files and OFL licenses: public/fonts.
 - editor.css selectors need one class more than CodeMirror's base theme (e.g. `.cm-editor .cm-scroller`): it loads later at equal specificity and wins silently.
 - Toolbar order follows word processors: undo/redo, style and font, character, link, block, view; right: status and history, copy/export, delete last.

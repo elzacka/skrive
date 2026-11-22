@@ -32,6 +32,8 @@ export interface MarkdownEditorProps {
   onLinkRequest: () => void;
   onToggleSource: () => void;
   viewRef: React.MutableRefObject<EditorView | null>;
+  // False leaves the caret out, so the opening line shows formatted
+  autoFocus?: boolean;
 }
 
 function contentAttributes(lang: 'no' | 'en', placeholder: string) {
@@ -182,7 +184,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     props.viewRef.current = view;
     // setState and a new view call no update listener
     reportState(view.state);
-    focusUnlessModal(view);
+    if (propsRef.current.autoFocus !== false) focusUnlessModal(view);
     const focus = () => view.focus();
     window.addEventListener(FOCUS_EDITOR_EVENT, focus);
     return () => {

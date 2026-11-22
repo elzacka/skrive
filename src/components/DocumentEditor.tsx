@@ -112,6 +112,7 @@ interface DocumentEditorProps {
   onLiveChange: (content: string, docId: string) => void;
   onEnter?: () => boolean;
   viewRef: React.MutableRefObject<EditorView | null>;
+  autoFocus?: boolean;
   // Right side of the header
   actions: React.ReactNode;
   // Between the header and the find bar
@@ -124,7 +125,7 @@ interface DocumentEditorProps {
 
 // Toolbar, find bar, link dialog and editor for one Markdown document:
 // a note in the main window, a file in a file window
-export function DocumentEditor({ lang, docId, content, revision, placeholder, onChange, onLiveChange, onEnter, viewRef, actions, above, footer, children }: DocumentEditorProps) {
+export function DocumentEditor({ lang, docId, content, revision, placeholder, onChange, onLiveChange, onEnter, viewRef, autoFocus, actions, above, footer, children }: DocumentEditorProps) {
   const t = i18n[lang];
   const mac = isMac();
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
@@ -427,6 +428,7 @@ export function DocumentEditor({ lang, docId, content, revision, placeholder, on
           onLinkRequest={openLinkDialog}
           onToggleSource={toggleSource}
           viewRef={viewRef}
+          autoFocus={autoFocus}
         />
       </div>
 

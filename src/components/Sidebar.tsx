@@ -1813,7 +1813,7 @@ export function Sidebar() {
               {!isSafari() && !isFirefox() && (
                 <div className="guide-item">
                   <div className="guide-item-title">{t.guideOpenFiles}</div>
-                  <div className="guide-item-desc">{t.guideOpenFilesDesc}</div>
+                  <div className="guide-item-desc">{t.guideOpenFilesDesc.replace('{save}', shortcuts.save)}</div>
                 </div>
               )}
               {installHint && (

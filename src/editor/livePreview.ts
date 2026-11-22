@@ -1,6 +1,7 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
-import type { Range } from '@codemirror/state';
+import { StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
+import { markdownToHtml } from '@/utils/markdown';
 
 // Both lenses style the same Markdown text. The formatted lens hides marks
 // unless the selection touches them; the Markdown lens shows them dimmed
@@ -32,6 +33,52 @@ class CheckboxWidget extends WidgetType {
   }
   ignoreEvent() { return true; }
 }
+
+// A table shows as a table until the selection enters it
+class TableWidget extends WidgetType {
+  constructor(readonly source: string, readonly from: number) { super(); }
+  eq(other: TableWidget) { return other.source === this.source && other.from === this.from; }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-md-tablewidget';
+    // markdownToHtml() output is sanitized
+    wrap.innerHTML = markdownToHtml(this.source);
+    wrap.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      view.dispatch({ selection: { anchor: this.from } });
+      view.focus();
+    });
+    // A link here would navigate the app window away
+    wrap.addEventListener('click', (e) => e.preventDefault());
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+function tableDecorations(state: EditorState): DecorationSet {
+  const ranges: Range<Decoration>[] = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      // Top-level tables only: one in a quote or list stays text
+      if (node.name !== 'Table') return node.name === 'Document';
+      const from = state.doc.lineAt(node.from).from;
+      const to = state.doc.lineAt(node.to).to;
+      if (!state.selection.ranges.some(r => r.from <= to && r.to >= from)) {
+        ranges.push(Decoration.replace({ widget: new TableWidget(state.sliceDoc(from, to), from), block: true }).range(from, to));
+      }
+      return false;
+    }
+  });
+  return Decoration.set(ranges);
+}
+
+// Block widgets that replace line breaks must come from a state field
+const tables = StateField.define<DecorationSet>({
+  create: tableDecorations,
+  update: (decorations, tr) =>
+    tr.docChanged || tr.selection || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? tableDecorations(tr.state) : decorations,
+  provide: field => EditorView.decorations.from(field)
+});
 
 const hide = Decoration.replace({});
 const bullet = Decoration.replace({ widget: new BulletWidget() });
@@ -162,8 +209,8 @@ function build(view: EditorView, source: boolean): DecorationSet {
   return Decoration.set(ranges, true);
 }
 
-export function markdownLens(source: boolean) {
-  return ViewPlugin.fromClass(class {
+export function markdownLens(source: boolean): Extension {
+  const plugin = ViewPlugin.fromClass(class {
     decorations: DecorationSet;
     constructor(view: EditorView) {
       this.decorations = build(view, source);
@@ -175,4 +222,5 @@ export function markdownLens(source: boolean) {
       }
     }
   }, { decorations: v => v.decorations });
+  return source ? plugin : [plugin, tables];
 }

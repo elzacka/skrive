@@ -116,6 +116,40 @@
   color: var(--text-muted);
 }
 
+/* Rendered table: shown while the selection is outside it */
+.cm-md-tablewidget {
+  overflow-x: auto;
+  padding: 4px 0;
+  cursor: text;
+}
+
+.cm-md-tablewidget table {
+  border-collapse: collapse;
+}
+
+.cm-md-tablewidget th,
+.cm-md-tablewidget td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cm-md-tablewidget th {
+  font-weight: 700;
+  background: var(--bg-tertiary);
+}
+
+.cm-md-tablewidget code {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding: 1px 3px;
+}
+
+.cm-md-tablewidget a {
+  color: var(--accent);
+}
+
 /* Find */
 
 .cm-find-match {

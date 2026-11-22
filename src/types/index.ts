@@ -318,6 +318,7 @@ export interface I18nStrings {
   guideInstall: string;
   guideOpenFiles: string;
   guideOpenFilesDesc: string;
+  fileSave: string;
   fileNoneTitle: string;
   fileNoneBody: string;
   fileTooLarge: string;
