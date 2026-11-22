@@ -904,10 +904,6 @@ body {
   background: var(--bg-hover);
 }
 
-.export-menu button:first-child {
-  border-bottom: 1px solid var(--border-light);
-}
-
 /* Dialogs: title, content, the one action. No rules between them */
 .link-dialog-overlay {
   position: fixed;

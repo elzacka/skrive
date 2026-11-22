@@ -6,7 +6,8 @@ export function generateId(): string {
 
 export function formatDate(timestamp: number, lang: 'no' | 'en'): string {
   const locale = lang === 'no' ? 'nb-NO' : 'en-US';
-  return new Date(timestamp).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+  // Two-digit year: 22.11.26, 17:32
+  return new Date(timestamp).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 export function escapeHtml(text: string): string {
