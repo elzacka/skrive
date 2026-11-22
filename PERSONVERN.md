@@ -24,7 +24,7 @@ noen server. Appen bruker ikke informasjonskapsler og har ingen brukerkontoer.
   bare på denne enheten. Når du sletter et notat for godt, slettes versjonene
   også.
 - Innstillinger: Språkvalg og visningsinnstillinger.
-- Auto-backup: Hvis du slår det på, lagres en kryptert kopi av notatene i en
+- Auto-backup: Hvis du skrur den på, lagres en kryptert kopi av notatene i en
   lokal mappe du velger, sammen med de ti forrige versjonene. Kopiene er
   beskyttet med en passordfrase du velger.
 
@@ -39,7 +39,7 @@ sikkerhetshensyn når du åpner appen. Se
 - Eksporter alle notatene som Markdown-filer eller JSON under «Import og eksport».
   Filer du eksporterer selv, er ukrypterte, og du velger selv hvor de lagres.
 - Slett alle data ved å tømme nettleserens lagring. Slett også backupfilene i
-  mappen du valgte hvis du har slått på auto-backup.
+  mappen du valgte hvis du har skrudd på auto-backup.
 
 ## Kontakt
 
