@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
-import { trashDaysLeft } from '@/utils/storage';
+import { trashDaysLeft, TRASH_DAYS } from '@/utils/storage';
+import { isUnnamed } from '@/utils/helpers';
+import { useModal } from '@/hooks';
 import { markdownToPlainText } from '@/utils/markdown';
 import { CloseIcon, DeleteIcon, RestoreIcon, TrashXIcon } from './Icons';
 
@@ -11,6 +13,8 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
   const items = [...state.trash].sort((a, b) => b.deletedAt - a.deletedAt);
   // A row action removes the focused button; focus stays in the dialog
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModal(dialogRef);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -30,7 +34,7 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="link-dialog-overlay" onClick={onClose}>
-      <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="trash-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
           <h3 id="trash-title">{t.trash}</h3>
           <button ref={closeRef} className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
@@ -42,13 +46,14 @@ export function TrashDialog({ onClose }: { onClose: () => void }) {
             <div className="dialog-empty">
               <DeleteIcon size={28} />
               <p>{t.trashEmpty}</p>
-              <p className="dialog-empty-hint">{t.trashIntro}</p>
+              <p className="dialog-empty-hint">{t.trashIntro.replace('{days}', String(TRASH_DAYS))}</p>
             </div>
           ) : (
             <ul className="trash-list">
               {items.map(note => {
                 const days = trashDaysLeft(note);
-                const name = note.title || markdownToPlainText(note.content).slice(0, 60) || t.untitled;
+                // Unnamed notes all share the default name; their text tells them apart
+                const name = isUnnamed(note.title) ? markdownToPlainText(note.content).trim().slice(0, 60) || t.untitled : note.title;
                 return (
                   <li key={note.id} className="trash-item">
                     <div className="trash-item-text">

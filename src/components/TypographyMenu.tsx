@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
 import type { I18nStrings } from '@/types';
+import { usePopover } from '@/hooks';
 import { FONTS, type EditorFont, type LineSpacing, type TextSize, type Typography } from '@/utils/typography';
 
 interface TypographyMenuProps {
@@ -9,26 +9,7 @@ interface TypographyMenuProps {
 }
 
 export function TypographyMenu({ t, value, onChange }: TypographyMenuProps) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
-
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Escape') return;
-    // The editor's own Escape handling stays out of it
-    e.stopPropagation();
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
+  const { open, setOpen, triggerRef, rootProps } = usePopover();
 
   const row = <K extends keyof Typography>(key: K, label: string, options: { id: Typography[K]; label: string; font?: string }[]) => (
     <div className="type-row" role="group" aria-label={label}>
@@ -50,7 +31,7 @@ export function TypographyMenu({ t, value, onChange }: TypographyMenuProps) {
   );
 
   return (
-    <div className="type-menu" ref={rootRef} onKeyDown={handleKey}>
+    <div className="type-menu" {...rootProps}>
       <button
         ref={triggerRef}
         className={`format-btn ${open ? 'active' : ''}`}

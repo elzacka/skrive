@@ -1,3 +1,5 @@
+import { i18n } from './i18n';
+
 export function generateId(): string {
   return 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
 }
@@ -39,4 +41,11 @@ export function isIpad(): boolean {
 export function isPWAInstalled(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches ||
          (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
+// A new note's name until its first line names it
+export const defaultNoteTitle = (lang: 'no' | 'en') => i18n[lang].note;
+
+export function isUnnamed(title: string): boolean {
+  return !title || [i18n.no.note, i18n.en.note, i18n.no.untitled, i18n.en.untitled].includes(title);
 }

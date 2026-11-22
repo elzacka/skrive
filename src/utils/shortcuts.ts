@@ -29,6 +29,11 @@ export function getShortcutLabels(mac: boolean) {
     openItem: 'Enter',
     rename: 'F2',
     duplicate: mac ? '⌘D' : 'Ctrl+D',
+    copy: mac ? '⌘C' : 'Ctrl+C',
+    cut: mac ? '⌘X' : 'Ctrl+X',
+    paste: mac ? '⌘V' : 'Ctrl+V',
+    // Finder's move; Windows has none, since Ctrl+Alt is AltGr
+    moveHere: mac ? '⌘⌥V' : '',
     newTag: mac ? '⌥T' : 'Ctrl+Shift+4',
     deleteItem: mac ? '⌫' : 'Delete',
     selectAll: mac ? '⌘A' : 'Ctrl+A',

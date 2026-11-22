@@ -20,14 +20,15 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - If stored data exists but fails to read at startup, it's preserved under its own `encrypted-state-recovery-<ts>` key (never overwritten) — a save must never overwrite data the app hasn't successfully read. While any copy exists, a banner offers recovery (device key, then the auto-backup passphrase key) and auto-backup pauses. A backup restore also tries its key on waiting copies.
 - The master key never changes once created: a stored key that can't be read blocks the app (`startupBlocked`) instead of being replaced, and restores re-encrypt with the device key. The only way to a new key is the confirmed reset on that screen, which keeps the old record under a dated id. An IndexedDB read error at startup blocks the same way.
 - One window at a time (Web Locks, main.tsx): each window saves the whole state, so a second one waits behind `InstanceGate`.
+- Imports and restores pass `parseImportData()`, which rebuilds every note, tag and folder from known fields and clamps future timestamps; backup files over `MAX_IMPORT_FILE_SIZE` are refused.
 - Restore and JSON import merge by id (newer `updatedAt` wins); they never remove notes. A note stays in the trash when it was deleted here after the incoming copy's last edit.
 - Deleted notes go to `state.trash` (`TrashedNote`, `deletedAt`) for `TRASH_DAYS`, expired at startup. Encrypted backups carry the trash; the plain JSON export leaves it out. An untouched placeholder is discarded, not trashed.
-- Note history: `recordVersion()` keeps the text as last saved before an edit, stamped with when it was written, at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
+- Note history: `recordVersion()` keeps the text as last saved before an edit, stamped with when it was written (`savedAt`, shown) and when it was kept (`keptAt`, expiry), at most every 10 minutes, under its own encrypted `note-history-<id>` key (never in backups). Kept `HISTORY_DAYS`; pruned at startup unless a recovery copy waits, deleted with a note purged from the trash. History another key wrote moves to `unreadable-history-*`, never overwritten.
 - `navigator.storage.persist()` is requested on every browser at startup; the result shows in the privacy popup.
 
 ## Security
 
-- Notes are encrypted with AEGIS-256 (AES-accelerated) or XChaCha20-Poly1305 (fallback). The master key lives in IndexedDB (`skrive-crypto`), wrapped by a non-extractable WebCrypto AES-GCM key; legacy plaintext localStorage keys are migrated on startup.
+- Notes are encrypted with AEGIS-256 (libsodium sumo build, software AES in WASM). Data marked `xchacha20` is older `crypto_secretbox` (XSalsa20-Poly1305) and stays readable. The master key lives in IndexedDB (`skrive-crypto`), wrapped by a non-extractable WebCrypto AES-GCM key; legacy plaintext localStorage keys are migrated on startup.
 - CSP is a `<meta>` tag injected by vite.config.ts (dev and prod variants); GitHub Pages sends no headers. Meta ignores `frame-ancestors`, so main.tsx refuses to render when framed.
 - Notes hold Markdown text; HTML is sanitized (DOMPurify, strict whitelist) on the way in (paste, conversion of old notes) and out (`markdownToHtml()` for copy and export). `isSafeUrl()` gates every link that is rendered or opened.
 - No runtime-loaded external dependencies; fonts and icons are self-hosted.
@@ -44,7 +45,7 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - File System Access API only (Chrome/Edge); Firefox/Safari show an info message instead.
 - Writes `skrive-auto-backup.json` to a user-chosen folder, 5 s after notes/tags/folders change. `writeAutoBackup()` skips `verifyPermission()` to avoid prompting during background saves; a failed write re-queries permission.
 - Before the first write of each session and day, the previous file is kept as `skrive-auto-backup-<date-time>.json` (10 newest). Manual restore opens a file picker, so any of them can be restored.
-- Payload is encrypted with the master key; the key itself travels wrapped with a passphrase-derived key (PBKDF2-HMAC-SHA256 with `PBKDF2_ITERATIONS` in src/utils/crypto.ts, AES-GCM) set via `PassphraseDialog`. Legacy plaintext backups are still readable for restore but never written.
+- Payload is encrypted with the master key; the key itself travels wrapped with a passphrase-derived key (Argon2id, costs in src/utils/crypto.ts, then AES-GCM) set via `PassphraseDialog` (at least `MIN_PASSPHRASE_LENGTH`). Older PBKDF2-HMAC-SHA256 protections stay readable; a file's KDF cost must lie within the bounds there, so a crafted file cannot stall the tab. Legacy plaintext backups are still readable for restore but never written.
 - "Eksporter alle som Markdown-filer" (`exportNotesToFolder()`) writes into a new dated subfolder of the chosen folder, so nothing there is overwritten.
 - The protection carries `keyCheck` (SHA-256 of the wrapped key). If it doesn't fit the device key (or the key was just created), `backupKeyStale` stops writes until the passphrase is entered again, since a payload under one key with a protection for another opens with no passphrase.
 - Directory/backup permission is only queried at startup, never requested — `requestPermission` without a user gesture auto-denies. An expired permission sets `backupPermissionNeeded`; the popup offers reactivation, whose prompt lets the user allow on every visit (installed apps keep access by default).
@@ -71,9 +72,10 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - Find/replace (Cmd/Ctrl+F): matches by index in the text, highlights via `setFindMatches`.
 - Cmd/Ctrl+K inserts a link in the editor and focuses search elsewhere; the global handler skips on `e.defaultPrevented` or a contentEditable `composedPath()[0]`.
 - Deleting a note shows a 6 s undo toast, no confirm; folder deletion confirms because it's recursive. Both send notes to the trash.
-- Modal dialogs carry `role="dialog"` and `aria-modal="true"`: global shortcuts (except Cmd/Ctrl+S) and the sidebar's Delete/Backspace skip while one is open; the editor takes focus after it closes, only if nothing else did.
+- Modal dialogs carry `role="dialog"` and `aria-modal="true"` and use `useModal()` (Tab stays inside, focus returns to the opener); popups anchored to a button use `usePopover()`. Global shortcuts (except Cmd/Ctrl+S) and the sidebar's Delete/Backspace skip while one is open; the editor takes focus after it closes, only if nothing else did.
 - Sidebar multi-select follows Finder conventions (Cmd/Ctrl+Click toggle, Shift+Click ranges over `visibleNoteIds`'s render order); bulk delete goes through `deleteNotes()` and shares the undo toast.
 - Moving notes out of a folder: drop on the tree background, drop on another note, or "Flytt ut av mappen" in the context menu. Drop handlers stop propagation so the background handler only fires on true background drops.
+- «Flytt til mappe» in the note context menu is the keyboard path into a folder (WCAG 2.1.1); dragging must never be the only way. The hidden sidebar is `inert`, so Cmd/Ctrl+K shows it before focusing search.
 - Escape closes dialogs, popups and context menus everywhere.
 - No custom install prompt — don't intercept `beforeinstallprompt`; the browser's own address-bar icon is the only install affordance.
 - There's no separate title field: in an unnamed note, the first line plus Enter becomes the name via `captureNoteName()` and is removed from the content; `namedRef` stops a second capture before React renders the title. Renaming is inline via the sidebar context menu.
@@ -83,6 +85,9 @@ Security scope: OWASP ASVS L2 (latest released edition), Top 10, WSTG, CI/CD Top
 - All shortcut checks use `e.code`, never `e.key` — with Shift/Alt held, `e.key` reports the shifted character and varies by layout (Norwegian Shift+8 is `(`).
 - The combo list is `getShortcutLabels()` in src/utils/shortcuts.ts (labels only); keep the handlers in step with it. Windows avoids Ctrl+Alt (collides with AltGr) and Ctrl+digit (Chrome's tabs and zoom), so headings there are typed Markdown. Never reuse a browser-chrome combo (Cmd/Ctrl+N/T/W/Tab, Shift+N/T/P, F5, F11, F12).
 - The sidebar tree is a keyboard-navigable ARIA tree (roving tabindex), scoped to tree focus. Its keydown handler must bail when `e.target` is an INPUT, and reads the current row from `document.activeElement`'s `data-item-id`, not from state.
+- A note opened from the tree (click or arrows) leaves focus in the tree (`focusUnlessModal()`); plain arrows open the note they land on. Enter and Tab move to the editor (`FOCUS_EDITOR_EVENT`); Shift+Tab there returns to the tree's tab stop. Rows show CSS file-tree lines (`TreeGuide`), no icons.
+- Tab in the editor goes on to the sidebar footer, so footer, toggle and toolbar stay reachable. Up/Down in the search field and the buttons above the tree move into the tree.
+- Tree clipboard (Cmd/Ctrl+C/X/V, Cmd+Opt+V moves on Mac) goes through `pasteItems()` in AppContext: paste on a folder goes into it, on a note next to it; a cut item pasted on its own folder moves out beside it; a folder never goes into itself or a descendant.
 
 ## Versioning (differs from global)
 

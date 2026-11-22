@@ -481,3 +481,25 @@ export function TagIcon({ size = 24 }: IconProps) {
     size
   );
 }
+
+export function CutIcon({ size = 14 }: IconProps) {
+  return icon(
+    <>
+      <path d="M4 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+      <path d="M14 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" />
+      <path d="M9.15 14.85l8.85 -10.85" />
+      <path d="M6 4l8.85 10.85" />
+    </>,
+    size
+  );
+}
+
+export function ClipboardIcon({ size = 14 }: IconProps) {
+  return icon(
+    <>
+      <path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2" />
+      <path d="M9 5a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2" />
+    </>,
+    size
+  );
+}

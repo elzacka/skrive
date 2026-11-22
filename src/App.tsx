@@ -28,10 +28,16 @@ function AppContent() {
     discardRecoveryCopies,
     lastDeletedNotes,
     undoDelete,
-    dismissDeleted
+    dismissDeleted,
+    holdDeleted
   } = useApp();
   const t = i18n[state.lang];
   const [recoveryState, setRecoveryState] = useState<'idle' | 'passphrase' | 'failed' | 'saveFailed' | 'hidden'>('idle');
+
+  // Screen readers pick the voice from it
+  useEffect(() => {
+    document.documentElement.lang = state.lang === 'no' ? 'nb' : 'en';
+  }, [state.lang]);
 
   if (startupBlocked) {
     const resetKey = async () => {
@@ -102,7 +108,14 @@ function AppContent() {
         <PassphraseDialog mode="enter" onSubmit={confirmRestore} onCancel={cancelRestore} />
       )}
       {lastDeletedNotes && (
-        <div className="undo-toast" role="status">
+        <div
+          className="undo-toast"
+          role="status"
+          onMouseEnter={() => holdDeleted(true)}
+          onMouseLeave={() => holdDeleted(false)}
+          onFocus={() => holdDeleted(true)}
+          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) holdDeleted(false); }}
+        >
           <span>
             {lastDeletedNotes.length === 1
               ? t.noteDeleted

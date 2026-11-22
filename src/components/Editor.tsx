@@ -3,7 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import { undo, redo } from '@codemirror/commands';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
-import { isMac, formatDate } from '@/utils/helpers';
+import { isMac, formatDate, isUnnamed } from '@/utils/helpers';
 import { markdownToHtml, markdownToPlainText, titleFromMarkdown } from '@/utils/markdown';
 import { downloadNote, type ExportFormat } from '@/utils/fileSystem';
 import { isSafeUrl } from '@/utils/sanitize';
@@ -16,6 +16,7 @@ import { StyleMenu } from './StyleMenu';
 import { TypographyMenu } from './TypographyMenu';
 import { FONTS, SIZES, SPACINGS, loadTypography, saveTypography, type Typography } from '@/utils/typography';
 import { recordVersion } from '@/utils/storage';
+import { useModal, usePopover } from '@/hooks';
 import {
   CopyIcon,
   UndoIcon,
@@ -41,8 +42,6 @@ import {
   DeleteIcon
 } from './Icons';
 
-const DEFAULT_TITLES = [i18n.no.untitled, i18n.en.untitled, 'Notat', 'Note'];
-
 const NO_FORMATS: ActiveFormats = { bold: false, italic: false, code: false, heading: 0, list: null };
 
 function countWordsAndChars(content: string): { words: number; chars: number } {
@@ -53,6 +52,19 @@ function countWordsAndChars(content: string): { words: number; chars: number } {
 // "MD" reads as Markdown at a glance; no icon set has a clearer mark
 const MarkdownLabel = () => <span className="md-label" aria-hidden="true">MD</span>;
 
+// The modal hook needs a component that mounts with the dialog
+function LinkDialog({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useModal(ref);
+  return (
+    <div className="link-dialog-overlay" onClick={onClose}>
+      <div ref={ref} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-dialog-title" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function Editor() {
   const { state, getSelectedNote, updateNote, deleteNote, addTag, toggleNoteTag, saveStatus, trackLiveEdit } = useApp();
   const t = i18n[state.lang];
@@ -60,7 +72,7 @@ export function Editor() {
   const mac = isMac();
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
 
-  const [showTagPicker, setShowTagPicker] = useState(false);
+  const tagPicker = usePopover();
   // Bumped by the new-tag shortcut; focuses the input after the picker renders
   const [tagFocusTick, setTagFocusTick] = useState(0);
   const [newTagName, setNewTagName] = useState('');
@@ -72,15 +84,14 @@ export function Editor() {
   const [formats, setFormats] = useState<ActiveFormats>(NO_FORMATS);
   const [history, setHistory] = useState({ canUndo: false, canRedo: false });
   const [showVersions, setShowVersions] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenu = usePopover();
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkError, setLinkError] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
   const [linkRange, setLinkRange] = useState<{ from: number; to: number } | null>(null);
 
   const viewRef = useRef<EditorView | null>(null);
-  const tagPickerRef = useRef<HTMLDivElement>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
   // Notes named in this session: during fast typing React may not have
@@ -96,26 +107,19 @@ export function Editor() {
     }
   }, [tagFocusTick]);
 
-  // A different note starts without the find bar and stale toolbar state
+  // A different note starts without the find bar; MarkdownEditor reports
+  // the new note's toolbar state
   useEffect(() => {
     setShowFind(false);
     setShowVersions(false);
-    setFormats(NO_FORMATS);
-    setHistory({ canUndo: false, canRedo: false });
   }, [note?.id]);
 
-  // Close tag picker and export menu on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (tagPickerRef.current && !tagPickerRef.current.contains(e.target as Node)) {
-        setShowTagPicker(false);
-      }
-      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-        setShowExportMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  const closeLinkDialog = useCallback(() => {
+    setShowLinkDialog(false);
+    setLinkUrl('');
+    setLinkText('');
+    setLinkRange(null);
+    viewRef.current?.focus();
   }, []);
 
   // Find, new tag and Escape work wherever focus is; formatting shortcuts
@@ -124,26 +128,22 @@ export function Editor() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // The link dialog is this component's own modal
       if (e.key === 'Escape' && showLinkDialog) {
-        setShowLinkDialog(false);
-        viewRef.current?.focus();
+        closeLinkDialog();
         return;
       }
       // A modal dialog owns the keyboard
       if (document.querySelector('[aria-modal="true"]')) return;
       if (e.key === 'Escape') {
-        if (showTagPicker) {
-          setShowTagPicker(false);
-        } else if (showExportMenu) {
-          setShowExportMenu(false);
-        } else if (showFind) {
+        if (showFind) {
           setShowFind(false);
           viewRef.current?.focus();
         }
         return;
       }
       if (!noteRef.current) return;
-      const isCmd = e.metaKey || e.ctrlKey;
-      if (isCmd && !e.altKey && !e.shiftKey && e.code === 'KeyF') {
+      // Ctrl+F on a Mac is CodeMirror's cursor-right
+      const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+      if (mod && !e.altKey && !e.shiftKey && e.code === 'KeyF') {
         e.preventDefault();
         setShowFind(true);
         setFindFocusTick(tick => tick + 1);
@@ -154,13 +154,13 @@ export function Editor() {
         : (e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'Digit4');
       if (newTagCombo) {
         e.preventDefault();
-        setShowTagPicker(true);
+        tagPicker.setOpen(true);
         setTagFocusTick(tick => tick + 1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mac, showLinkDialog, showTagPicker, showExportMenu, showFind]);
+  }, [mac, showLinkDialog, showFind, closeLinkDialog, tagPicker.setOpen]);
 
   const closeVersions = useCallback(() => {
     setShowVersions(false);
@@ -184,9 +184,11 @@ export function Editor() {
     const current = noteRef.current;
     const view = viewRef.current;
     if (!current || !view) return false;
-    if (namedRef.current.has(current.id) || (current.title && !DEFAULT_TITLES.includes(current.title))) return false;
+    if (namedRef.current.has(current.id) || !isUnnamed(current.title)) return false;
     const doc = view.state.doc.toString();
-    if (!doc.trim() || doc.includes('\n')) return false;
+    // Enter inside the line splits it, as everywhere else
+    const { empty, head } = view.state.selection.main;
+    if (!doc.trim() || doc.includes('\n') || !empty || head !== doc.length) return false;
     const name = titleFromMarkdown(doc);
     if (!name) return false;
     namedRef.current.add(current.id);
@@ -223,6 +225,7 @@ export function Editor() {
     setLinkRange({ from, to });
     setLinkText(view.state.sliceDoc(from, to));
     setLinkUrl('');
+    setLinkError(false);
     setShowLinkDialog(true);
   }, []);
 
@@ -246,13 +249,12 @@ export function Editor() {
   const confirmLink = () => {
     const view = viewRef.current;
     const url = /^[a-z][a-z0-9+.-]*:/i.test(linkUrl) ? linkUrl : `https://${linkUrl}`;
-    if (view && linkRange && linkUrl && isSafeUrl(url)) {
-      insertLink(view, url, linkText, linkRange);
+    if (!isSafeUrl(url)) {
+      setLinkError(true);
+      return;
     }
-    setShowLinkDialog(false);
-    setLinkUrl('');
-    setLinkText('');
-    setLinkRange(null);
+    if (view && linkRange) insertLink(view, url, linkText, linkRange);
+    closeLinkDialog();
   };
 
   const run = (command: (view: EditorView) => boolean) => {
@@ -288,7 +290,7 @@ export function Editor() {
   // Arrow keys move focus within a toolbar (WAI-ARIA toolbar pattern)
   const handleToolbarKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.format-group > button, .style-menu > button, .type-menu > button'));
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.format-group > button:not(:disabled), .style-menu > button, .type-menu > button'));
     const index = items.indexOf(document.activeElement as HTMLElement);
     if (index === -1) return;
     e.preventDefault();
@@ -317,7 +319,7 @@ export function Editor() {
 
   const handleExport = (format: ExportFormat) => {
     downloadNote(note, format);
-    setShowExportMenu(false);
+    exportMenu.setOpen(false);
   };
 
   const saveStatusText = { saving: t.saving, unsaved: t.unsaved, error: t.saveError, saved: t.saved }[saveStatus];
@@ -325,8 +327,7 @@ export function Editor() {
   // Buttons keep the caret in the editor
   const keepFocus = (e: React.MouseEvent) => e.preventDefault();
 
-  const isUnnamed = !note.title || DEFAULT_TITLES.includes(note.title);
-  const placeholderText = isUnnamed ? t.editorPlaceholder : t.writeHere;
+  const placeholderText = isUnnamed(note.title) ? t.editorPlaceholder : t.writeHere;
 
   const formatButton = (label: string, shortcut: string | null, active: boolean | null, onClick: () => void, Icon: (props: { size?: number }) => React.ReactElement) => (
     <button
@@ -368,7 +369,8 @@ export function Editor() {
           <div className="format-group">
             <StyleMenu
               label={t.textStyle}
-              value={Math.min(formats.heading, 3)}
+              value={formats.heading <= 3 ? formats.heading : null}
+              otherLabel={`H${formats.heading}`}
               onSelect={(level) => run(view => setHeading(view, level))}
               options={[
                 { label: t.bodyText, shortcut: shortcuts.bodyText },
@@ -400,28 +402,31 @@ export function Editor() {
         </div>
         <div className="header-actions">
           <div className="format-group">
-            <span className={`save-status ${saveStatus}`} title={saveStatusText} aria-live="polite">
+            <span className={`save-status ${saveStatus}`} title={saveStatusText}>
               {saveStatus === 'unsaved' && <CircleIcon size={9} />}
               {saveStatus === 'saving' && <LoaderCircleIcon size={12} />}
               {saveStatus === 'saved' && <CheckIcon size={13} />}
               {saveStatus === 'error' && <CircleAlertIcon size={13} />}
             </span>
+            {/* Only a failure is spoken: the other states change on every keystroke */}
+            <span className="visually-hidden" role="alert">{saveStatus === 'error' ? saveStatusText : ''}</span>
             <button className="action-btn icon-btn" onClick={() => setShowVersions(true)} title={t.history} aria-label={t.history}>
               <HistoryIcon />
             </button>
           </div>
           <div className="format-group">
-            <div className="export-menu-container" ref={tagPickerRef}>
+            <div className="export-menu-container" {...tagPicker.rootProps}>
               <button
+                ref={tagPicker.triggerRef}
                 className="action-btn icon-btn"
-                onClick={() => setShowTagPicker(!showTagPicker)}
-                aria-expanded={showTagPicker}
+                onClick={() => tagPicker.setOpen(!tagPicker.open)}
+                aria-expanded={tagPicker.open}
                 title={t.assignTags}
                 aria-label={t.assignTags}
               >
                 <TagIcon size={14} />
               </button>
-              {showTagPicker && (
+              {tagPicker.open && (
                 <div className="tag-picker show">
                   {state.tags.length > 0 && (
                     <div className="tag-picker-list">
@@ -455,17 +460,18 @@ export function Editor() {
             <button className="action-btn icon-btn" onClick={handleCopy} title={t.copyToClipboard} aria-label={t.copy}>
               {copyFeedback ? <CheckIcon /> : <CopyIcon />}
             </button>
-            <div className="export-menu-container" ref={exportMenuRef}>
+            <div className="export-menu-container" {...exportMenu.rootProps}>
               <button
+                ref={exportMenu.triggerRef}
                 className="action-btn icon-btn"
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                aria-expanded={showExportMenu}
-                title={t.save}
-                aria-label={t.save}
+                onClick={() => exportMenu.setOpen(!exportMenu.open)}
+                aria-expanded={exportMenu.open}
+                title={t.exportNote}
+                aria-label={t.exportNote}
               >
                 <DownloadIcon size={14} />
               </button>
-              {showExportMenu && (
+              {exportMenu.open && (
                 <div className="export-menu">
                   <button onClick={() => handleExport('markdown')}>{t.exportAsMarkdown}</button>
                   <button onClick={() => handleExport('html')}>{t.exportAsHtml}</button>
@@ -482,11 +488,10 @@ export function Editor() {
       </div>
 
       {showLinkDialog && (
-        <div className="link-dialog-overlay">
-          <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-dialog-title">
+        <LinkDialog onClose={closeLinkDialog}>
             <div className="link-dialog-header">
               <h3 id="link-dialog-title">{t.insertLink}</h3>
-              <button className="link-dialog-close" onClick={() => setShowLinkDialog(false)} aria-label={t.close}>
+              <button className="link-dialog-close" onClick={closeLinkDialog} aria-label={t.close}>
                 <CloseIcon size={16} />
               </button>
             </div>
@@ -496,8 +501,10 @@ export function Editor() {
                 <input
                   type="url"
                   value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) confirmLink(); }}
+                  onChange={(e) => { setLinkUrl(e.target.value); setLinkError(false); }}
+                  aria-invalid={linkError}
+                  aria-describedby={linkError ? 'link-error' : undefined}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) { e.preventDefault(); confirmLink(); } }}
                   placeholder="https://..."
                   autoFocus
                 />
@@ -508,21 +515,21 @@ export function Editor() {
                   type="text"
                   value={linkText}
                   onChange={(e) => setLinkText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) confirmLink(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && linkUrl) { e.preventDefault(); confirmLink(); } }}
                   placeholder={t.optional}
                 />
               </label>
+              {linkError && <p id="link-error" className="dialog-error">{t.linkUnsafe}</p>}
             </div>
             <div className="link-dialog-actions">
-              <button className="action-btn" onClick={() => setShowLinkDialog(false)}>
+              <button className="action-btn" onClick={closeLinkDialog}>
                 {t.cancel}
               </button>
               <button className="action-btn save-btn" onClick={confirmLink} disabled={!linkUrl}>
                 {t.insert}
               </button>
             </div>
-          </div>
-        </div>
+        </LinkDialog>
       )}
 
 

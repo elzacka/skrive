@@ -95,10 +95,13 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    // libsodium is one file with its WASM inlined, and CodeMirror and React
+    // load up front for an offline app; neither chunk can split further
+    chunkSizeWarningLimit: 1100,
     rollupOptions: {
       output: {
         manualChunks: {
-          'libsodium': ['libsodium-wrappers']
+          'libsodium': ['libsodium-wrappers-sumo']
         }
       }
     }

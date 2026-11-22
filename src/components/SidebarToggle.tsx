@@ -12,6 +12,7 @@ export function SidebarToggle() {
       className="sidebar-toggle"
       onClick={toggleSidebar}
       aria-label={label}
+      aria-expanded={state.sidebarVisible}
       title={label}
     >
       {state.sidebarVisible ? <ChevronLeftIcon size={20} /> : <ChevronRightIcon size={20} />}

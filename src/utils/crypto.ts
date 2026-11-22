@@ -1,9 +1,10 @@
-// Note encryption (AEGIS-256, XChaCha20-Poly1305 fallback) and key storage;
-// the design is in CLAUDE.md under Security and Auto-backup
+// Note encryption (AEGIS-256) and key storage; the design is in CLAUDE.md
+// under Security and Auto-backup
 
-import sodium from 'libsodium-wrappers';
+import sodium from 'libsodium-wrappers-sumo';
+import { openDb } from './idb';
 
-// Type augmentation for AEGIS-256 functions (not in default libsodium types)
+// AEGIS-256 is in the bundled build but not in its type definitions
 interface SodiumWithAegis {
   crypto_aead_aegis256_encrypt(
     message: Uint8Array,
@@ -21,17 +22,14 @@ interface SodiumWithAegis {
   ): Uint8Array | null;
 }
 
-// Helper to check if AEGIS-256 is available
-function hasAegis256Support(s: typeof sodium): s is typeof sodium & SodiumWithAegis {
-  return typeof (s as SodiumWithAegis).crypto_aead_aegis256_encrypt === 'function';
-}
+const aegis = () => sodium as typeof sodium & SodiumWithAegis;
 
 // Legacy localStorage key (migrated to IndexedDB on startup)
 const LEGACY_KEY_STORAGE_KEY = 'skrive-key';
 
 const MASTER_KEY_BYTES = 32;
 
-// Encryption algorithm type
+// 'xchacha20' marks older data sealed with crypto_secretbox (XSalsa20-Poly1305)
 export type EncryptionAlgorithm = 'aegis256' | 'xchacha20';
 
 // Encrypted data structure
@@ -42,52 +40,46 @@ export interface EncryptedData {
   version: number;    // for future compatibility
 }
 
-// Master key wrapped with a passphrase-derived key (for backup files)
-export interface PassphraseWrappedKey {
-  kdf: 'PBKDF2-SHA256';
-  iterations: number;
+// Master key wrapped with a passphrase-derived key (for backup files).
+// New protections use Argon2id; PBKDF2 ones stay readable
+type KdfCost =
+  | { kdf: 'Argon2id'; opslimit: number; memlimit: number }
+  | { kdf: 'PBKDF2-SHA256'; iterations: number };
+
+export type PassphraseWrappedKey = KdfCost & {
   salt: string;       // base64
   iv: string;         // base64
   wrappedKey: string; // base64
   // Fingerprint of the wrapped key, absent in older protections: shows
   // without the passphrase whether the protection still fits the device key
   keyCheck?: string;
-}
+};
 
+// Above OWASP's Argon2id minimum (19 MiB, 2 passes); about 0.1 s in WASM
+const ARGON2_OPSLIMIT = 3;
+const ARGON2_MEMLIMIT = 64 * 1024 * 1024;
+// Bounds on the cost a backup file may ask for: too low is weak, too high
+// stalls the tab
+const MAX_ARGON2_OPSLIMIT = 10;
+const MAX_ARGON2_MEMLIMIT = 256 * 1024 * 1024;
 const PBKDF2_ITERATIONS = 600000;
+// OWASP ASVS minimum for a secret that is the only factor
+export const MIN_PASSPHRASE_LENGTH = 15;
+const MAX_PBKDF2_ITERATIONS = 2000000;
+
+const toB64 = (bytes: Uint8Array) => sodium.to_base64(bytes, sodium.base64_variants.URLSAFE_NO_PADDING);
+const fromB64 = (value: string) => sodium.from_base64(value, sodium.base64_variants.URLSAFE_NO_PADDING);
 
 // Master key stored in memory
 let masterKey: Uint8Array | null = null;
-let isInitialized = false;
-let preferredAlgorithm: EncryptionAlgorithm = 'xchacha20';
 
-/**
- * Initialize libsodium and detect best algorithm
- */
 export async function initCrypto(): Promise<void> {
-  if (isInitialized) return;
-
   await sodium.ready;
-
-  // Check if AEGIS-256 is available (requires AES hardware acceleration)
-  if (hasAegis256Support(sodium)) {
-    preferredAlgorithm = 'aegis256';
-  } else {
-    preferredAlgorithm = 'xchacha20';
-  }
-
-  isInitialized = true;
 }
 
-/**
- * Generate a new master key
- */
 async function generateMasterKey(): Promise<Uint8Array> {
   await initCrypto();
-
-  // Both AEGIS-256 and XChaCha20-Poly1305 use 256-bit keys
-  const key = sodium.crypto_secretbox_keygen();
-  return key;
+  return sodium.randombytes_buf(MASTER_KEY_BYTES);
 }
 
 /**
@@ -109,19 +101,7 @@ interface WrappedMasterKeyRecord {
   data: Uint8Array;
 }
 
-function openCryptoDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(CRYPTO_DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(CRYPTO_STORE)) {
-        db.createObjectStore(CRYPTO_STORE);
-      }
-    };
-  });
-}
+const openCryptoDb = () => openDb(CRYPTO_DB_NAME, CRYPTO_STORE);
 
 function dbGet<T>(db: IDBDatabase, key: string): Promise<T | null> {
   return new Promise((resolve, reject) => {
@@ -229,7 +209,7 @@ export async function initializeEncryption(): Promise<'loaded' | 'created'> {
 // SHA-256 of a random 256-bit key reveals nothing usable about it
 async function keyFingerprint(key: Uint8Array): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', key as BufferSource));
-  return sodium.to_base64(digest, sodium.base64_variants.URLSAFE_NO_PADDING);
+  return toB64(digest);
 }
 
 // null when an older protection has no fingerprint
@@ -241,29 +221,33 @@ export async function protectionFitsKey(protection: PassphraseWrappedKey, key: U
 
 // Throws if the URL-safe base64 string is not a valid 256-bit key
 function importKeyFromBase64(base64Key: string): Uint8Array {
-  const key = sodium.from_base64(base64Key, sodium.base64_variants.URLSAFE_NO_PADDING);
+  const key = fromB64(base64Key);
   if (key.length !== MASTER_KEY_BYTES) {
     throw new Error('Invalid key length');
   }
   return key;
 }
 
-// Passphrase wrapping for backup files (WebCrypto PBKDF2 + AES-GCM)
+// Passphrase wrapping for backup files (Argon2id or PBKDF2, then AES-GCM)
 
-async function deriveKeyFromPassphrase(
-  passphrase: string,
-  salt: Uint8Array,
-  iterations: number
-): Promise<CryptoKey> {
-  const baseKey = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
+async function aesKey(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', raw as BufferSource, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+
+// Throws on a cost outside the bounds, before any work is done
+async function deriveKeyFromPassphrase(passphrase: string, salt: Uint8Array, p: KdfCost): Promise<CryptoKey> {
+  if (p.kdf === 'Argon2id') {
+    if (!(p.opslimit >= ARGON2_OPSLIMIT && p.opslimit <= MAX_ARGON2_OPSLIMIT && p.memlimit >= ARGON2_MEMLIMIT && p.memlimit <= MAX_ARGON2_MEMLIMIT)) {
+      throw new Error('Argon2id cost out of bounds');
+    }
+    return aesKey(sodium.crypto_pwhash(32, passphrase, salt, p.opslimit, p.memlimit, sodium.crypto_pwhash_ALG_ARGON2ID13));
+  }
+  if (p.kdf !== 'PBKDF2-SHA256' || !(p.iterations >= PBKDF2_ITERATIONS && p.iterations <= MAX_PBKDF2_ITERATIONS)) {
+    throw new Error('Unsupported key derivation');
+  }
+  const baseKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: salt as BufferSource, iterations },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: salt as BufferSource, iterations: p.iterations },
     baseKey,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -271,41 +255,20 @@ async function deriveKeyFromPassphrase(
   );
 }
 
-/**
- * Wrap the master key with a passphrase-derived key (for backup files)
- */
-export async function wrapKeyWithPassphrase(
-  key: Uint8Array,
-  passphrase: string
-): Promise<PassphraseWrappedKey> {
+export async function wrapKeyWithPassphrase(key: Uint8Array, passphrase: string): Promise<PassphraseWrappedKey> {
   await initCrypto();
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const salt = sodium.randombytes_buf(sodium.crypto_pwhash_SALTBYTES);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const derived = await deriveKeyFromPassphrase(passphrase, salt, PBKDF2_ITERATIONS);
-  const wrapped = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derived, key as BufferSource)
-  );
-  const b64 = (bytes: Uint8Array) =>
-    sodium.to_base64(bytes, sodium.base64_variants.URLSAFE_NO_PADDING);
-  return {
-    keyCheck: await keyFingerprint(key),
-    kdf: 'PBKDF2-SHA256',
-    iterations: PBKDF2_ITERATIONS,
-    salt: b64(salt),
-    iv: b64(iv),
-    wrappedKey: b64(wrapped)
-  };
+  const cost = { kdf: 'Argon2id', opslimit: ARGON2_OPSLIMIT, memlimit: ARGON2_MEMLIMIT } as const;
+  const derived = await deriveKeyFromPassphrase(passphrase, salt, cost);
+  const wrapped = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, derived, key as BufferSource));
+  return { keyCheck: await keyFingerprint(key), ...cost, salt: toB64(salt), iv: toB64(iv), wrappedKey: toB64(wrapped) };
 }
 
-// Throws on a wrong passphrase or corrupted data
-export async function unwrapKeyWithPassphrase(
-  wrapped: PassphraseWrappedKey,
-  passphrase: string
-): Promise<Uint8Array> {
+// Throws on a wrong passphrase, corrupted data or an unsupported cost
+export async function unwrapKeyWithPassphrase(wrapped: PassphraseWrappedKey, passphrase: string): Promise<Uint8Array> {
   await initCrypto();
-  const fromB64 = (value: string) =>
-    sodium.from_base64(value, sodium.base64_variants.URLSAFE_NO_PADDING);
-  const derived = await deriveKeyFromPassphrase(passphrase, fromB64(wrapped.salt), wrapped.iterations);
+  const derived = await deriveKeyFromPassphrase(passphrase, fromB64(wrapped.salt), wrapped);
   const plain = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: fromB64(wrapped.iv) as BufferSource },
     derived,
@@ -318,9 +281,6 @@ export async function unwrapKeyWithPassphrase(
   return key;
 }
 
-/**
- * Encrypt data using the preferred algorithm
- */
 export async function encrypt(plaintext: string, key?: Uint8Array): Promise<EncryptedData> {
   await initCrypto();
 
@@ -329,13 +289,7 @@ export async function encrypt(plaintext: string, key?: Uint8Array): Promise<Encr
     throw new Error('No encryption key available');
   }
 
-  const plaintextBytes = sodium.from_string(plaintext);
-
-  if (preferredAlgorithm === 'aegis256' && hasAegis256Support(sodium)) {
-    return encryptAegis256(plaintextBytes, encryptionKey);
-  } else {
-    return encryptXChaCha20(plaintextBytes, encryptionKey);
-  }
+  return encryptAegis256(sodium.from_string(plaintext), encryptionKey);
 }
 
 /**
@@ -349,97 +303,20 @@ export async function decrypt(encryptedData: EncryptedData, key?: Uint8Array): P
     throw new Error('No decryption key available');
   }
 
-  const nonce = sodium.from_base64(encryptedData.nonce, sodium.base64_variants.URLSAFE_NO_PADDING);
-  const ciphertext = sodium.from_base64(encryptedData.ciphertext, sodium.base64_variants.URLSAFE_NO_PADDING);
-
-  let plaintext: Uint8Array;
-
-  if (encryptedData.algorithm === 'aegis256') {
-    plaintext = decryptAegis256(ciphertext, nonce, decryptionKey);
-  } else {
-    plaintext = decryptXChaCha20(ciphertext, nonce, decryptionKey);
+  const nonce = fromB64(encryptedData.nonce);
+  const ciphertext = fromB64(encryptedData.ciphertext);
+  const plaintext = encryptedData.algorithm === 'aegis256'
+    ? aegis().crypto_aead_aegis256_decrypt(null, ciphertext, null, nonce, decryptionKey)
+    : sodium.crypto_secretbox_open_easy(ciphertext, nonce, decryptionKey);
+  if (!plaintext) {
+    throw new Error('Decryption failed - invalid ciphertext or key');
   }
-
   return sodium.to_string(plaintext);
 }
 
-/**
- * Encrypt using AEGIS-256 (fastest, key-committing)
- */
+// AEGIS-256: key-committing, with a random 256-bit nonce
 function encryptAegis256(plaintext: Uint8Array, key: Uint8Array): EncryptedData {
-  if (!hasAegis256Support(sodium)) {
-    throw new Error('AEGIS-256 not available');
-  }
-
-  // AEGIS-256 uses 256-bit (32 byte) nonce
   const nonce = sodium.randombytes_buf(32);
-
-  const ciphertext = sodium.crypto_aead_aegis256_encrypt(
-    plaintext,
-    null,
-    null,
-    nonce,
-    key
-  );
-
-  return {
-    algorithm: 'aegis256',
-    nonce: sodium.to_base64(nonce, sodium.base64_variants.URLSAFE_NO_PADDING),
-    ciphertext: sodium.to_base64(ciphertext, sodium.base64_variants.URLSAFE_NO_PADDING),
-    version: 1
-  };
+  const ciphertext = aegis().crypto_aead_aegis256_encrypt(plaintext, null, null, nonce, key);
+  return { algorithm: 'aegis256', nonce: toB64(nonce), ciphertext: toB64(ciphertext), version: 1 };
 }
-
-/**
- * Decrypt using AEGIS-256
- */
-function decryptAegis256(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array {
-  if (!hasAegis256Support(sodium)) {
-    throw new Error('AEGIS-256 not available');
-  }
-
-  const plaintext = sodium.crypto_aead_aegis256_decrypt(
-    null,
-    ciphertext,
-    null,
-    nonce,
-    key
-  );
-
-  if (!plaintext) {
-    throw new Error('Decryption failed - invalid ciphertext or key');
-  }
-
-  return plaintext;
-}
-
-/**
- * Encrypt using XChaCha20-Poly1305 (fallback, constant-time)
- */
-function encryptXChaCha20(plaintext: Uint8Array, key: Uint8Array): EncryptedData {
-  // XChaCha20-Poly1305 uses 192-bit (24 byte) nonce
-  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
-
-  const ciphertext = sodium.crypto_secretbox_easy(plaintext, nonce, key);
-
-  return {
-    algorithm: 'xchacha20',
-    nonce: sodium.to_base64(nonce, sodium.base64_variants.URLSAFE_NO_PADDING),
-    ciphertext: sodium.to_base64(ciphertext, sodium.base64_variants.URLSAFE_NO_PADDING),
-    version: 1
-  };
-}
-
-/**
- * Decrypt using XChaCha20-Poly1305
- */
-function decryptXChaCha20(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array {
-  const plaintext = sodium.crypto_secretbox_open_easy(ciphertext, nonce, key);
-
-  if (!plaintext) {
-    throw new Error('Decryption failed - invalid ciphertext or key');
-  }
-
-  return plaintext;
-}
-

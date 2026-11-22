@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
-import type { AppState, Note, TrashedNote, Tag, Folder, FileSystemDirectoryHandle } from '@/types';
+import type { AppState, Note, TrashedNote, Tag, Folder, FileSystemDirectoryHandle, TreeClipboard } from '@/types';
 import {
   loadFromStorageEncrypted,
   saveToStorageEncrypted,
@@ -8,7 +8,7 @@ import {
   exportToJsonFile,
   importFromJsonFile,
   importNoteFromFile,
-  validateImportData,
+  parseImportData,
   listRecoveryCopies,
   readRecoveryCopies,
   deleteRecoveryCopies,
@@ -45,7 +45,7 @@ import {
   type EncryptedBackupFile,
   type LegacyAutoBackupData
 } from '@/utils/fileSystem';
-import { generateId, isFileSystemAccessSupported } from '@/utils/helpers';
+import { generateId, isFileSystemAccessSupported, defaultNoteTitle } from '@/utils/helpers';
 import { htmlToMarkdown } from '@/utils/markdown';
 
 // Notes are Markdown. HTML notes from older versions, backups and imports
@@ -94,12 +94,14 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
+const UNDO_MS = 6000;
+
 // Helper to build a new note object
 function buildNote(lang: 'no' | 'en', parentId: string | null = null): Note {
   const now = Date.now();
   return {
     id: generateId(),
-    title: lang === 'no' ? 'Notat' : 'Note',
+    title: defaultNoteTitle(lang),
     content: '',
     format: 'markdown',
     tags: [],
@@ -315,6 +317,8 @@ interface AppContextValue {
   lastDeletedNotes: Note[] | null;
   undoDelete: () => void;
   dismissDeleted: () => void;
+  // Pauses the undo timer while the pointer or focus is on the toast
+  holdDeleted: (hold: boolean) => void;
 
   // Trash
   restoreFromTrash: (ids: string[]) => void;
@@ -331,6 +335,7 @@ interface AppContextValue {
   deleteNotes: (ids: string[]) => void;
   selectNote: (id: string | null) => void;
   moveNote: (noteId: string, targetFolderId: string | null) => void;
+  pasteItems: (items: TreeClipboard, targetFolderId: string | null) => void;
 
   // Tags
   addTag: (name: string) => void;
@@ -350,7 +355,7 @@ interface AppContextValue {
   
   // File System
   
-  // Import/Export
+  // Import and export
   exportAllData: () => void;
   importData: () => Promise<boolean>;
   importNote: () => Promise<boolean>;
@@ -457,8 +462,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Legacy backups hold plaintext notes; their key is not needed
-  const restoreLegacyBackup = useCallback((data: LegacyAutoBackupData): boolean => {
-    if (!validateImportData(data)) {
+  const restoreLegacyBackup = useCallback((backup: LegacyAutoBackupData): boolean => {
+    const data = parseImportData(backup);
+    if (!data) {
       console.warn('Legacy backup failed validation');
       return false;
     }
@@ -808,8 +814,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'DELETE_NOTES', payload: ids });
     setLastDeletedNotes(notes);
     if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
-    deleteTimerRef.current = setTimeout(() => setLastDeletedNotes(null), 6000);
+    deleteTimerRef.current = setTimeout(() => setLastDeletedNotes(null), UNDO_MS);
   }, [state.notes]);
+
+  const holdDeleted = useCallback((hold: boolean) => {
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    if (!hold) deleteTimerRef.current = setTimeout(() => setLastDeletedNotes(null), UNDO_MS);
+  }, []);
 
   const deleteNote = useCallback((id: string) => {
     deleteNotes([id]);
@@ -845,6 +856,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const moveNote = useCallback((noteId: string, targetFolderId: string | null) => {
     dispatch({ type: 'UPDATE_NOTE', payload: { id: noteId, updates: { parentId: targetFolderId } } });
+  }, []);
+
+  // Copies or moves notes and folders into a folder (null: the top level).
+  // A folder never goes into itself or its subfolders, and a copy in its own
+  // folder gets "kopi"/"copy" added to its name, as duplicateNote does
+  const pasteItems = useCallback((items: TreeClipboard, target: string | null) => {
+    const { notes, folders, lang } = stateRef.current;
+    const within = (folderId: string | null, ancestor: string) => {
+      for (let id = folderId; id; id = folders.find(f => f.id === id)?.parentId ?? null) {
+        if (id === ancestor) return true;
+      }
+      return false;
+    };
+    const folderIds = items.folders.filter(id => !within(target, id));
+    // Notes inside a pasted folder travel with it
+    const noteIds = items.notes.filter(id => !folderIds.some(f => within(notes.find(n => n.id === id)?.parentId ?? null, f)));
+    if (items.mode === 'move') {
+      noteIds.forEach(id => dispatch({ type: 'UPDATE_NOTE', payload: { id, updates: { parentId: target } } }));
+      folderIds.forEach(id => dispatch({ type: 'UPDATE_FOLDER', payload: { id, updates: { parentId: target } } }));
+      return;
+    }
+    const now = Date.now();
+    const suffix = lang === 'no' ? 'kopi' : 'copy';
+    const copyNote = (note: Note, parentId: string | null, rename: boolean) => dispatch({ type: 'ADD_NOTE', payload: {
+      ...note, id: generateId(), title: rename && note.title ? `${note.title} ${suffix}` : note.title, parentId, createdAt: now, updatedAt: now
+    } });
+    const copyFolder = (folder: Folder, parentId: string | null, rename: boolean) => {
+      const id = generateId();
+      dispatch({ type: 'ADD_FOLDER', payload: { ...folder, id, parentId, name: rename ? `${folder.name} ${suffix}` : folder.name } });
+      folders.filter(f => f.parentId === folder.id).forEach(f => copyFolder(f, id, false));
+      notes.filter(n => n.parentId === folder.id).forEach(n => copyNote(n, id, false));
+    };
+    folderIds.forEach(id => { const f = folders.find(x => x.id === id); if (f) copyFolder(f, target, f.parentId === target); });
+    noteIds.forEach(id => { const n = notes.find(x => x.id === id); if (n) copyNote(n, target, n.parentId === target); });
   }, []);
 
   const addTag = useCallback((name: string) => {
@@ -983,8 +1028,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       const backupKey = await unwrapKeyWithPassphrase(file.keyProtection, passphrase);
-      const data: unknown = JSON.parse(await decrypt(file.payload, backupKey));
-      if (!validateImportData(data)) {
+      const data = parseImportData(JSON.parse(await decrypt(file.payload, backupKey)));
+      if (!data) {
         console.warn('Encrypted backup failed validation');
         return false;
       }
@@ -1167,6 +1212,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lastDeletedNotes,
     undoDelete,
     dismissDeleted,
+    holdDeleted,
+    pasteItems,
     restoreFromTrash,
     purgeFromTrash,
     setLang,

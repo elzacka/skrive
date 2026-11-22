@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { isMac, isFirefox, isSafari, isIpad, isPWAInstalled } from '@/utils';
 import { getShortcutLabels } from '@/utils/shortcuts';
-import type { Note, Folder } from '@/types';
+import type { Note, Folder, TreeClipboard } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import {
   PlusIcon,
-  ChevronRightIcon,
   FolderIcon,
   FolderOutputIcon,
   NoteIcon,
@@ -24,11 +23,15 @@ import {
   ArticleIcon,
   FolderCogIcon,
   FolderCheckIcon,
-  FolderDownIcon
+  FolderDownIcon,
+  CutIcon,
+  ClipboardIcon
 } from './Icons';
 import { PassphraseDialog } from './PassphraseDialog';
+import { FOCUS_EDITOR_EVENT } from './MarkdownEditor';
 import { TrashDialog } from './TrashDialog';
 import { exportNotesToFolder } from '@/utils/fileSystem';
+import { TRASH_DAYS } from '@/utils/storage';
 
 interface TreeItemProps {
   folder: Folder;
@@ -55,9 +58,42 @@ interface TreeItemProps {
   focusId: string | null;
   onRowFocus: (id: string) => void;
   registerRowRef: (id: string, el: HTMLDivElement | null) => void;
+  branch: Branch;
 }
 
+// Where a row sits under its folder: a line for each ancestor with more
+// rows below it, and whether the row is its folder's last. null at the top
+type Branch = { guides: boolean[]; isLast: boolean } | null;
+
+// File-tree lines, drawn in CSS so they run unbroken from row to row
+function TreeGuide({ branch }: { branch: Branch }) {
+  if (!branch) return null;
+  return (
+    <span className="tree-guide" aria-hidden="true">
+      {branch.guides.map((more, i) => <span key={i} className={more ? 'tree-guide-line' : 'tree-guide-space'} />)}
+      <span className={branch.isLast ? 'tree-guide-last' : 'tree-guide-mid'} />
+    </span>
+  );
+}
+
+const childBranch = (parent: Branch, isLast: boolean): Branch =>
+  ({ guides: parent ? [...parent.guides, !parent.isLast] : [], isLast });
+
 export type NoteSortMode = 'alpha' | 'recent';
+
+type FooterPopup = 'privacy' | 'guide' | 'shortcuts' | 'lang' | 'backup';
+
+// Up and down arrows move between the buttons of a popup or menu
+function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]'));
+  if (items.length === 0) return;
+  e.preventDefault();
+  const i = items.indexOf(document.activeElement as HTMLElement);
+  const down = e.key === 'ArrowDown';
+  const next = i === -1 ? (down ? 0 : items.length - 1) : (i + (down ? 1 : items.length - 1)) % items.length;
+  items[next].focus();
+}
 
 function compareNotes(a: Note, b: Note, sortMode: NoteSortMode, untitledText: string, lang: string): number {
   if (sortMode === 'recent') {
@@ -66,7 +102,7 @@ function compareNotes(a: Note, b: Note, sortMode: NoteSortMode, untitledText: st
   return (a.title || untitledText).localeCompare(b.title || untitledText, lang);
 }
 
-const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, lang }: TreeItemProps & { lang: string }) {
+function TreeFolder({ folder, folders, notes, selectedNoteId, multiSelectedIds, onSelectNote, onToggleFolder, onContextMenu, onMoveNote, editingFolderId, editingFolderName, onEditingFolderNameChange, onSaveFolderName, onFolderKeyDown, untitledText, sortMode, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, branch, lang }: TreeItemProps & { lang: string }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const childFolders = useMemo(
     () => folders.filter(f => f.parentId === folder.id).sort((a, b) => a.name.localeCompare(b.name, lang)),
@@ -117,14 +153,7 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <button
-          className={`tree-expand ${folder.expanded ? 'expanded' : ''} ${!hasChildren ? 'hidden' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleFolder(folder.id); }}
-          aria-label={folder.expanded ? 'Collapse' : 'Expand'}
-        >
-          <ChevronRightIcon />
-        </button>
-        <span className="tree-icon"><FolderIcon /></span>
+        <TreeGuide branch={branch} />
         {isEditing ? (
           <input
             type="text"
@@ -137,14 +166,19 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="tree-label">{folder.name}</span>
+          <span className="tree-label">
+            {folder.name}
+            {/* A collapsed folder hides rows; aria-expanded says so to screen readers */}
+            {!folder.expanded && hasChildren && <span className="tree-hint" aria-hidden="true"> …</span>}
+          </span>
         )}
       </div>
       {folder.expanded && hasChildren && (
         <div className="tree-children expanded" role="group">
-          {childFolders.map(child => (
+          {childFolders.map((child, i) => (
             <TreeFolder
               key={child.id}
+              branch={childBranch(branch, i === childFolders.length - 1 && childNotes.length === 0)}
               folder={child}
               folders={folders}
               notes={notes}
@@ -172,9 +206,10 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
               lang={lang}
             />
           ))}
-          {childNotes.map(note => (
+          {childNotes.map((note, i) => (
             <TreeNote
               key={note.id}
+              branch={childBranch(branch, i === childNotes.length - 1)}
               note={note}
               isSelected={note.id === selectedNoteId}
               isMultiSelected={multiSelectedIds.has(note.id)}
@@ -196,7 +231,7 @@ const TreeFolder = memo(function TreeFolder({ folder, folders, notes, selectedNo
       )}
     </div>
   );
-});
+}
 
 interface TreeNoteProps {
   note: Note;
@@ -214,9 +249,10 @@ interface TreeNoteProps {
   focusId: string | null;
   onRowFocus: (id: string) => void;
   registerRowRef: (id: string, el: HTMLDivElement | null) => void;
+  branch: Branch;
 }
 
-const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, onMoveNote, untitledText, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef }: TreeNoteProps) {
+function TreeNote({ note, isSelected, isMultiSelected, onSelect, onContextMenu, onMoveNote, untitledText, editingNoteId, editingNoteName, onEditingNoteNameChange, onSaveNoteName, onNoteNameKeyDown, focusId, onRowFocus, registerRowRef, branch }: TreeNoteProps) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('text/plain', note.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -257,8 +293,7 @@ const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onS
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <span className="tree-expand hidden"><ChevronRightIcon /></span>
-        <span className="tree-icon"><NoteIcon /></span>
+        <TreeGuide branch={branch} />
         {isEditing ? (
           <input
             type="text"
@@ -276,7 +311,7 @@ const TreeNote = memo(function TreeNote({ note, isSelected, isMultiSelected, onS
       </div>
     </div>
   );
-});
+}
 
 export function Sidebar() {
   const {
@@ -312,7 +347,8 @@ export function Sidebar() {
     restoreFromBackup,
     fsAccessSupported,
     storagePersisted,
-    recoveryCopies
+    recoveryCopies,
+    pasteItems
   } = useApp();
 
   const t = i18n[state.lang];
@@ -325,11 +361,12 @@ export function Sidebar() {
   const [editingFolderName, setEditingFolderName] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteName, setEditingNoteName] = useState('');
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [showLangDropdown, setShowLangDropdown] = useState(false);
-  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
-  const [showBackupMenu, setShowBackupMenu] = useState(false);
+  const [popup, setPopup] = useState<FooterPopup | null>(null);
+  const popupTriggers = useRef(new Map<FooterPopup, HTMLButtonElement>());
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [showMoveList, setShowMoveList] = useState(false);
+  const [clipboard, setClipboard] = useState<TreeClipboard | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const [showPassphraseDialog, setShowPassphraseDialog] = useState(false);
   const [showRenewDialog, setShowRenewDialog] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
@@ -376,15 +413,52 @@ export function Sidebar() {
     }
   };
 
+  const togglePopup = (name: FooterPopup) => setPopup(open => open === name ? null : name);
+
+  const popupProps = (name: FooterPopup) => ({
+    ref: popupRef,
+    tabIndex: -1,
+    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+    // A click on a non-focusable spot inside has no relatedTarget
+    onBlur: (e: React.FocusEvent<HTMLElement>) => {
+      if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget as Node)) setPopup(null);
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+      moveFocus(e);
+      if (e.key === 'Escape') popupTriggers.current.get(name)?.focus();
+    }
+  });
+
+  const footerButton = (name: FooterPopup, label: string, content: React.ReactNode, ariaLabel = label) => (
+    <button
+      className="sidebar-footer-btn"
+      ref={el => { if (el) popupTriggers.current.set(name, el); }}
+      onClick={(e) => { e.stopPropagation(); togglePopup(name); setExportResult(null); }}
+      title={label}
+      aria-label={ariaLabel}
+      aria-expanded={popup === name}
+    >
+      {content}
+    </button>
+  );
+
+  // Focus moves into a popup when it opens, so Tab and the arrow keys reach it
+  useEffect(() => {
+    if (!popup) return;
+    const target = popupRef.current?.querySelector<HTMLElement>('button, a[href]') ?? popupRef.current;
+    target?.focus();
+  }, [popup]);
+
+  // Context menus take focus like a native menu
+  useEffect(() => {
+    if (contextMenu || tagContextMenu) contextMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [contextMenu, tagContextMenu]);
+
   // Close popups when clicking outside sidebar
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
-        setShowShortcuts(false);
-        setShowGuide(false);
-        setShowLangDropdown(false);
-        setShowPrivacyInfo(false);
-        setShowBackupMenu(false);
+        setPopup(null);
         setContextMenu(null);
         setTagContextMenu(null);
       }
@@ -413,11 +487,7 @@ export function Sidebar() {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      setShowShortcuts(false);
-      setShowGuide(false);
-      setShowLangDropdown(false);
-      setShowPrivacyInfo(false);
-      setShowBackupMenu(false);
+      setPopup(null);
       setContextMenu(null);
       setTagContextMenu(null);
       setMultiSelected(new Set());
@@ -506,8 +576,10 @@ export function Sidebar() {
   // last clicked note
   const handleSelectNote = (id: string, e: React.MouseEvent) => {
     setFocusedItemId(id);
-    if (e.shiftKey && selectionAnchorRef.current) {
-      const from = visibleNoteIds.indexOf(selectionAnchorRef.current);
+    // Without an earlier click, the range starts at the open note
+    const anchor = selectionAnchorRef.current ?? state.selectedNoteId;
+    if (e.shiftKey && anchor) {
+      const from = visibleNoteIds.indexOf(anchor);
       const to = visibleNoteIds.indexOf(id);
       if (from !== -1 && to !== -1) {
         const [start, end] = from < to ? [from, to] : [to, from];
@@ -552,18 +624,24 @@ export function Sidebar() {
     if (type === 'note' && !multiSelected.has(id)) {
       setMultiSelected(new Set());
     }
+    setShowMoveList(false);
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
   };
 
   const handleSidebarContextMenu = (e: React.MouseEvent) => {
-    // Only trigger if clicking on the sidebar background, not on items
-    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('tree')) {
+    // Only on the tree background, not on its rows
+    if (e.target === e.currentTarget) {
       e.preventDefault();
       setContextMenu({ x: e.clientX, y: e.clientY, type: 'sidebar', id: '' });
     }
   };
 
-  const closeContextMenu = () => setContextMenu(null);
+  // Focus goes back to the row unless the chosen action moved it
+  const closeContextMenu = () => {
+    const id = contextMenu?.id;
+    setContextMenu(null);
+    if (id) requestAnimationFrame(() => { if (document.activeElement === document.body) rowRefs.current.get(id)?.focus(); });
+  };
   const closeTagContextMenu = () => setTagContextMenu(null);
 
   const handleTagContextMenu = (e: React.MouseEvent, tagId: string) => {
@@ -615,19 +693,65 @@ export function Sidebar() {
     }
   };
 
-  // Move the clicked note (or the whole multi-selection) out of folders
-  const handleMoveToRoot = () => {
+  // Move the clicked note (or the whole multi-selection) to a folder or,
+  // with null, out of folders
+  const handleMoveTo = (folderId: string | null) => {
     if (!contextMenu) return;
-    if (multiSelected.size > 1 && multiSelected.has(contextMenu.id)) {
+    if (contextMenu.type === 'folder') {
+      pasteItems({ mode: 'move', notes: [], folders: [contextMenu.id] }, folderId);
+    } else if (multiSelected.size > 1 && multiSelected.has(contextMenu.id)) {
       for (const id of multiSelected) {
-        moveNote(id, null);
+        moveNote(id, folderId);
       }
       setMultiSelected(new Set());
     } else {
-      moveNote(contextMenu.id, null);
+      moveNote(contextMenu.id, folderId);
     }
+    // A collapsed target would hide the moved notes
+    if (folderId && !state.folders.find(f => f.id === folderId)?.expanded) updateFolder(folderId, { expanded: true });
     closeContextMenu();
   };
+
+  // The rows a copy or cut acts on: the multi-selection when the row is in it
+  const clipboardFor = (type: 'folder' | 'note', id: string, mode: TreeClipboard['mode']): TreeClipboard =>
+    type === 'note' && multiSelected.size > 1 && multiSelected.has(id)
+      ? { mode, notes: [...multiSelected], folders: [] }
+      : { mode, notes: type === 'note' ? [id] : [], folders: type === 'folder' ? [id] : [] };
+
+  // Into the folder, next to the note, or at the top level; a cut is used up
+  // by its paste, a copy can be pasted again
+  const pasteAt = (type: 'folder' | 'note' | 'sidebar', id: string, move = false) => {
+    if (!clipboard) return;
+    let target = type === 'folder' ? id : type === 'note' ? state.notes.find(n => n.id === id)?.parentId ?? null : null;
+    const moving = move || clipboard.mode === 'move';
+    // Pasting a cut item on the folder it is already in moves it out, next to that folder
+    const parentOf = (itemId: string) => (state.notes.find(n => n.id === itemId) ?? state.folders.find(f => f.id === itemId))?.parentId ?? null;
+    if (moving && type === 'folder' && [...clipboard.notes, ...clipboard.folders].every(itemId => parentOf(itemId) === id)) {
+      target = parentOf(id);
+    }
+    pasteItems(move ? { ...clipboard, mode: 'move' } : clipboard, target);
+    expandFolder(target);
+    if (moving) setClipboard(null);
+  };
+
+  // Cut rows show dimmed until the paste, as in Finder and Explorer
+  useEffect(() => {
+    const cut = new Set(clipboard?.mode === 'move' ? [...clipboard.notes, ...clipboard.folders] : []);
+    rowRefs.current.forEach((el, id) => el.classList.toggle('cut', cut.has(id)));
+  });
+
+  // Every folder, depth first and by name, for "Move to folder"
+  const folderList = useMemo(() => {
+    const list: { folder: Folder; depth: number }[] = [];
+    const walk = (parentId: string | null, depth: number) => {
+      state.folders
+        .filter(f => f.parentId === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name, state.lang))
+        .forEach(folder => { list.push({ folder, depth }); walk(folder.id, depth + 1); });
+    };
+    walk(null, 0);
+    return list;
+  }, [state.folders, state.lang]);
 
   const deleteItem = (type: 'folder' | 'note', id: string): boolean => {
     if (type === 'folder') {
@@ -651,23 +775,28 @@ export function Sidebar() {
   };
 
   const createFolderAt = (parentId: string | null) => {
-    // A collapsed parent would hide the new folder's rename input
-    if (parentId) {
-      const parent = state.folders.find(f => f.id === parentId);
-      if (parent && !parent.expanded) {
-        updateFolder(parentId, { expanded: true });
-      }
-    }
+    expandFolder(parentId);
     const newFolderId = createFolder(parentId);
     // Start editing the new folder name immediately
     setEditingFolderId(newFolderId);
     setEditingFolderName(t.newFolder);
   };
 
+  // A collapsed parent would hide a new item in it
+  const expandFolder = (parentId: string | null) => {
+    if (parentId) {
+      const parent = state.folders.find(f => f.id === parentId);
+      if (parent && !parent.expanded) {
+        updateFolder(parentId, { expanded: true });
+      }
+    }
+  };
+
   const handleNewInContext = (type: 'note' | 'folder') => {
     if (!contextMenu) return;
     const parentId = contextMenu.type === 'folder' ? contextMenu.id : null;
     if (type === 'note') {
+      expandFolder(parentId);
       createNote(parentId);
     } else {
       createFolderAt(parentId);
@@ -743,9 +872,29 @@ export function Sidebar() {
     }
   };
 
+  // From the search field and the buttons above the tree, the arrow keys
+  // go straight into the tree, to its tab stop
+  const arrowsIntoTree = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const row = sidebarRef.current?.querySelector<HTMLElement>('[role="tree"] [tabindex="0"]');
+    if (!row) return;
+    e.preventDefault();
+    row.focus();
+  };
+
   const focusRow = (id: string) => {
     setFocusedItemId(id);
     rowRefs.current.get(id)?.focus();
+  };
+
+  // Plain arrow keys open the note they land on, as in a mail or notes app;
+  // focus stays in the tree
+  const goToRow = (id: string) => {
+    focusRow(id);
+    if (!state.notes.some(n => n.id === id)) return;
+    setMultiSelected(new Set());
+    selectionAnchorRef.current = id;
+    selectNote(id);
   };
 
   // Finder/Explorer-style keyboard navigation for the tree
@@ -773,6 +922,40 @@ export function Sidebar() {
       }
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && (e.code === 'KeyC' || e.code === 'KeyX')) {
+      if (!item) return;
+      e.preventDefault();
+      setClipboard(clipboardFor(item.type, item.id, e.code === 'KeyX' ? 'move' : 'copy'));
+      return;
+    }
+    // Cmd+Opt+V moves what was copied, as in Finder
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyV' && (!e.altKey || isMac())) {
+      if (!clipboard) return;
+      e.preventDefault();
+      pasteAt(item?.type ?? 'sidebar', item?.id ?? '', e.altKey);
+      return;
+    }
+    // Escape in the tree drops a cut; a copy stays for further pastes
+    if (e.key === 'Escape' && clipboard?.mode === 'move') {
+      setClipboard(null);
+      return;
+    }
+    // Tab goes straight to the open note's text, past the footer and toolbar
+    if (e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && state.selectedNoteId) {
+      e.preventDefault();
+      window.dispatchEvent(new Event(FOCUS_EDITOR_EVENT));
+      return;
+    }
+    // Chrome on macOS sends no contextmenu event for Shift+F10
+    if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+      const rect = item && rowRefs.current.get(item.id)?.getBoundingClientRect();
+      if (!item || !rect) return;
+      e.preventDefault();
+      if (item.type === 'note' && !multiSelected.has(item.id)) setMultiSelected(new Set());
+      setShowMoveList(false);
+      setContextMenu({ x: rect.left + 16, y: rect.bottom, type: item.type, id: item.id });
+      return;
+    }
     // Finder's duplicate combo; only claimed from the browser's bookmark
     // default while a note row has focus
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyD') {
@@ -791,7 +974,7 @@ export function Sidebar() {
       case 'ArrowUp': {
         e.preventDefault();
         if (!item) {
-          focusRow(items[0].id);
+          goToRow(items[0].id);
           return;
         }
         const nextIndex = e.key === 'ArrowDown' ? index + 1 : index - 1;
@@ -808,14 +991,16 @@ export function Sidebar() {
             const [start, end] = from < to ? [from, to] : [to, from];
             setMultiSelected(new Set(visibleNoteIds.slice(start, end + 1)));
           }
+          focusRow(next.id);
+          return;
         }
-        focusRow(next.id);
+        goToRow(next.id);
         return;
       }
       case 'Home':
       case 'End': {
         e.preventDefault();
-        focusRow(e.key === 'Home' ? items[0].id : items[items.length - 1].id);
+        goToRow(e.key === 'Home' ? items[0].id : items[items.length - 1].id);
         return;
       }
       case 'Enter': {
@@ -825,6 +1010,8 @@ export function Sidebar() {
           setMultiSelected(new Set());
           selectionAnchorRef.current = item.id;
           selectNote(item.id);
+          // Enter goes on to writing; the editor may mount on this render
+          requestAnimationFrame(() => window.dispatchEvent(new Event(FOCUS_EDITOR_EVENT)));
         } else {
           handleToggleFolder(item.id);
         }
@@ -840,7 +1027,7 @@ export function Sidebar() {
         } else {
           const child = items[index + 1];
           if (child && child.parentId === item.id) {
-            focusRow(child.id);
+            goToRow(child.id);
           }
         }
         return;
@@ -921,6 +1108,30 @@ export function Sidebar() {
 
   const mac = isMac();
   const shortcuts = useMemo(() => getShortcutLabels(mac), [mac]);
+  // " (3)" when the context menu acts on a multi-selection
+  const moveCount = contextMenu && multiSelected.size > 1 && multiSelected.has(contextMenu.id) ? ` (${multiSelected.size})` : '';
+  const moveTargets = contextMenu?.type === 'note'
+    ? folderList.filter(({ folder }) => folder.id !== state.notes.find(n => n.id === contextMenu.id)?.parentId)
+    : [];
+  const clipboardItems = contextMenu && contextMenu.type !== 'sidebar' && (
+    <>
+      <div className="context-menu-divider" role="separator" />
+      <button className="context-menu-item" role="menuitem" onClick={() => { setClipboard(clipboardFor(contextMenu.type as 'folder' | 'note', contextMenu.id, 'copy')); closeContextMenu(); }}>
+        <CopyIcon />
+        <span>{t.copy}{moveCount}</span>
+      </button>
+      <button className="context-menu-item" role="menuitem" onClick={() => { setClipboard(clipboardFor(contextMenu.type as 'folder' | 'note', contextMenu.id, 'move')); closeContextMenu(); }}>
+        <CutIcon />
+        <span>{t.cut}{moveCount}</span>
+      </button>
+    </>
+  );
+  const pasteItem = contextMenu && clipboard && (
+    <button className="context-menu-item" role="menuitem" onClick={() => { pasteAt(contextMenu.type, contextMenu.id); closeContextMenu(); }}>
+      <ClipboardIcon />
+      <span>{t.paste}</span>
+    </button>
+  );
 
   // Install guidance matching what this browser actually offers; nothing
   // when already installed, and nothing in Firefox (no install support)
@@ -931,7 +1142,7 @@ export function Sidebar() {
   }, [t]);
 
   return (
-    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} onClick={() => { closeContextMenu(); closeTagContextMenu(); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}>
+    <aside ref={sidebarRef} className={`sidebar ${state.sidebarVisible ? '' : 'hidden'}`} inert={!state.sidebarVisible} onClick={() => { closeContextMenu(); closeTagContextMenu(); setPopup(null); }}>
       <div className="search-container">
         <input
           type="search"
@@ -939,6 +1150,7 @@ export function Sidebar() {
           placeholder={t.search}
           value={state.searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={arrowsIntoTree}
           aria-label={t.search}
         />
       </div>
@@ -966,6 +1178,7 @@ export function Sidebar() {
                 // A second click on the active tag shows all notes again
                 <button
                   key={tag.id}
+                  data-tag-id={tag.id}
                   className={`tag-chip ${state.selectedTagFilter === tag.id ? 'active' : ''}`}
                   onClick={() => setTagFilter(state.selectedTagFilter === tag.id ? null : tag.id)}
                   onContextMenu={(e) => handleTagContextMenu(e, tag.id)}
@@ -982,7 +1195,7 @@ export function Sidebar() {
       <div className="notes-section">
         <div className="section-header">
           <span className="section-title">{t.notes}</span>
-          <div className="section-actions">
+          <div className="section-actions" onKeyDown={arrowsIntoTree}>
             <button
               className="section-btn"
               onClick={toggleSortMode}
@@ -997,7 +1210,7 @@ export function Sidebar() {
           </div>
         </div>
         <div
-          className={`notes-tree ${state.folders.length > 0 ? 'has-folders' : ''}`}
+          className="notes-tree"
           role="tree"
           aria-label={t.notes}
           aria-multiselectable={true}
@@ -1010,6 +1223,7 @@ export function Sidebar() {
             searchResults.map(note => (
               <TreeNote
                 key={note.id}
+                branch={null}
                 note={note}
                 isSelected={note.id === state.selectedNoteId}
                 isMultiSelected={multiSelected.has(note.id)}
@@ -1032,6 +1246,7 @@ export function Sidebar() {
               {rootFolders.map(folder => (
                 <TreeFolder
                   key={folder.id}
+                  branch={null}
                   folder={folder}
                   folders={state.folders}
                   notes={filteredNotes}
@@ -1062,6 +1277,7 @@ export function Sidebar() {
               {rootNotes.map(note => (
                 <TreeNote
                   key={note.id}
+                  branch={null}
                   note={note}
                   isSelected={note.id === state.selectedNoteId}
                   isMultiSelected={multiSelected.has(note.id)}
@@ -1088,21 +1304,10 @@ export function Sidebar() {
       </div>
 
       <div className="sidebar-footer-buttons">
-        <button
-          className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowPrivacyInfo(!showPrivacyInfo); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowBackupMenu(false); }}
-          title={t.securityPrivacy}
-          aria-label={t.securityPrivacy}
-        >
-          <EncryptedIcon />
-        </button>
-        {showPrivacyInfo && (
-          <div className="privacy-popup show" onClick={(e) => e.stopPropagation()}>
-            <p className="privacy-popup-text">
-              {state.lang === 'no'
-                ? 'Notatene lagres kryptert på din maskin og sendes aldri til noen server.'
-                : 'Your notes are stored encrypted on your device and are never sent to any server.'}
-            </p>
+        {footerButton('privacy', t.securityPrivacy, <EncryptedIcon />)}
+        {popup === 'privacy' && (
+          <div className="privacy-popup show" {...popupProps('privacy')}>
+            <p className="privacy-popup-text">{t.privacySummary}</p>
             {storagePersisted !== null && (
               <p className="privacy-popup-text privacy-popup-storage">
                 {storagePersisted ? t.storagePersistent : t.storageNotPersistent}
@@ -1117,42 +1322,26 @@ export function Sidebar() {
             </a>
           </div>
         )}
-        <button
-          className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowGuide(!showGuide); setShowShortcuts(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
-          title={t.guide}
-          aria-label={t.guide}
-        >
-          <ArticleIcon />
-        </button>
-        <button
-          className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowShortcuts(!showShortcuts); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
-          title={t.shortcuts}
-          aria-label={t.shortcuts}
-        >
-          <KeyboardIcon />
-        </button>
+        {footerButton('guide', t.guide, <ArticleIcon />)}
+        {footerButton('shortcuts', t.shortcuts, <KeyboardIcon />)}
         <div className="lang-picker">
-          <button
-            className="sidebar-footer-btn"
-            onClick={(e) => { e.stopPropagation(); setShowLangDropdown(!showLangDropdown); setShowShortcuts(false); setShowGuide(false); setShowPrivacyInfo(false); setShowBackupMenu(false); }}
-            title={t.language}
-            aria-label={t.language}
-          >
-            {state.lang.toUpperCase()}
-          </button>
-          {showLangDropdown && (
-            <div className="lang-dropdown show">
+          {/* The name holds the visible "NO"/"EN", so voice control finds it */}
+          {footerButton('lang', t.language, state.lang.toUpperCase(), `${t.language} (${state.lang.toUpperCase()})`)}
+          {popup === 'lang' && (
+            <div className="lang-dropdown show" {...popupProps('lang')}>
               <button
                 className={`lang-option ${state.lang === 'no' ? 'active' : ''}`}
-                onClick={() => { setLang('no'); setShowLangDropdown(false); }}
+                lang="nb"
+                aria-pressed={state.lang === 'no'}
+                onClick={() => { setLang('no'); setPopup(null); popupTriggers.current.get('lang')?.focus(); }}
               >
                 Norsk
               </button>
               <button
                 className={`lang-option ${state.lang === 'en' ? 'active' : ''}`}
-                onClick={() => { setLang('en'); setShowLangDropdown(false); }}
+                lang="en"
+                aria-pressed={state.lang === 'en'}
+                onClick={() => { setLang('en'); setPopup(null); popupTriggers.current.get('lang')?.focus(); }}
               >
                 English
               </button>
@@ -1162,22 +1351,15 @@ export function Sidebar() {
         <button
           className="sidebar-footer-btn"
           ref={trashButtonRef}
-          onClick={(e) => { e.stopPropagation(); setShowTrash(true); setShowBackupMenu(false); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
+          onClick={(e) => { e.stopPropagation(); setShowTrash(true); setPopup(null); }}
           title={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
           aria-label={state.trash.length > 0 ? `${t.trash} (${state.trash.length})` : t.trash}
         >
           <DeleteIcon size={16} />
         </button>
-        <button
-          className="sidebar-footer-btn"
-          onClick={(e) => { e.stopPropagation(); setShowBackupMenu(!showBackupMenu); setExportResult(null); setShowShortcuts(false); setShowGuide(false); setShowLangDropdown(false); setShowPrivacyInfo(false); }}
-          title={t.importExport}
-          aria-label={t.importExport}
-        >
-          <TransferIcon />
-        </button>
-        {showBackupMenu && (
-          <div className="backup-popup show" onClick={(e) => e.stopPropagation()}>
+        {footerButton('backup', t.importExport, <TransferIcon />)}
+        {popup === 'backup' && (
+          <div className="backup-popup show" {...popupProps('backup')}>
             {fsAccessSupported ? (
               <>
                 <div className="backup-popup-section">
@@ -1218,7 +1400,7 @@ export function Sidebar() {
                         <div className="backup-popup-error">
                           {t.backupKeyStale}
                         </div>
-                        <button className="backup-popup-btn" onClick={() => { setShowRenewDialog(true); setShowBackupMenu(false); }}>
+                        <button className="backup-popup-btn" onClick={() => { setShowRenewDialog(true); setPopup(null); }}>
                           <FolderCogIcon size={16} />
                           <span>{t.renewBackup}</span>
                         </button>
@@ -1229,19 +1411,19 @@ export function Sidebar() {
                         {t.backupPaused}
                       </div>
                     )}
-                    <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setShowBackupMenu(false); }}>
+                    <button className="backup-popup-btn" onClick={async () => { await disableAutoBackup(); setPopup(null); }}>
                       <FolderCogIcon size={16} />
                       <span>{t.disableAutoBackup}</span>
                     </button>
                   </>
                 ) : (
-                  <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setShowBackupMenu(false); }}>
+                  <button className="backup-popup-btn" onClick={() => { setShowPassphraseDialog(true); setPopup(null); }}>
                     <FolderCogIcon size={16} />
                     <span>{t.enableAutoBackup}</span>
                   </button>
                 )}
                 <div className="backup-popup-divider" />
-                <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setShowBackupMenu(false); }}>
+                <button className="backup-popup-btn" onClick={async () => { await restoreFromBackup(); setPopup(null); }}>
                   <UploadIcon size={16} />
                   <span>{t.restoreFromBackup}</span>
                 </button>
@@ -1265,15 +1447,15 @@ export function Sidebar() {
             {exportResult && exportResult !== 'failed' && (
               <div className="backup-popup-detail">{t.exportedTo.replace('{folder}', exportResult.folder)}</div>
             )}
-            <button className="backup-popup-btn" onClick={() => { exportAllData(); setShowBackupMenu(false); }}>
+            <button className="backup-popup-btn" onClick={() => { exportAllData(); setPopup(null); }}>
               <DownloadIcon size={16} />
               <span>{t.exportData}</span>
             </button>
-            <button className="backup-popup-btn" onClick={async () => { await importData(); setShowBackupMenu(false); }}>
+            <button className="backup-popup-btn" onClick={async () => { await importData(); setPopup(null); }}>
               <UploadIcon size={16} />
               <span>{t.importData}</span>
             </button>
-            <button className="backup-popup-btn" onClick={async () => { await importNote(); setShowBackupMenu(false); }}>
+            <button className="backup-popup-btn" onClick={async () => { await importNote(); setPopup(null); }}>
               <UploadIcon size={16} />
               <span>{t.importNote}</span>
             </button>
@@ -1289,6 +1471,7 @@ export function Sidebar() {
               return ok;
             }}
             onCancel={() => setShowPassphraseDialog(false)}
+            returnFocus={() => popupTriggers.current.get('backup') ?? null}
           />
         )}
         {showRenewDialog && (
@@ -1301,10 +1484,11 @@ export function Sidebar() {
               return ok;
             }}
             onCancel={() => setShowRenewDialog(false)}
+            returnFocus={() => popupTriggers.current.get('backup') ?? null}
           />
         )}
-        {showShortcuts && (
-          <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
+        {popup === 'shortcuts' && (
+          <div className="shortcuts-popup show" {...popupProps('shortcuts')}>
             <div className="shortcuts-title">{t.shortcuts}</div>
 
             <div className="shortcuts-section-title">{t.shortcutsFunctions}</div>
@@ -1382,6 +1566,28 @@ export function Sidebar() {
                   <span className="shortcut-desc">{t.newFolderShortcut}</span>
                   <span className="shortcut-key">{shortcuts.newFolder}</span>
                 </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.copy}</span>
+                  <span className="shortcut-key">{shortcuts.copy}</span>
+                </div>
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.cut}</span>
+                  <span className="shortcut-key">{shortcuts.cut}</span>
+                </div>
+              </div>
+              <div className="shortcut-row">
+                <div className="shortcut-item">
+                  <span className="shortcut-desc">{t.paste}</span>
+                  <span className="shortcut-key">{shortcuts.paste}</span>
+                </div>
+                {shortcuts.moveHere && (
+                  <div className="shortcut-item">
+                    <span className="shortcut-desc">{t.moveHereShortcut}</span>
+                    <span className="shortcut-key">{shortcuts.moveHere}</span>
+                  </div>
+                )}
               </div>
               <div className="shortcut-row">
                 <div className="shortcut-item">
@@ -1495,8 +1701,8 @@ export function Sidebar() {
             </div>
           </div>
         )}
-        {showGuide && (
-          <div className="shortcuts-popup show" onClick={(e) => e.stopPropagation()}>
+        {popup === 'guide' && (
+          <div className="shortcuts-popup show" {...popupProps('guide')}>
             <div className="shortcuts-title">{t.guide}</div>
             <p className="guide-intro">{t.guideIntro}</p>
             <div className="guide-grid">
@@ -1518,7 +1724,7 @@ export function Sidebar() {
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideTrash}</div>
-                <div className="guide-item-desc">{t.guideTrashDesc}</div>
+                <div className="guide-item-desc">{t.guideTrashDesc.replace('{days}', String(TRASH_DAYS))}</div>
               </div>
               <div className="guide-item">
                 <div className="guide-item-title">{t.guideExport}</div>
@@ -1543,64 +1749,74 @@ export function Sidebar() {
 
       {contextMenu && (
         <div
+          ref={contextMenuRef}
           className="context-menu show"
+          role="menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { moveFocus(e); if (e.key === 'Escape') rowRefs.current.get(contextMenu.id)?.focus(); }}
         >
           {contextMenu.type === 'sidebar' ? (
             <>
-              <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
+              <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('note')}>
                 <NoteIcon />
                 <span>{t.newNote}</span>
               </button>
-              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
+              <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('folder')}>
                 <FolderIcon />
                 <span>{t.newFolder}</span>
               </button>
+              {pasteItem && <div className="context-menu-divider" role="separator" />}
+              {pasteItem}
             </>
           ) : (
             <>
-              <button className="context-menu-item" onClick={() => handleNewInContext('note')}>
+              <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('note')}>
                 <NoteIcon />
                 <span>{t.newNote}</span>
               </button>
-              <button className="context-menu-item" onClick={() => handleNewInContext('folder')}>
+              <button className="context-menu-item" role="menuitem" onClick={() => handleNewInContext('folder')}>
                 <FolderIcon />
                 <span>{t.newFolder}</span>
               </button>
-              <div className="context-menu-divider" />
+              <div className="context-menu-divider" role="separator" />
               <button
                 className="context-menu-item"
+                role="menuitem"
                 onClick={contextMenu.type === 'folder' ? handleStartEditFolder : handleStartEditNote}
               >
                 <EditIcon />
                 <span>{t.rename}</span>
               </button>
               {contextMenu.type === 'note' && (
-                <button className="context-menu-item" onClick={handleDuplicate}>
+                <button className="context-menu-item" role="menuitem" onClick={handleDuplicate}>
                   <CopyIcon />
                   <span>{t.duplicate}</span>
                 </button>
               )}
-              {contextMenu.type === 'note' &&
-                state.notes.find(n => n.id === contextMenu.id)?.parentId != null && (
-                <button className="context-menu-item" onClick={handleMoveToRoot}>
-                  <FolderOutputIcon />
-                  <span>
-                    {multiSelected.size > 1 && multiSelected.has(contextMenu.id)
-                      ? `${t.moveToRoot} (${multiSelected.size})`
-                      : t.moveToRoot}
-                  </span>
+              {clipboardItems}
+              {pasteItem}
+              {contextMenu.type === 'note' && moveTargets.length > 0 && (
+                <button className="context-menu-item" role="menuitem" aria-expanded={showMoveList} onClick={() => setShowMoveList(open => !open)}>
+                  <FolderIcon />
+                  <span>{t.moveToFolder}{moveCount}</span>
                 </button>
               )}
-              <div className="context-menu-divider" />
-              <button className="context-menu-item" onClick={handleDelete}>
+              {contextMenu.type === 'note' && showMoveList && moveTargets.map(({ folder, depth }) => (
+                  <button key={folder.id} className="context-menu-item context-menu-subitem" role="menuitem" style={{ paddingLeft: 32 + depth * 12 }} onClick={() => handleMoveTo(folder.id)}>
+                    <span>{folder.name}</span>
+                  </button>
+                ))}
+              {(contextMenu.type === 'note' ? state.notes : state.folders).find(x => x.id === contextMenu.id)?.parentId != null && (
+                <button className="context-menu-item" role="menuitem" onClick={() => handleMoveTo(null)}>
+                  <FolderOutputIcon />
+                  <span>{t.moveToRoot}{moveCount}</span>
+                </button>
+              )}
+              <div className="context-menu-divider" role="separator" />
+              <button className="context-menu-item" role="menuitem" onClick={handleDelete}>
                 <DeleteIcon />
-                <span>
-                  {contextMenu.type === 'note' && multiSelected.size > 1 && multiSelected.has(contextMenu.id)
-                    ? `${t.delete} (${multiSelected.size})`
-                    : t.delete}
-                </span>
+                <span>{t.delete}{contextMenu.type === 'note' ? moveCount : ''}</span>
               </button>
             </>
           )}
@@ -1609,16 +1825,19 @@ export function Sidebar() {
 
       {tagContextMenu && (
         <div
+          ref={contextMenuRef}
           className="context-menu show"
+          role="menu"
           style={{ left: tagContextMenu.x, top: tagContextMenu.y }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { moveFocus(e); if (e.key === 'Escape') sidebarRef.current?.querySelector<HTMLElement>(`[data-tag-id="${tagContextMenu.id}"]`)?.focus(); }}
         >
-          <button className="context-menu-item" onClick={handleStartEditTag}>
+          <button className="context-menu-item" role="menuitem" onClick={handleStartEditTag}>
             <EditIcon />
             <span>{t.rename}</span>
           </button>
-          <div className="context-menu-divider" />
-          <button className="context-menu-item" onClick={handleDeleteTag}>
+          <div className="context-menu-divider" role="separator" />
+          <button className="context-menu-item" role="menuitem" onClick={handleDeleteTag}>
             <DeleteIcon />
             <span>{t.delete}</span>
           </button>

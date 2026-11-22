@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
 import { formatDate } from '@/utils/helpers';
-import { listVersions, type NoteVersion } from '@/utils/storage';
+import { listVersions, HISTORY_DAYS, type NoteVersion } from '@/utils/storage';
+import { useModal } from '@/hooks';
 import { CloseIcon, HistoryIcon } from './Icons';
 
 interface HistoryDialogProps {
@@ -17,6 +18,8 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
   const t = i18n[state.lang];
   const [versions, setVersions] = useState<NoteVersion[] | null>(null);
   const [selected, setSelected] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModal(dialogRef);
 
   // A version with the same text as the note has nothing to restore
   useEffect(() => {
@@ -33,7 +36,7 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
 
   return (
     <div className="link-dialog-overlay" onClick={onClose}>
-      <div className={`link-dialog ${version ? 'wide-dialog' : ''}`} role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`link-dialog ${version ? 'wide-dialog' : ''}`} role="dialog" aria-modal="true" aria-labelledby="history-title" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-header">
           <h3 id="history-title">{t.history}</h3>
           <button className="link-dialog-close" onClick={onClose} aria-label={t.close} autoFocus>
@@ -45,7 +48,7 @@ export function HistoryDialog({ noteId, current, onRestore, onClose }: HistoryDi
             <div className="dialog-empty">
               <HistoryIcon size={28} />
               <p>{t.historyEmpty}</p>
-              <p className="dialog-empty-hint">{t.historyIntro}</p>
+              <p className="dialog-empty-hint">{t.historyIntro.replace('{days}', String(HISTORY_DAYS))}</p>
             </div>
           )}
           {version && (

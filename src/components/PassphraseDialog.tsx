@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useModal } from '@/hooks';
 import { useApp } from '@/contexts';
 import { i18n } from '@/utils/i18n';
+import { MIN_PASSPHRASE_LENGTH } from '@/utils/crypto';
 import { CloseIcon } from './Icons';
 
 interface PassphraseDialogProps {
@@ -8,20 +10,24 @@ interface PassphraseDialogProps {
   hint?: string;
   onSubmit: (passphrase: string) => Promise<boolean>;
   onCancel: () => void;
+  // Where focus goes on close when the element that opened it is gone
+  returnFocus?: () => HTMLElement | null;
 }
 
-export function PassphraseDialog({ mode, hint, onSubmit, onCancel }: PassphraseDialogProps) {
+export function PassphraseDialog({ mode, hint, onSubmit, onCancel, returnFocus }: PassphraseDialogProps) {
   const { state } = useApp();
   const t = i18n[state.lang];
   const [passphrase, setPassphrase] = useState('');
   const [repeat, setRepeat] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModal(dialogRef, returnFocus);
 
   const handleSubmit = async () => {
     setError(null);
     if (mode === 'set') {
-      if (passphrase.length < 8) {
+      if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
         setError(t.passphraseTooShort);
         return;
       }
@@ -39,16 +45,12 @@ export function PassphraseDialog({ mode, hint, onSubmit, onCancel }: PassphraseD
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && passphrase && !busy) {
-      handleSubmit();
-    } else if (e.key === 'Escape') {
-      onCancel();
-    }
+    if (e.key === 'Enter' && passphrase && !busy) handleSubmit();
   };
 
   return (
     <div className="link-dialog-overlay">
-      <div className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="passphrase-title">
+      <div ref={dialogRef} className="link-dialog" role="dialog" aria-modal="true" aria-labelledby="passphrase-title" onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}>
         <div className="link-dialog-header">
           <h3 id="passphrase-title">{mode === 'set' ? t.setBackupPassphraseTitle : t.enterBackupPassphraseTitle}</h3>
           <button className="link-dialog-close" onClick={onCancel} aria-label={t.close}>

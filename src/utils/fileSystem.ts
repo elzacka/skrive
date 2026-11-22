@@ -2,6 +2,8 @@ import type { Note, Folder, ExportData, FileSystemDirectoryHandle } from '@/type
 import { escapeHtml } from './helpers';
 import { markdownToHtml } from './markdown';
 import type { EncryptedData, PassphraseWrappedKey } from './crypto';
+import { MAX_IMPORT_FILE_SIZE } from './storage';
+import { openDb } from './idb';
 
 const BACKUP_HANDLE_KEY = 'skrive-backup-handle';
 const BACKUP_KEY_PROTECTION_KEY = 'skrive-backup-key-protection';
@@ -31,21 +33,7 @@ export type AutoBackupReadResult =
   | { kind: 'legacy'; data: LegacyAutoBackupData };
 
 // IndexedDB for storing directory handle
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('skrive-fs', 1);
-    
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('handles')) {
-        db.createObjectStore('handles');
-      }
-    };
-  });
-}
+const openDB = () => openDb('skrive-fs', 'handles');
 
 // Query-only permission check: safe to call without user activation
 // (requestPermission without a user gesture is auto-denied by Chrome)
@@ -112,8 +100,7 @@ function downloadWithBlob(content: string, filename: string, mimeType: string): 
 
 export function downloadNote(note: Note, format: ExportFormat = 'markdown'): void {
   const { content, extension, mimeType } = getExportContent(note, format);
-  const filename = `${note.title}${extension}`;
-  downloadWithBlob(content, filename, mimeType);
+  downloadWithBlob(content, safeName(note.title, 'note', new Set(), extension), mimeType);
 }
 
 // A name every file system accepts; case-insensitive file systems (macOS,
@@ -316,8 +303,9 @@ export async function writeAutoBackup(
   }
 }
 
-function parseBackup(text: string): AutoBackupReadResult | null {
-  const data = JSON.parse(text) as Record<string, unknown>;
+async function parseBackup(file: File): Promise<AutoBackupReadResult | null> {
+  if (file.size > MAX_IMPORT_FILE_SIZE) return null;
+  const data = JSON.parse(await file.text()) as Record<string, unknown>;
 
   if (data.format === 'skrive-encrypted-backup') {
     const encrypted = data as unknown as EncryptedBackupFile;
@@ -341,8 +329,7 @@ export async function readAutoBackup(
     if (!(await verifyPermission(handle))) {
       return null;
     }
-    const file = await (await handle.getFileHandle(BACKUP_FILE)).getFile();
-    return parseBackup(await file.text());
+    return parseBackup(await (await handle.getFileHandle(BACKUP_FILE)).getFile());
   } catch (error) {
     console.warn('Failed to read auto-backup:', error);
     return null;
@@ -355,7 +342,7 @@ export async function pickBackupFile(): Promise<AutoBackupReadResult | null> {
     const [fileHandle] = await window.showOpenFilePicker({
       types: [{ description: 'Skrive backup', accept: { 'application/json': ['.json'] } }]
     });
-    return parseBackup(await (await fileHandle.getFile()).text());
+    return parseBackup(await fileHandle.getFile());
   } catch (error) {
     console.warn('Failed to read backup file:', error);
     return null;

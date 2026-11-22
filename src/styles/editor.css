@@ -122,6 +122,9 @@
   background: rgba(255, 213, 0, 0.35);
 }
 
+/* The two fills differ by only 1.4:1; the outline marks the current one */
 .cm-find-current {
   background: rgba(255, 170, 0, 0.7);
+  outline: 1px solid var(--text-primary);
+  border-radius: 2px;
 }

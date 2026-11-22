@@ -6,7 +6,7 @@ import { history, undo, redo, undoDepth, redoDepth, standardKeymap } from '@code
 import { markdownLanguage, deleteMarkupBackward } from '@codemirror/lang-markdown';
 import { markdownLens } from '@/editor/livePreview';
 import { findHighlights } from '@/editor/find';
-import { activeFormats, toggleInline, toggleLines, toggleCodeBlock, setHeading, linkAt, newlineInMarkdown, type ActiveFormats } from '@/editor/commands';
+import { activeFormats, toggleInline, toggleLines, toggleCodeBlock, setHeading, linkAt, newlineInMarkdown, insertLink, type ActiveFormats } from '@/editor/commands';
 import { htmlToMarkdown } from '@/utils/markdown';
 import { isSafeUrl } from '@/utils/sanitize';
 import { isMac } from '@/utils/helpers';
@@ -45,9 +45,29 @@ function contentAttributes(lang: 'no' | 'en', placeholder: string) {
 // pastes as plain text
 const FORMATTED_HTML = /<(h[1-6]|p|ul|ol|li|strong|b|em|i|a|blockquote|pre|table)[\s>]/i;
 
+// The tree's tab stop is the open note's row when it is visible
+function focusTreeRow(): boolean {
+  const row = document.querySelector<HTMLElement>('.sidebar:not(.hidden) [role="tree"] [tabindex="0"]');
+  row?.focus();
+  return !!row;
+}
+
+// Tab in the tree skips to the editor, so Tab here goes on to what it
+// skipped: the sidebar footer, then the toggle and toolbar, then back here
+function focusAfterEditor(): boolean {
+  const next = document.querySelector<HTMLElement>('.sidebar:not(.hidden) .sidebar-footer-btn') ?? document.querySelector<HTMLElement>('.sidebar-toggle');
+  next?.focus();
+  return !!next;
+}
+
+// The sidebar asks for the editor's focus with this event (Enter on a note)
+export const FOCUS_EDITOR_EVENT = 'skrive:focus-editor';
+
 // A note opened under a modal dialog waits for it to close, then takes
-// focus only if nothing else did (the trash returns it to its button)
+// focus only if nothing else did (the trash returns it to its button).
+// A note opened from the tree leaves focus there, so the arrow keys go on
 function focusUnlessModal(view: EditorView) {
+  if (document.activeElement?.closest('[role="tree"]')) return;
   if (!document.querySelector('[aria-modal="true"]')) {
     view.focus();
     return;
@@ -78,6 +98,13 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
   };
   const lensRef = useRef(new Compartment());
   const contentAttrsRef = useRef(new Compartment());
+  // The note the view holds; the mount already loaded the first one
+  const viewNoteRef = useRef(props.noteId);
+  const reportState = (state: EditorState) => propsRef.current.onUpdate({
+    formats: activeFormats(state),
+    canUndo: undoDepth(state) > 0,
+    canRedo: redoDepth(state) > 0
+  });
 
   const createState = (doc: string) => {
     const p = propsRef.current;
@@ -91,6 +118,9 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         keymap.of([
           { key: 'Enter', run: newlineInMarkdown },
           { key: 'Backspace', run: deleteMarkupBackward },
+          // Back to the note's row in the tree; Tab there comes back here
+          { key: 'Shift-Tab', run: focusTreeRow },
+          { key: 'Tab', run: focusAfterEditor },
           ...standardKeymap
         ]),
         markdownLanguage.extension,
@@ -106,7 +136,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
             // A URL pasted over a selection links it
             if (!sel.empty && /^https?:\/\/\S+$/.test(text) && isSafeUrl(text)) {
               e.preventDefault();
-              view.dispatch(view.state.replaceSelection(`[${view.state.sliceDoc(sel.from, sel.to)}](${text})`));
+              insertLink(view, text, view.state.sliceDoc(sel.from, sel.to), sel);
               return true;
             }
             if (html && FORMATTED_HTML.test(html)) {
@@ -133,13 +163,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
             propsRef.current.onLiveChange(doc, propsRef.current.noteId);
             if (!timerRef.current) timerRef.current = setTimeout(flushPending, 0);
           }
-          if (update.docChanged || update.selectionSet) {
-            propsRef.current.onUpdate({
-              formats: activeFormats(update.state),
-              canUndo: undoDepth(update.state) > 0,
-              canRedo: redoDepth(update.state) > 0
-            });
-          }
+          if (update.docChanged || update.selectionSet) reportState(update.state);
         })
       ]
     });
@@ -154,13 +178,15 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(editorCss);
     shadow.adoptedStyleSheets = [sheet];
-    // Text inside the shadow root does not make the page load its font
-    // faces; without this, bold falls back to another typeface
-    document.fonts.load('700 14px "JetBrains Mono"').catch(() => {});
     const view = new EditorView({ state: createState(propsRef.current.content), parent: shadow, root: shadow });
     props.viewRef.current = view;
+    // setState and a new view call no update listener
+    reportState(view.state);
     focusUnlessModal(view);
+    const focus = () => view.focus();
+    window.addEventListener(FOCUS_EDITOR_EVENT, focus);
     return () => {
+      window.removeEventListener(FOCUS_EDITOR_EVENT, focus);
       flushPending();
       view.destroy();
       props.viewRef.current = null;
@@ -172,9 +198,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
   // A different note gets a fresh state, so undo never crosses notes
   useEffect(() => {
     const view = props.viewRef.current;
-    if (!view) return;
+    if (!view || viewNoteRef.current === props.noteId) return;
+    viewNoteRef.current = props.noteId;
     flushPending();
     view.setState(createState(propsRef.current.content));
+    reportState(view.state);
     focusUnlessModal(view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.noteId]);

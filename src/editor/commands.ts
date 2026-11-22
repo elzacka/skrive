@@ -23,13 +23,21 @@ export interface ActiveFormats {
 }
 
 function enclosing(state: EditorState, pos: number, name: string) {
-  for (let node: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
-    if (node.name === name) return node;
-  }
-  for (let node: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(state).resolveInner(pos, 1); node; node = node.parent) {
-    if (node.name === name) return node;
+  for (const side of [-1, 1] as const) {
+    for (let node: ReturnType<typeof syntaxTree>['topNode'] | null = syntaxTree(state).resolveInner(pos, side); node; node = node.parent) {
+      if (node.name === name) return node;
+    }
   }
   return null;
+}
+
+// Whole marks in a row directly before (-1) or after (1) pos
+function marksAt(state: EditorState, pos: number, mark: string, dir: -1 | 1): number {
+  let n = 0;
+  for (let p = pos; ; p += dir * mark.length, n++) {
+    const from = dir < 0 ? p - mark.length : p;
+    if (from < 0 || state.sliceDoc(from, from + mark.length) !== mark) return n;
+  }
 }
 
 export function activeFormats(state: EditorState): ActiveFormats {
@@ -55,9 +63,19 @@ export function toggleInline(view: EditorView, style: InlineStyle): boolean {
   const { node: nodeName, mark, markNode } = INLINE[style];
   const { state } = view;
   view.dispatch(state.changeByRange(range => {
-    const node = enclosing(state, range.from, nodeName);
+    const pos = range.from;
+    // An empty pair is no syntax node: a second press takes it out again
+    if (range.empty && marksAt(state, pos, mark, -1) === 1 && marksAt(state, pos, mark, 1) === 1) {
+      return { changes: { from: pos - mark.length, to: pos + mark.length }, range: EditorSelection.cursor(pos - mark.length) };
+    }
+    const node = enclosing(state, pos, nodeName);
     if (node && node.from <= range.from && node.to >= range.to) {
       const marks = node.getChildren(markNode);
+      const closing = marks.length > 1 ? marks[marks.length - 1] : null;
+      // As in word processors: the caret at the end of the span leaves it, right after it goes back in
+      if (range.empty && closing && (pos === closing.from || pos === closing.to)) {
+        return { range: EditorSelection.cursor(pos === closing.from ? closing.to : closing.from) };
+      }
       const changes = marks.map(m => ({ from: m.from, to: m.to }));
       const removedBefore = (pos: number) => marks.filter(m => m.to <= pos).reduce((n, m) => n + m.to - m.from, 0);
       return {
@@ -81,7 +99,9 @@ export function toggleInline(view: EditorView, style: InlineStyle): boolean {
 function selectedLines(state: EditorState) {
   const lines = new Map<number, { from: number; text: string }>();
   for (const r of state.selection.ranges) {
-    for (let n = state.doc.lineAt(r.from).number; n <= state.doc.lineAt(r.to).number; n++) {
+    // A selection ending at a line start (Shift+Down) leaves that line out
+    const end = !r.empty && r.to === state.doc.lineAt(r.to).from ? r.to - 1 : r.to;
+    for (let n = state.doc.lineAt(r.from).number; n <= state.doc.lineAt(end).number; n++) {
       const l = state.doc.line(n);
       lines.set(l.number, { from: l.from, text: l.text });
     }
@@ -89,7 +109,12 @@ function selectedLines(state: EditorState) {
   return [...lines.values()];
 }
 
-// Body text (0) or heading level 1-3 for every selected line
+// Blank lines between selected paragraphs get no prefix
+function prefixLines(state: EditorState) {
+  const lines = selectedLines(state);
+  return lines.length > 1 ? lines.filter(l => l.text.trim()) : lines;
+}
+
 // Line prefixes go in front of the cursor: a cursor at the start of the
 // line (or inside the old prefix) lands after the new one, not before it
 function replacePrefixes(view: EditorView, changes: ChangeSpec[]): void {
@@ -97,8 +122,9 @@ function replacePrefixes(view: EditorView, changes: ChangeSpec[]): void {
   view.dispatch({ changes: set, selection: view.state.selection.map(set, 1) });
 }
 
+// Body text (0) or heading level 1-3 for every selected line
 export function setHeading(view: EditorView, level: number): boolean {
-  const changes = selectedLines(view.state).map(l => {
+  const changes = prefixLines(view.state).map(l => {
     const existing = /^#{1,6}\s+/.exec(l.text);
     return { from: l.from, to: l.from + (existing ? existing[0].length : 0), insert: level ? '#'.repeat(level) + ' ' : '' };
   });
@@ -111,7 +137,7 @@ const PREFIX = /^(\s*)(?:[-*+]\s\[[ xX]\]\s|[-*+]\s|\d+[.)]\s|>\s?)?/;
 // Adds the line style to every selected line, or removes it when all of
 // them already have it; one list type replaces another
 export function toggleLines(view: EditorView, style: LineStyle): boolean {
-  const lines = selectedLines(view.state);
+  const lines = prefixLines(view.state);
   const all = lines.every(l => {
     const t = l.text.trimStart();
     return style === 'task' ? /^[-*+]\s\[[ xX]\]\s/.test(t)

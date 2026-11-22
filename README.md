@@ -4,11 +4,11 @@ En notatapp for nettleseren på datamaskin. Notatene lagres kryptert på enheten
 
 ## Funksjoner
 
-- **Kryptert og lokalt**: Notatene krypteres med AEGIS-256 eller XChaCha20-Poly1305 og forlater aldri enheten. Ingen konto, ingen cookies
+- **Kryptert og lokalt**: Notatene krypteres med AEGIS-256 og forlater aldri enheten. Ingen konto, ingen cookies
 - **Offline**: Virker uten internett og kan installeres som app (PWA) på Mac, Windows og Linux
 - **Markdown**: Du skriver i en formatert visning, og «MD» viser hele teksten som Markdown. Den første linjen blir notatets navn
 - **Skrift og avstand**: Velg iA Writer Duo, Monaspace eller Recursive, og størrelse og linjeavstand
-- **Organisering**: Mapper, etiketter, dra-og-slipp, søk og erstatt, og flere notater valgt samtidig
+- **Organisering**: Mapper, etiketter, dra-og-slipp, kopier, klipp ut og lim inn i notatlisten, søk og erstatt, og flere notater valgt samtidig
 - **Papirkurv og historikk**: Slettede notater og tidligere versjoner ligger i 30 dager
 - **Backup og eksport**: Kryptert auto-backup til en mappe du velger (Chrome og Edge), eksport som Markdown, HTML eller JSON, og import av .txt og .md
 - **Norsk og engelsk**
@@ -19,8 +19,8 @@ Hurtigtastene står i appen, under tastaturikonet nederst i sidepanelet.
 
 | Tiltak | Slik |
 |--------|------|
-| **Kryptering** | AEGIS-256 eller XChaCha20-Poly1305. Nøkkelen ligger i nettleseren, låst med en WebCrypto-nøkkel som ikke kan hentes ut |
-| **Backup** | Låst med en passordfrase du velger (PBKDF2 og AES-GCM) |
+| **Kryptering** | AEGIS-256. Nøkkelen ligger i nettleseren, låst med en WebCrypto-nøkkel som ikke kan hentes ut |
+| **Backup** | Låst med en passordfrase på minst 15 tegn (Argon2id og AES-GCM) |
 | **Innhold** | DOMPurify og URL-sjekk mot XSS, streng CSP uten `unsafe-inline`, ingen forespørsler til andre servere |
 | **Innbygging** | Appen starter ikke inne i en iframe |
 

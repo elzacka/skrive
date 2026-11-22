@@ -101,6 +101,13 @@ declare global {
 }
 
 // Export data structure for JSON sync
+// Notes and folders copied or cut in the sidebar tree, waiting for a paste
+export interface TreeClipboard {
+  mode: 'copy' | 'move';
+  notes: string[];
+  folders: string[];
+}
+
 export interface ExportData {
   version: string;
   exportedAt: number;
@@ -113,7 +120,7 @@ export interface ExportData {
 
 // i18n types
 export interface I18nStrings {
-  save: string;
+  exportNote: string;
   tags: string;
   notes: string;
   note: string;
@@ -125,12 +132,14 @@ export interface I18nStrings {
   addTag: string;
   editorPlaceholder: string;
   writeHere: string;
-  created: string;
   modified: string;
-  export: string;
   delete: string;
   rename: string;
   moveToRoot: string;
+  moveToFolder: string;
+  cut: string;
+  paste: string;
+  moveHereShortcut: string;
   shortcuts: string;
   newNoteShortcut: string;
   searchShortcut: string;
@@ -195,11 +204,10 @@ export interface I18nStrings {
   importData: string;
   importNote: string;
   exportData: string;
-  offline: string;
-  online: string;
   untitled: string;
   securityPrivacy: string;
   privacyPolicy: string;
+  privacySummary: string;
   undo: string;
   redo: string;
   copy: string;
@@ -216,6 +224,7 @@ export interface I18nStrings {
   exportAsMarkdown: string;
   exportAsHtml: string;
   insertLink: string;
+  linkUnsafe: string;
   linkUrl: string;
   linkText: string;
   insert: string;

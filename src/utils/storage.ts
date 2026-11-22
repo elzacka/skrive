@@ -1,10 +1,11 @@
-import type { AppState, Note, TrashedNote, Tag, Folder, ExportData } from '@/types';
+import type { AppState, Note, NoteFormat, TrashedNote, Tag, Folder, ExportData } from '@/types';
 import {
   encrypt,
   decrypt,
   getMasterKey,
   type EncryptedData
 } from './crypto';
+import { openDb } from './idb';
 
 const STORAGE_KEY = 'skrive-state';
 const ENCRYPTED_STORAGE_KEY = 'skrive-encrypted';
@@ -50,19 +51,7 @@ export type StorageLoadResult =
   // Storage itself could not be read: nothing may be saved this session
   | { status: 'unavailable' };
 
-function openDataDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATA_DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(DATA_STORE)) {
-        db.createObjectStore(DATA_STORE);
-      }
-    };
-  });
-}
+const openDataDB = () => openDb(DATA_DB_NAME, DATA_STORE);
 
 async function idbGet(key: string): Promise<unknown> {
   const db = await openDataDB();
@@ -202,8 +191,10 @@ const HISTORY_INTERVAL = 10 * 60 * 1000;
 const HISTORY_MAX = 100;
 
 export interface NoteVersion {
-  // When the text was written, not when it became a version
+  // When the text was written, shown as the version's time
   savedAt: number;
+  // When it became a version; expiry counts from here. Absent in older history
+  keptAt?: number;
   content: string;
 }
 
@@ -245,7 +236,8 @@ async function writeHistory(noteId: string, versions: NoteVersion[]): Promise<vo
   await idbSet(HISTORY_PREFIX + noteId, { version: 1, encrypted });
 }
 
-const fresh = (v: NoteVersion) => Date.now() - v.savedAt < HISTORY_DAYS * DAY;
+const keptAt = (v: NoteVersion) => v.keptAt ?? v.savedAt;
+const fresh = (v: NoteVersion) => Date.now() - keptAt(v) < HISTORY_DAYS * DAY;
 
 // Keep content, written at writtenAt, as a version of the note; force skips
 // the interval, for a restore that replaces text written since the last version
@@ -256,13 +248,14 @@ export function recordVersion(noteId: string, content: string, writtenAt: number
     const versions = await readHistory(noteId);
     if (!versions) return;
     const last = versions[versions.length - 1];
-    if (last && !force && Date.now() - last.savedAt < HISTORY_INTERVAL) {
-      lastVersionAt.set(noteId, last.savedAt);
+    if (last && !force && Date.now() - keptAt(last) < HISTORY_INTERVAL) {
+      lastVersionAt.set(noteId, keptAt(last));
       return;
     }
-    lastVersionAt.set(noteId, Date.now());
+    const now = Date.now();
+    lastVersionAt.set(noteId, now);
     if (last?.content === content) return;
-    await writeHistory(noteId, [...versions.filter(fresh), { savedAt: writtenAt, content }].slice(-HISTORY_MAX));
+    await writeHistory(noteId, [...versions.filter(fresh), { savedAt: writtenAt, keptAt: now, content }].slice(-HISTORY_MAX));
   }).catch(error => console.warn('Failed to record note version:', error));
 }
 
@@ -451,55 +444,58 @@ const MAX_TITLE_LENGTH = 500;
 const MAX_TAG_NAME_LENGTH = 100;
 const MAX_FOLDER_NAME_LENGTH = 200;
 
-export function validateImportData(data: unknown): data is ExportData {
-  if (!data || typeof data !== 'object') return false;
+type Fields = Record<string, unknown>;
+const isObject = (v: unknown): v is Fields => !!v && typeof v === 'object' && !Array.isArray(v);
+const isTime = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+// A future timestamp would win every later merge, so it is clamped to now
+const time = (v: unknown, fallback: number) => isTime(v) ? Math.min(v, Date.now()) : fallback;
+const parentId = (v: unknown) => typeof v === 'string' ? v : null;
+const FORMATS: NoteFormat[] = ['plaintext', 'richtext', 'markdown'];
 
-  const d = data as Record<string, unknown>;
+function parseNote(v: unknown): Note | null {
+  if (!isObject(v) || typeof v.id !== 'string' || typeof v.title !== 'string' || typeof v.content !== 'string') return null;
+  if (v.title.length > MAX_TITLE_LENGTH || v.content.length > MAX_NOTE_CONTENT_LENGTH) return null;
+  const updatedAt = time(v.updatedAt, Date.now());
+  return {
+    id: v.id,
+    title: v.title,
+    content: v.content,
+    format: FORMATS.includes(v.format as NoteFormat) ? v.format as NoteFormat : 'markdown',
+    tags: Array.isArray(v.tags) ? v.tags.filter((t): t is string => typeof t === 'string') : [],
+    parentId: parentId(v.parentId),
+    createdAt: time(v.createdAt, updatedAt),
+    updatedAt
+  };
+}
 
-  if (typeof d.version !== 'string') return false;
-  if (typeof d.exportedAt !== 'number') return false;
-  if (!Array.isArray(d.notes)) return false;
-  if (!Array.isArray(d.tags)) return false;
-  if (!Array.isArray(d.folders)) return false;
+// Rebuilds the data from known fields only, so a hand-edited or foreign file
+// cannot put a value of the wrong type into state. null when it is unusable
+export function parseImportData(data: unknown): ExportData | null {
+  if (!isObject(data)) return null;
+  const { notes, tags, folders, trash } = data;
+  if (typeof data.version !== 'string' || !Array.isArray(notes) || !Array.isArray(tags) || !Array.isArray(folders)) return null;
+  if (trash !== undefined && !Array.isArray(trash)) return null;
+  if (notes.length + (trash?.length ?? 0) > MAX_NOTES || tags.length > MAX_TAGS || folders.length > MAX_FOLDERS) return null;
 
-  // Check array size limits
-  if (d.notes.length > MAX_NOTES) return false;
-  if (d.tags.length > MAX_TAGS) return false;
-  if (d.folders.length > MAX_FOLDERS) return false;
+  const parsedNotes = notes.map(parseNote);
+  const parsedTrash = (trash ?? []).map(v => {
+    const note = parseNote(v);
+    return note && isObject(v) && isTime(v.deletedAt) ? { ...note, deletedAt: time(v.deletedAt, Date.now()) } : null;
+  });
+  const parsedTags = tags.map(v => isObject(v) && typeof v.id === 'string' && typeof v.name === 'string' && v.name.length <= MAX_TAG_NAME_LENGTH
+    ? { id: v.id, name: v.name } : null);
+  const parsedFolders = folders.map(v => isObject(v) && typeof v.id === 'string' && typeof v.name === 'string' && v.name.length <= MAX_FOLDER_NAME_LENGTH
+    ? { id: v.id, name: v.name, parentId: parentId(v.parentId), expanded: v.expanded === true } : null);
+  if ([parsedNotes, parsedTrash, parsedTags, parsedFolders].some(list => list.includes(null))) return null;
 
-  if (d.trash !== undefined && (!Array.isArray(d.trash) || d.notes.length + d.trash.length > MAX_NOTES)) return false;
-
-  // Validate notes structure and content limits
-  for (const note of [...d.notes, ...(d.trash as unknown[] | undefined ?? [])]) {
-    if (!note || typeof note !== 'object') return false;
-    const n = note as Record<string, unknown>;
-    if (typeof n.id !== 'string') return false;
-    if (typeof n.title !== 'string') return false;
-    if (typeof n.content !== 'string') return false;
-    if (n.title.length > MAX_TITLE_LENGTH) return false;
-    if (n.content.length > MAX_NOTE_CONTENT_LENGTH) return false;
-  }
-  if ((d.trash as Record<string, unknown>[] | undefined)?.some(n => typeof n.deletedAt !== 'number')) return false;
-
-  // Validate tags structure and limits
-  for (const tag of d.tags) {
-    if (!tag || typeof tag !== 'object') return false;
-    const t = tag as Record<string, unknown>;
-    if (typeof t.id !== 'string') return false;
-    if (typeof t.name !== 'string') return false;
-    if (t.name.length > MAX_TAG_NAME_LENGTH) return false;
-  }
-
-  // Validate folders structure and limits
-  for (const folder of d.folders) {
-    if (!folder || typeof folder !== 'object') return false;
-    const f = folder as Record<string, unknown>;
-    if (typeof f.id !== 'string') return false;
-    if (typeof f.name !== 'string') return false;
-    if (f.name.length > MAX_FOLDER_NAME_LENGTH) return false;
-  }
-
-  return true;
+  return {
+    version: data.version,
+    exportedAt: time(data.exportedAt, Date.now()),
+    notes: parsedNotes as Note[],
+    tags: parsedTags as Tag[],
+    folders: parsedFolders as Folder[],
+    ...(trash ? { trash: parsedTrash as TrashedNote[] } : {})
+  };
 }
 
 export function exportToJsonFile(data: ExportData): void {
@@ -515,7 +511,7 @@ export function exportToJsonFile(data: ExportData): void {
 }
 
 // Maximum file size for import (50MB for JSON, 1MB for single notes)
-const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
+export const MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024;
 const MAX_NOTE_FILE_SIZE = 1 * 1024 * 1024;
 
 export interface ImportedNote {
@@ -580,14 +576,9 @@ export async function importFromJsonFile(): Promise<ExportData | null> {
 
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
-
-        if (validateImportData(data)) {
-          resolve(data);
-        } else {
-          console.warn('Import data validation failed');
-          resolve(null);
-        }
+        const data = parseImportData(JSON.parse(text));
+        if (!data) console.warn('Import data validation failed');
+        resolve(data);
       } catch (error) {
         console.warn('Failed to parse import file:', error);
         resolve(null);

@@ -25,10 +25,17 @@ export function useKeyboardShortcuts() {
           return;
         }
         e.preventDefault();
-        const searchInput = document.querySelector('.search-input') as HTMLInputElement;
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
+        const focusSearch = () => {
+          const searchInput = document.querySelector<HTMLInputElement>('.search-input');
+          searchInput?.focus();
+          searchInput?.select();
+        };
+        // A hidden sidebar is inert until it shows
+        if (document.querySelector('.sidebar.hidden')) {
+          toggleSidebar();
+          requestAnimationFrame(focusSearch);
+        } else {
+          focusSearch();
         }
         return;
       }
